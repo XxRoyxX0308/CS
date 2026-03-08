@@ -1,0 +1,61 @@
+# ============================================================================
+#  CS2 .gitignore
+# ============================================================================
+
+# --- Build outputs ---
+build/
+cmake-build-*/
+out/
+x64/
+Debug/
+Release/
+MinSizeRel/
+RelWithDebInfo/
+
+# --- PTSD build artifacts & fetched dependencies ---
+PTSD/build/
+PTSD/cmake-build-*/
+PTSD/lib/
+PTSD/_deps/
+
+# --- CMake generated files ---
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+CTestTestfile.cmake
+compile_commands.json
+install_manifest.txt
+_deps/
+
+# --- IDE / Editor ---
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln.docstates
+
+# --- Compiled objects / binaries ---
+*.exe
+*.dll
+*.lib
+*.a
+*.o
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.idb
+
+# --- Logs & temp ---
+*.log
+imgui.ini
+stderr3d.txt
+stdout3d.txt
+
+# --- OS files ---
+Thumbs.db
+.DS_Store
+desktop.ini
