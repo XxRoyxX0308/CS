@@ -1,4 +1,4 @@
-# CS2 — FPS 射擊遊戲
+# CS — FPS 射擊遊戲
 
 基於 [PTSD](PTSD/) 3D 框架開發的第一人稱射擊遊戲，靈感來自 Counter-Strike 2。
 
@@ -27,7 +27,7 @@
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
 
 # 編譯
-cmake --build build --target CS2 --config Debug
+cmake --build build --target CS --config Debug
 ```
 
 編譯完成後，執行檔位於 `build/` 目錄。
@@ -46,7 +46,7 @@ cmake --build build --target CS2 --config Debug
 ## 專案結構
 
 ```
-CS2/
+CS/
 ├── CMakeLists.txt          # 根建置設定
 ├── config.json             # 視窗 & 框架設定
 ├── .gitignore

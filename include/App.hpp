@@ -1,8 +1,8 @@
-#ifndef CS2_APP_HPP
-#define CS2_APP_HPP
+#ifndef CS_APP_HPP
+#define CS_APP_HPP
 
 // ============================================================================
-//  App.hpp — CS2 FPS 遊戲主類別
+//  App.hpp — CS FPS 遊戲主類別
 // ============================================================================
 
 #include "pch.hpp" // IWYU pragma: export
@@ -67,4 +67,4 @@ private:
     bool m_ShowDebugPanel = false;
 };
 
-#endif // CS2_APP_HPP
+#endif // CS_APP_HPP

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(CS2)
+project(CS)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,45 +17,45 @@ endif()
 # ── Pull in PTSD as a subdirectory ──────────────────────────────────────────
 add_subdirectory(PTSD)
 
-# ── CS2 source files ────────────────────────────────────────────────────────
-set(CS2_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set(CS2_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# ── CS source files ─────────────────────────────────────────────────────────
+set(CS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(CS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-set(CS2_SRC_FILES
-    ${CS2_SRC_DIR}/main.cpp
-    ${CS2_SRC_DIR}/App.cpp
+set(CS_SRC_FILES
+    ${CS_SRC_DIR}/main.cpp
+    ${CS_SRC_DIR}/App.cpp
 )
-set(CS2_INCLUDE_FILES
-    ${CS2_INCLUDE_DIR}/App.hpp
+set(CS_INCLUDE_FILES
+    ${CS_INCLUDE_DIR}/App.hpp
 )
 
 # ── Executable ──────────────────────────────────────────────────────────────
-add_executable(CS2
-    ${CS2_SRC_FILES}
-    ${CS2_INCLUDE_FILES}
+add_executable(CS
+    ${CS_SRC_FILES}
+    ${CS_INCLUDE_FILES}
 )
 
-target_link_libraries(CS2
+target_link_libraries(CS
     SDL2::SDL2main
     PTSD
 )
 
 # PTSD propagates DEPENDENCY_INCLUDE_DIRS and DEPENDENCY_LINK_LIBRARIES
 # via PARENT_SCOPE when it is not the top-level project.
-target_include_directories(CS2 SYSTEM PRIVATE
+target_include_directories(CS SYSTEM PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/PTSD/include
     ${DEPENDENCY_INCLUDE_DIRS}
 )
 
-target_include_directories(CS2 PRIVATE
-    ${CS2_INCLUDE_DIR}
+target_include_directories(CS PRIVATE
+    ${CS_INCLUDE_DIR}
 )
 
-target_compile_definitions(CS2 PRIVATE
+target_compile_definitions(CS PRIVATE
     ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/PTSD/assets"
     RESOURCES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Resources"
 )
 
-target_compile_options(CS2 PRIVATE
+target_compile_options(CS PRIVATE
     ${TARGET_COMPILE_OPTIONS}
 )

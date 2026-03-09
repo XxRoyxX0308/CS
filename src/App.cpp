@@ -1,5 +1,5 @@
 // ============================================================================
-//  App.cpp — CS2 FPS 遊戲邏輯
+//  App.cpp — CS FPS 遊戲邏輯
 // ============================================================================
 //
 //  功能：
@@ -210,7 +210,7 @@ void App::Update() {
 
     // ── Debug 面板 ──
     if (m_ShowDebugPanel) {
-        ImGui::Begin("CS2 Debug");
+        ImGui::Begin("CS Debug");
 
         auto camPos = camera.GetPosition();
         ImGui::Text("Position: (%.1f, %.1f, %.1f)", camPos.x, camPos.y, camPos.z);
