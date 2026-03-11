@@ -173,9 +173,11 @@ std::vector<MeshTexture> Model::LoadMaterialTextures(
         }
 
         if (!skip) {
+            stbi_set_flip_vertically_on_load(true);
             int width, height, nrChannels;
             unsigned char *data =
                 stbi_load(texPath.c_str(), &width, &height, &nrChannels, 0);
+            stbi_set_flip_vertically_on_load(false);
 
             if (data) {
                 GLenum format = GL_RGB;
@@ -185,6 +187,14 @@ std::vector<MeshTexture> Model::LoadMaterialTextures(
                 auto texture = std::make_shared<Core::Texture>(
                     static_cast<GLint>(format), width, height, data, true);
                 stbi_image_free(data);
+
+                // Override wrap mode to GL_REPEAT so that UV values
+                // outside [0,1] tile correctly (e.g. Source-engine maps).
+                GLuint tid = texture->GetTextureId();
+                glBindTexture(GL_TEXTURE_2D, tid);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                glBindTexture(GL_TEXTURE_2D, 0);
 
                 MeshTexture meshTex;
                 meshTex.texture = texture;

@@ -1,6 +1,6 @@
 # CS — FPS 射擊遊戲
 
-基於 [PTSD](PTSD/) 3D 框架開發的第一人稱射擊遊戲，靈感來自 Counter-Strike 2。
+基於 [PTSD](PTSD/) 3D 框架開發的第一人稱射擊遊戲，靈感來自 Counter-Strike。
 
 ## 功能
 

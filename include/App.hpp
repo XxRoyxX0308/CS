@@ -21,6 +21,9 @@
 #include "Scene/SceneGraph.hpp"
 #include "Scene/SceneNode.hpp"
 
+#include "MapCollider.hpp"
+#include "Player.hpp"
+
 class App {
 public:
     enum class State {
@@ -36,29 +39,21 @@ public:
     void End();
 
 private:
-    // ── 產生棋盤格紋理（CPU → GPU） ──
-    std::shared_ptr<Core::Texture> GenerateCheckerboardTexture();
-
-    // ── 產生地板 Mesh ──
-    std::shared_ptr<Core3D::Model> GenerateFloorModel(
-        const std::shared_ptr<Core::Texture> &texture);
-
     State m_CurrentState = State::START;
 
     // ── 場景 & 渲染 ──
     Scene::SceneGraph m_Scene;
     Render::ForwardRenderer m_Renderer;
 
-    // ── 地板 ──
-    std::shared_ptr<Core3D::Model> m_FloorModel;
-    std::shared_ptr<Scene::SceneNode> m_FloorNode;
+    // ── 地圖模型 ──
+    std::shared_ptr<Core3D::Model> m_MapModel;
+    std::shared_ptr<Scene::SceneNode> m_MapNode;
 
-    // ── FPS 攝影機物理 ──
-    float m_PlayerHeight = 1.7f;  // 眼睛高度（公尺）
-    float m_VelocityY    = 0.0f;  // 垂直速度
-    float m_Gravity      = 9.81f; // 重力加速度
-    float m_JumpSpeed    = 5.0f;  // 跳躍初速
-    bool  m_OnGround     = true;  // 是否在地面
+    // ── 地圖碰撞 ──
+    MapCollider m_MapCollider;
+
+    // ── 玩家 ──
+    Player m_Player;
 
     // ── 滑鼠狀態 ──
     bool m_CursorLocked = true;

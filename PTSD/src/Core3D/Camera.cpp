@@ -38,12 +38,16 @@ glm::mat4 Camera::GetProjectionMatrix() const {
 
 void Camera::ProcessKeyboard(CameraMovement direction, float deltaTime) {
     float velocity = m_MovementSpeed * deltaTime;
+
+    // 水平前方向量（忽略 pitch，保持等速移動）
+    glm::vec3 flatFront = glm::normalize(glm::vec3(m_Front.x, 0.0f, m_Front.z));
+
     switch (direction) {
     case CameraMovement::FORWARD:
-        m_Position += m_Front * velocity;
+        m_Position += flatFront * velocity;
         break;
     case CameraMovement::BACKWARD:
-        m_Position -= m_Front * velocity;
+        m_Position -= flatFront * velocity;
         break;
     case CameraMovement::LEFT:
         m_Position -= m_Right * velocity;
