@@ -24,13 +24,16 @@ set(CS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CS_SRC_FILES
     ${CS_SRC_DIR}/main.cpp
     ${CS_SRC_DIR}/App.cpp
-    ${CS_SRC_DIR}/MapCollider.cpp
+    ${CS_SRC_DIR}/Collision/CollisionMesh.cpp
+    ${CS_SRC_DIR}/Collision/CapsuleCast.cpp
     ${CS_SRC_DIR}/Character.cpp
     ${CS_SRC_DIR}/Player.cpp
 )
 set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/App.hpp
-    ${CS_INCLUDE_DIR}/MapCollider.hpp
+    ${CS_INCLUDE_DIR}/Collision/CollisionTypes.hpp
+    ${CS_INCLUDE_DIR}/Collision/CollisionMesh.hpp
+    ${CS_INCLUDE_DIR}/Collision/CapsuleCast.hpp
     ${CS_INCLUDE_DIR}/Character.hpp
     ${CS_INCLUDE_DIR}/Player.hpp
 )

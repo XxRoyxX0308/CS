@@ -1,4 +1,5 @@
 #include "Player.hpp"
+#include "Collision/CapsuleCast.hpp"
 
 #include "Util/Input.hpp"
 #include "Util/Keycode.hpp"
@@ -20,19 +21,30 @@ void Player::Init(Core3D::Camera &camera) {
 }
 
 // ============================================================================
-//  SpawnOnMap — 找出生點
+//  SpawnOnMap — 找出生點 (膠囊體地面掃掠)
 // ============================================================================
-void Player::SpawnOnMap(Core3D::Camera &camera, const MapCollider &collider) {
+void Player::SpawnOnMap(Core3D::Camera &camera,
+                        const Collision::CollisionMesh &mesh) {
     float spawnX = 10.0f;
     float spawnZ = 0.0f;
-    float groundY = collider.GetGroundHeight(spawnX, spawnZ, 100.0f);
-    if (groundY > -9000.0f) {
-        m_Position = glm::vec3(spawnX, groundY + m_Height, spawnZ);
+
+    // Build a capsule high up and sweep down to find ground
+    Collision::Capsule cap;
+    cap.radius = m_Radius;
+    cap.height = m_Height - 2.0f * m_Radius;
+    if (cap.height < 0.0f) cap.height = 0.0f;
+    cap.base = glm::vec3(spawnX, 100.0f, spawnZ); // start high
+
+    auto groundY = Collision::CapsuleCast::SnapToGround(cap, mesh, 200.0f);
+    if (groundY.has_value()) {
+        m_Position = glm::vec3(spawnX, groundY.value() + m_Height, spawnZ);
     } else {
+        // Fallback: try alternate spawn
         spawnX = -5.0f; spawnZ = -5.0f;
-        groundY = collider.GetGroundHeight(spawnX, spawnZ, 100.0f);
-        if (groundY > -9000.0f) {
-            m_Position = glm::vec3(spawnX, groundY + m_Height, spawnZ);
+        cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
+        groundY = Collision::CapsuleCast::SnapToGround(cap, mesh, 200.0f);
+        if (groundY.has_value()) {
+            m_Position = glm::vec3(spawnX, groundY.value() + m_Height, spawnZ);
         }
     }
     camera.SetPosition(m_Position);
@@ -41,7 +53,8 @@ void Player::SpawnOnMap(Core3D::Camera &camera, const MapCollider &collider) {
 // ============================================================================
 //  Update — 輸入 → 移動 → 物理 → 同步攝影機
 // ============================================================================
-void Player::Update(float dt, Core3D::Camera &camera, const MapCollider &collider) {
+void Player::Update(float dt, Core3D::Camera &camera,
+                    const Collision::CollisionMesh &mesh) {
     // ── WASD 水平移動 ──
     camera.SetPosition(m_Position);
 
@@ -57,8 +70,8 @@ void Player::Update(float dt, Core3D::Camera &camera, const MapCollider &collide
     glm::vec3 desiredPos = camera.GetPosition();
     desiredPos.y = m_Position.y; // 鎖定 Y
 
-    // 碰撞 + 沿牆滑行
-    TryMove(desiredPos, collider);
+    // 膠囊體掃掠 + 沿牆滑行
+    TryMove(desiredPos, mesh);
 
     // ── 跳躍 ──
     if (Util::Input::IsKeyDown(Util::Keycode::SPACE)) {
@@ -66,7 +79,7 @@ void Player::Update(float dt, Core3D::Camera &camera, const MapCollider &collide
     }
 
     // ── 重力 & 地面碰撞 ──
-    UpdatePhysics(dt, collider);
+    UpdatePhysics(dt, mesh);
 
     // ── 同步攝影機 ──
     camera.SetPosition(m_Position);

@@ -21,7 +21,8 @@
 #include "Scene/SceneGraph.hpp"
 #include "Scene/SceneNode.hpp"
 
-#include "MapCollider.hpp"
+#include "Collision/CollisionMesh.hpp"
+#include "Collision/CapsuleCast.hpp"
 #include "Player.hpp"
 
 class App {
@@ -50,7 +51,7 @@ private:
     std::shared_ptr<Scene::SceneNode> m_MapNode;
 
     // ── 地圖碰撞 ──
-    MapCollider m_MapCollider;
+    Collision::CollisionMesh m_CollisionMesh;
 
     // ── 玩家 ──
     Player m_Player;

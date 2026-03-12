@@ -43,7 +43,6 @@ _deps/
 *.lib
 *.a
 *.o
-*.obj
 *.pdb
 *.ilk
 *.exp

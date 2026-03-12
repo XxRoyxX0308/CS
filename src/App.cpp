@@ -82,10 +82,10 @@ void App::Start() {
 
     // ── 5. 建立地圖碰撞 ────────────────────────────────────────────────
     glm::mat4 mapTransform = BuildMapTransform();
-    m_MapCollider.Build(*m_MapModel, mapTransform);
+    m_CollisionMesh.Build(*m_MapModel, mapTransform);
 
     // ── 6. 設定出生點 ──────────────────────────────────────────────────
-    m_Player.SpawnOnMap(camera, m_MapCollider);
+    m_Player.SpawnOnMap(camera, m_CollisionMesh);
 
     // ── 狀態轉移 ──
     m_CurrentState = State::UPDATE;
@@ -113,7 +113,7 @@ void App::Update() {
     }
 
     // ── 玩家移動 + 物理 ──
-    m_Player.Update(dt, camera, m_MapCollider);
+    m_Player.Update(dt, camera, m_CollisionMesh);
 
     // ── 滑鼠視角（FPS 鎖定模式）──
     if (m_CursorLocked) {
@@ -148,9 +148,15 @@ void App::Update() {
         ImGui::Text("OnGround: %s", m_Player.IsOnGround() ? "true" : "false");
 
         // 地圖碰撞資訊
-        float dbgGround = m_MapCollider.GetGroundHeight(camPos.x, camPos.z, m_Player.GetFeetY() + 0.5f);
-        ImGui::Text("GroundY: %.2f", dbgGround);
-        ImGui::Text("Triangles: %zu", m_MapCollider.GetTriangleCount());
+        {
+            Collision::Capsule dbgCap;
+            dbgCap.radius = 0.3f;
+            dbgCap.height = 1.1f;
+            dbgCap.base = glm::vec3(camPos.x, camPos.y - 1.7f + 0.3f, camPos.z);
+            auto dbgGround = Collision::CapsuleCast::SnapToGround(dbgCap, m_CollisionMesh, 2.0f);
+            ImGui::Text("GroundY: %.2f", dbgGround.has_value() ? dbgGround.value() : -9999.0f);
+        }
+        ImGui::Text("Triangles: %zu", m_CollisionMesh.GetTriangleCount());
 
         ImGui::Separator();
         ImGui::Text("FPS: %.1f", dt > 0.0f ? 1.0f / dt : 0.0f);

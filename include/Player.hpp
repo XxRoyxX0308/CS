@@ -2,8 +2,8 @@
 #define CS_PLAYER_HPP
 
 #include "Character.hpp"
+#include "Collision/CollisionMesh.hpp"
 #include "Core3D/Camera.hpp"
-#include "MapCollider.hpp"
 
 class Player : public Character {
 public:
@@ -13,10 +13,10 @@ public:
     void Init(Core3D::Camera &camera);
     
     // 在地圖上找出生點並放置角色
-    void SpawnOnMap(Core3D::Camera &camera, const MapCollider &collider);
+    void SpawnOnMap(Core3D::Camera &camera, const Collision::CollisionMesh &mesh);
 
     // 每幀更新（輸入 → 移動 → 物理 → 同步攝影機）
-    void Update(float dt, Core3D::Camera &camera, const MapCollider &collider);
+    void Update(float dt, Core3D::Camera &camera, const Collision::CollisionMesh &mesh);
 };
 
 #endif // CS_PLAYER_HPP

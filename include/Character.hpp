@@ -1,9 +1,11 @@
 #ifndef CS_CHARACTER_HPP
 #define CS_CHARACTER_HPP
 
+#include "Collision/CollisionTypes.hpp"
+
 #include <glm/glm.hpp>
 
-class MapCollider;
+namespace Collision { class CollisionMesh; }
 
 class Character {
 public:
@@ -11,13 +13,10 @@ public:
     virtual ~Character() = default;
 
     // 每幀更新（重力、地面碰撞）
-    void UpdatePhysics(float dt, const MapCollider &collider);
+    void UpdatePhysics(float dt, const Collision::CollisionMesh &mesh);
 
-    // 八邊形牆壁碰撞檢測
-    bool IsBlockedByWall(float x, float z, float feetY, const MapCollider &collider) const;
-
-    // 嘗試水平移動（含碰撞 + 沿牆滑行）
-    void TryMove(const glm::vec3 &desiredPos, const MapCollider &collider);
+    // 嘗試水平移動（膠囊體掃掠 + 沿牆滑行）
+    void TryMove(const glm::vec3 &desiredPos, const Collision::CollisionMesh &mesh);
 
     // ── Getters / Setters ──
     glm::vec3 GetPosition() const { return m_Position; }
@@ -34,6 +33,11 @@ public:
     void  Jump();
 
 protected:
+    // Build a Capsule from current position + dimensions.
+    // base = bottom sphere center (feet + radius)
+    // height = distance between bottom and top sphere centers
+    Collision::Capsule MakeCapsule() const;
+
     glm::vec3 m_Position      = glm::vec3(0.0f);
 
     float m_Height        = 1.7f;   // 眼睛高度（公尺）
