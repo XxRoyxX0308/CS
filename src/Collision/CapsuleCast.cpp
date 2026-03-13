@@ -308,11 +308,7 @@ glm::vec3 MoveAndSlide(const Capsule &capsule,
     glm::vec3 pos = capsule.base;
     glm::vec3 vel = velocity;
 
-    // Inflate the capsule by SKIN_WIDTH so the sweep detects hits
-    // slightly before the real surface — the character never sits
-    // flush against geometry, avoiding false hits from micro-bumps.
     Capsule sweepCapsule = capsule;
-    sweepCapsule.radius += SKIN_WIDTH;
 
     for (int iter = 0; iter < maxIterations; ++iter) {
         if (glm::dot(vel, vel) < EPSILON * EPSILON)
@@ -349,20 +345,14 @@ std::optional<float> SnapToGround(const Capsule &capsule,
                                   const CollisionMesh &mesh,
                                   float maxDrop) {
     // Lift the probe so it starts above any surface we might be penetrating.
-    constexpr float PROBE_LIFT = 0.5f;
-
     Capsule probe = capsule;
-    probe.base.y  += PROBE_LIFT;
-    probe.radius  += SKIN_WIDTH; // inflate by skin width
 
-    float totalDrop = maxDrop + PROBE_LIFT;
-    glm::vec3 downVel(0.0f, -totalDrop, 0.0f);
+    glm::vec3 downVel(0.0f, -maxDrop, 0.0f);
     SweepResult result = SweepCapsule(probe, downVel, mesh);
 
     if (result.hit && result.normal.y >= 0.7f) {
-        // Feet Y at hit = bottom sphere center after sweep − *original* radius
-        // (not the inflated one) so the character rests at the real surface.
-        float groundY = probe.base.y - totalDrop * result.t - capsule.radius;
+        // Feet Y at hit = bottom sphere center after sweep − radius
+        float groundY = probe.base.y - maxDrop * result.t - capsule.radius;
         return groundY;
     }
 

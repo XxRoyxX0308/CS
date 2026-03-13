@@ -98,24 +98,23 @@ void Character::TryMove(const glm::vec3 &desiredPos,
 //  UpdatePhysics — 重力 + 膠囊體地面掃掠 (Gravity + Capsule Ground Sweep)
 // ============================================================================
 void Character::UpdatePhysics(float dt, const Collision::CollisionMesh &mesh) {
-    // ── Apply gravity ──
-    m_VelocityY -= m_Gravity * dt;
-    m_Position.y += m_VelocityY * dt;
-
+    constexpr float SKIN_WIDTH = 0.05f;
     // ── Ground detection ──
     // SnapToGround internally lifts the probe so it works even when
     // gravity has pushed the capsule slightly below the surface.
     Collision::Capsule cap = MakeCapsule();
-    float sweepRange = 0.5f;
-    auto groundY = Collision::CapsuleCast::SnapToGround(cap, mesh, sweepRange);
+    auto groundY = Collision::CapsuleCast::SnapToGround(cap, mesh, 0.5f);
 
     if (groundY.has_value()) {
         float gY = groundY.value();
+        
+        // Apply gravity
+        m_VelocityY -= m_Gravity * dt;
+        m_Position.y += m_VelocityY * dt;
         float feetY = m_Position.y - m_Height;
-
-        // Accept ground if falling/standing and feet are within step range
-        if (m_VelocityY <= 0.0f && feetY <= gY + 0.1f) {
-            m_Position.y = gY + m_Height;
+        
+        if (feetY < gY + SKIN_WIDTH) {
+            m_Position.y = gY + SKIN_WIDTH + m_Height;
             m_VelocityY = 0.0f;
             m_OnGround = true;
             return;
@@ -123,7 +122,7 @@ void Character::UpdatePhysics(float dt, const Collision::CollisionMesh &mesh) {
     }
 
     // Absolute floor fallback (fell off the map)
-    if (m_Position.y - m_Height < -100.0f) {
+    if (m_Position.y - m_Height < -50.0f) {
         m_Position.y = m_Height;
         m_VelocityY = 0.0f;
         m_OnGround = true;

@@ -30,13 +30,6 @@ struct SweepResult {
     glm::vec3 normal = {};     // Surface normal at hit point
 };
 
-// ── Skin width ──────────────────────────────────────────────────────────────
-// A thin layer outside the capsule that absorbs micro-imperfections on
-// surfaces.  Sweep queries inflate the capsule radius by this amount so
-// the character never sits exactly on geometry, preventing false hits
-// from tiny surface unevenness.
-constexpr float SKIN_WIDTH = 0.15f;
-
 } // namespace Collision
 
 #endif // CS_COLLISION_TYPES_HPP
