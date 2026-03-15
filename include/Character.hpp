@@ -40,13 +40,14 @@ public:
 protected:
     glm::vec3 m_Position  = glm::vec3(0.0f);
 
-    float m_Height    = 1.7f;   // 眼睛高度（公尺）
-    float m_Radius    = 0.5f;   // 碰撞半徑（公尺）
-    float m_skinWidth = 0.015f; // 皮膚厚度（公尺）
-    float m_Gravity   = 9.8f;   // 重力加速度
-    float m_VelocityY = 0.0f;   // 垂直速度
-    float m_JumpSpeed = 5.0f;   // 跳躍初速
-    bool  m_OnGround  = true;   // 是否在地面
+    float m_Height        = 1.7f;   // 眼睛高度（公尺）
+    float m_CameraYOffset = -0.1f;  // 攝影機相對 m_Position 的 Y 偏移
+    float m_Radius        = 0.5f;   // 碰撞半徑（公尺）
+    float m_SkinWidth     = 0.005f; // 皮膚厚度（公尺）
+    float m_Gravity       = 9.8f;   // 重力加速度
+    float m_VelocityY     = 0.0f;   // 垂直速度
+    float m_JumpSpeed     = 5.0f;   // 跳躍初速
+    bool  m_OnGround      = true;   // 是否在地面
 };
 
 #endif // CS_CHARACTER_HPP

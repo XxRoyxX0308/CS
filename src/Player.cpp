@@ -10,7 +10,7 @@
 //  Init — 攝影機初始參數
 // ============================================================================
 void Player::Init(Core3D::Camera &camera) {
-    camera.SetPosition(glm::vec3(0.0f, m_Height, 0.0f));
+    camera.SetPosition(glm::vec3(0.0f, m_Height + m_CameraYOffset, 0.0f));
     camera.SetYaw(-90.0f);
     camera.SetPitch(0.0f);
     camera.SetMovementSpeed(5.0f);
@@ -47,7 +47,7 @@ void Player::SpawnOnMap(Core3D::Camera &camera,
             m_Position = glm::vec3(spawnX, groundY.value() + m_Height, spawnZ);
         }
     }
-    camera.SetPosition(m_Position);
+    camera.SetPosition(m_Position + glm::vec3(0.0f, m_CameraYOffset, 0.0f));
 }
 
 // ============================================================================
@@ -82,5 +82,5 @@ void Player::Update(float dt, Core3D::Camera &camera,
     UpdatePhysics(dt, mesh);
 
     // ── 同步攝影機 ──
-    camera.SetPosition(m_Position);
+    camera.SetPosition(m_Position + glm::vec3(0.0f, m_CameraYOffset, 0.0f));
 }

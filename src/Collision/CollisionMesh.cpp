@@ -36,12 +36,7 @@ void CollisionMesh::Build(const Core3D::Model &model,
             if (len < 1e-8f) continue; // degenerate
 
             tri.normal = normal / len;
-
-            // Skip pure ceilings (facing straight down) to save memory —
-            // a capsule moving horizontally/downward will never interact
-            // with a ceiling-facing triangle in an FPS context.
-            if (tri.normal.y < -0.9f) continue;
-
+            
             m_Triangles.push_back(tri);
         }
     }

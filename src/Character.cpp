@@ -44,7 +44,7 @@ void Character::TryMove(const glm::vec3 &desiredPos,
     if (glm::dot(velocity, velocity) < 1e-8f) return;
 
     Collision::Capsule cap = MakeCapsule();
-    glm::vec3 newBase = Collision::CapsuleCast::MoveAndSlide(cap, velocity, mesh, m_skinWidth);
+    glm::vec3 newBase = Collision::CapsuleCast::MoveAndSlide(cap, velocity, mesh, m_SkinWidth);
     
     m_Position.x = newBase.x;
     m_Position.y = newBase.y - m_Radius + m_Height;
@@ -71,8 +71,8 @@ void Character::UpdatePhysics(float dt, const Collision::CollisionMesh &mesh) {
 
         if (deltaY <= 0.0f) {
             // Falling / on ground — snap feet to ground
-            if (feetY < hY + m_skinWidth + 0.05f) {
-                m_Position.y = hY + m_skinWidth + m_Height;
+            if (feetY < hY + m_SkinWidth + 0.05f) {
+                m_Position.y = hY + m_SkinWidth + m_Height;
                 m_VelocityY = 0.0f;
                 m_OnGround = true;
                 return;
@@ -80,8 +80,8 @@ void Character::UpdatePhysics(float dt, const Collision::CollisionMesh &mesh) {
         } else {
             // Rising — hit ceiling, clamp head
             float headHitY = hY + m_Height;
-            if (m_Position.y > headHitY - m_skinWidth) {
-                m_Position.y = headHitY - m_skinWidth;
+            if (m_Position.y > headHitY - m_SkinWidth) {
+                m_Position.y = headHitY - m_SkinWidth;
                 m_VelocityY = 0.0f;
             }
         }
