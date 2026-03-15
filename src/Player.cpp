@@ -35,14 +35,14 @@ void Player::SpawnOnMap(Core3D::Camera &camera,
     if (cap.height < 0.0f) cap.height = 0.0f;
     cap.base = glm::vec3(spawnX, 100.0f, spawnZ); // start high
 
-    auto groundY = Collision::CapsuleCast::SnapToGround(cap, mesh, 200.0f);
+    auto groundY = Collision::CapsuleCast::SweepVertical(cap, mesh, -200.0f);
     if (groundY.has_value()) {
         m_Position = glm::vec3(spawnX, groundY.value() + m_Height, spawnZ);
     } else {
         // Fallback: try alternate spawn
         spawnX = -5.0f; spawnZ = -5.0f;
         cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
-        groundY = Collision::CapsuleCast::SnapToGround(cap, mesh, 200.0f);
+        groundY = Collision::CapsuleCast::SweepVertical(cap, mesh, -200.0f);
         if (groundY.has_value()) {
             m_Position = glm::vec3(spawnX, groundY.value() + m_Height, spawnZ);
         }

@@ -53,18 +53,18 @@ namespace CapsuleCast {
     glm::vec3 MoveAndSlide(const Capsule &capsule,
                            const glm::vec3 &velocity,
                            const CollisionMesh &mesh,
+                           float skinWidth = 0.05f,
                            int maxIterations = 3);
 
     /**
-     * @brief Snap a capsule downward to find the ground.
+     * @brief Sweep a capsule vertically.
      *
-     * Sweeps the capsule with velocity (0, -maxDrop, 0).
-     * Returns the ground Y coordinate (feet position) if a walkable
-     * surface (normal.y ≥ 0.7) is found, or std::nullopt.
+     * Positive distance = upward, negative = downward.
+     * Returns the feet-Y at the hit point, or std::nullopt.
      */
-    std::optional<float> SnapToGround(const Capsule &capsule,
-                                      const CollisionMesh &mesh,
-                                      float maxDrop);
+    std::optional<float> SweepVertical(const Capsule &capsule,
+                                       const CollisionMesh &mesh,
+                                       float distance);
 
 } // namespace CapsuleCast
 

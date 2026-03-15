@@ -1,4 +1,5 @@
 #include "Collision/CapsuleCast.hpp"
+#include "Util/Logger.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -225,9 +226,9 @@ SweepResult CapsuleTriangleSweep(const Capsule &capsule,
                                  const Triangle &tri) {
     // 3 sphere centers along the capsule's vertical axis
     glm::vec3 centers[3] = {
-        capsule.base,                                              // bottom
+        capsule.base,                                                // bottom
         capsule.base + glm::vec3(0.0f, capsule.height * 0.5f, 0.0f), // middle
-        capsule.base + glm::vec3(0.0f, capsule.height, 0.0f),     // top
+        capsule.base + glm::vec3(0.0f, capsule.height, 0.0f),        // top
     };
 
     SweepResult best;
@@ -302,16 +303,17 @@ SweepResult SweepCapsule(const Capsule &capsule,
 glm::vec3 MoveAndSlide(const Capsule &capsule,
                        const glm::vec3 &velocity,
                        const CollisionMesh &mesh,
+                       float skinWidth,
                        int maxIterations) {
     constexpr float EPSILON = 1e-4f;
 
     glm::vec3 pos = capsule.base;
     glm::vec3 vel = velocity;
-
     Capsule sweepCapsule = capsule;
 
     for (int iter = 0; iter < maxIterations; ++iter) {
-        if (glm::dot(vel, vel) < EPSILON * EPSILON)
+        float velLen = glm::length(vel);
+        if (velLen < EPSILON)
             break;
 
         sweepCapsule.base = pos;
@@ -323,11 +325,20 @@ glm::vec3 MoveAndSlide(const Capsule &capsule,
         }
 
         // Advance to just before the hit
-        float safeT = std::max(0.0f, result.t - EPSILON);
+        float approachSpeed = -glm::dot(vel, result.normal);
+        float t_margin = 1.0f;
+        
+        if (approachSpeed > EPSILON) {
+            t_margin = skinWidth / approachSpeed;
+        } else {
+            t_margin = 1.0f; 
+        }
+
+        float safeT = std::max(0.0f, result.t - t_margin);
         pos += vel * safeT;
 
         // Compute remaining velocity and project onto slide plane
-        glm::vec3 remaining = vel * (1.0f - result.t);
+        glm::vec3 remaining = vel * (1.0f - safeT);
         vel = remaining - glm::dot(remaining, result.normal) * result.normal;
     }
 
@@ -335,25 +346,25 @@ glm::vec3 MoveAndSlide(const Capsule &capsule,
 }
 
 // ============================================================================
-//  SnapToGround — downward capsule sweep to find walkable ground
+//  SweepVertical — vertical capsule sweep (up or down)
 //
-//  Internally lifts the probe capsule before sweeping to handle cases
-//  where gravity has already pushed the capsule below the ground surface
-//  (which would cause the sphere-plane test to return negative t).
+//  Sweeps the capsule along the Y axis by `distance` units.
+//  Positive distance = upward, negative = downward.
+//  Returns the Y coordinate where the feet (or head) would land,
+//  or std::nullopt if nothing was hit within that range.
 // ============================================================================
-std::optional<float> SnapToGround(const Capsule &capsule,
-                                  const CollisionMesh &mesh,
-                                  float maxDrop) {
-    // Lift the probe so it starts above any surface we might be penetrating.
-    Capsule probe = capsule;
+std::optional<float> SweepVertical(const Capsule &capsule,
+                                   const CollisionMesh &mesh,
+                                   float distance) {
+    glm::vec3 vel(0.0f, distance, 0.0f);
+    SweepResult result = SweepCapsule(capsule, vel, mesh);
 
-    glm::vec3 downVel(0.0f, -maxDrop, 0.0f);
-    SweepResult result = SweepCapsule(probe, downVel, mesh);
-
-    if (result.hit && result.normal.y >= 0.7f) {
-        // Feet Y at hit = bottom sphere center after sweep − radius
-        float groundY = probe.base.y - maxDrop * result.t - capsule.radius;
-        return groundY;
+    if (result.hit) {
+        // hit base Y = capsule.base.y + distance * t
+        // feet Y     = hit base Y - radius
+        float hitBaseY = capsule.base.y + distance * result.t;
+        float feetY = hitBaseY - capsule.radius;
+        return feetY;
     }
 
     return std::nullopt;

@@ -149,11 +149,8 @@ void App::Update() {
 
         // 地圖碰撞資訊
         {
-            Collision::Capsule dbgCap;
-            dbgCap.radius = 0.3f;
-            dbgCap.height = 1.1f;
-            dbgCap.base = glm::vec3(camPos.x, camPos.y - 1.7f + 0.3f, camPos.z);
-            auto dbgGround = Collision::CapsuleCast::SnapToGround(dbgCap, m_CollisionMesh, 2.0f);
+            Collision::Capsule dbgCap = m_Player.MakeCapsule();
+            auto dbgGround = Collision::CapsuleCast::SweepVertical(dbgCap, m_CollisionMesh, -6.0f);
             ImGui::Text("GroundY: %.2f", dbgGround.has_value() ? dbgGround.value() : -9999.0f);
         }
         ImGui::Text("Triangles: %zu", m_CollisionMesh.GetTriangleCount());

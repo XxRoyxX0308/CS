@@ -44,80 +44,46 @@ void Character::TryMove(const glm::vec3 &desiredPos,
     if (glm::dot(velocity, velocity) < 1e-8f) return;
 
     Collision::Capsule cap = MakeCapsule();
-    glm::vec3 newBase = Collision::CapsuleCast::MoveAndSlide(cap, velocity, mesh);
-
-    // ── Step-up: if mostly blocked and on ground, try up → forward → down ──
-    // float movedX = newBase.x - cap.base.x;
-    // float movedZ = newBase.z - cap.base.z;
-    // float movedDist2 = movedX * movedX + movedZ * movedZ;
-    // float wantedDist2 = velocity.x * velocity.x + velocity.z * velocity.z;
-
-    // if (m_OnGround && movedDist2 < wantedDist2 * 0.25f) {
-    //     // 1. Sweep capsule upward (check for ceiling)
-    //     glm::vec3 upVel(0.0f, m_MaxStepHeight, 0.0f);
-    //     auto upResult = Collision::CapsuleCast::SweepCapsule(cap, upVel, mesh);
-    //     float lift = upResult.hit
-    //         ? std::max(0.0f, m_MaxStepHeight * upResult.t - 1e-4f)
-    //         : m_MaxStepHeight;
-
-    //     if (lift > 0.01f) {
-    //         // 2. Move horizontally at raised height
-    //         Collision::Capsule raisedCap = cap;
-    //         raisedCap.base.y += lift;
-    //         glm::vec3 stepBase = Collision::CapsuleCast::MoveAndSlide(
-    //             raisedCap, velocity, mesh);
-
-    //         // 3. Drop back down to find ground
-    //         Collision::Capsule dropCap = raisedCap;
-    //         dropCap.base = stepBase;
-    //         auto groundY = Collision::CapsuleCast::SnapToGround(
-    //             dropCap, mesh, lift + 0.1f);
-
-    //         if (groundY.has_value()) {
-    //             float stepMovedX = stepBase.x - cap.base.x;
-    //             float stepMovedZ = stepBase.z - cap.base.z;
-    //             float stepDist2 = stepMovedX * stepMovedX + stepMovedZ * stepMovedZ;
-
-    //             // Accept step-up only if it moved further
-    //             if (stepDist2 > movedDist2) {
-    //                 m_Position.x = stepBase.x;
-    //                 m_Position.z = stepBase.z;
-    //                 m_Position.y = groundY.value() + m_Height;
-    //                 return;
-    //             }
-    //         }
-    //     }
-    // }
-
-    // Update position (keep current Y, only change XZ from sweep result)
+    glm::vec3 newBase = Collision::CapsuleCast::MoveAndSlide(cap, velocity, mesh, m_skinWidth);
+    
     m_Position.x = newBase.x;
+    m_Position.y = newBase.y - m_Radius + m_Height;
     m_Position.z = newBase.z;
 }
 
 // ============================================================================
-//  UpdatePhysics — 重力 + 膠囊體地面掃掠 (Gravity + Capsule Ground Sweep)
+//  UpdatePhysics — 重力 + 膠囊體垂直掃掠 (Gravity + Capsule Vertical Sweep)
 // ============================================================================
 void Character::UpdatePhysics(float dt, const Collision::CollisionMesh &mesh) {
-    constexpr float SKIN_WIDTH = 0.05f;
-    // ── Ground detection ──
-    // SnapToGround internally lifts the probe so it works even when
-    // gravity has pushed the capsule slightly below the surface.
-    Collision::Capsule cap = MakeCapsule();
-    auto groundY = Collision::CapsuleCast::SnapToGround(cap, mesh, 0.5f);
+    // Apply gravity
+    m_VelocityY -= m_Gravity * dt;
+    float deltaY = m_VelocityY * dt;
+    float detectY = deltaY > 0 ? std::max(deltaY, 0.1f) : std::min(deltaY, -0.1f); 
 
-    if (groundY.has_value()) {
-        float gY = groundY.value();
-        
-        // Apply gravity
-        m_VelocityY -= m_Gravity * dt;
-        m_Position.y += m_VelocityY * dt;
-        float feetY = m_Position.y - m_Height;
-        
-        if (feetY < gY + SKIN_WIDTH) {
-            m_Position.y = gY + SKIN_WIDTH + m_Height;
-            m_VelocityY = 0.0f;
-            m_OnGround = true;
-            return;
+    Collision::Capsule cap = MakeCapsule();
+    auto hitY = Collision::CapsuleCast::SweepVertical(cap, mesh, detectY);
+
+    m_Position.y += deltaY;
+    float feetY = m_Position.y - m_Height;
+
+    if (hitY.has_value()) {
+        float hY = hitY.value();
+
+        if (deltaY <= 0.0f) {
+            // Falling / on ground — snap feet to ground
+            if (feetY < hY + m_skinWidth + 0.05f) {
+                m_Position.y = hY + m_skinWidth + m_Height;
+                m_VelocityY = 0.0f;
+                m_OnGround = true;
+                return;
+            }
+        } else {
+            // Rising — hit ceiling, clamp head
+            float headHitY = hY + m_Height;
+            if (m_Position.y > headHitY - m_skinWidth) {
+                m_Position.y = headHitY - m_skinWidth;
+                m_VelocityY = 0.0f;
+            }
         }
     }
 
