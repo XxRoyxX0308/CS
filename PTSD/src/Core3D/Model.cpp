@@ -5,6 +5,7 @@
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
+#include <assimp/material.h>
 
 #include "../../lib/stb/stb_image.h"
 
@@ -114,6 +115,7 @@ Mesh Model::ProcessMesh(aiMesh *mesh, const aiScene *scene) {
     }
 
     // Process materials
+    MeshMaterial meshMaterial; // default values
     if (mesh->mMaterialIndex >= 0) {
         aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
 
@@ -148,9 +150,25 @@ Mesh Model::ProcessMesh(aiMesh *mesh, const aiScene *scene) {
         auto aoMaps = LoadMaterialTextures(
             material, aiTextureType_AMBIENT_OCCLUSION, TextureType::AO);
         textures.insert(textures.end(), aoMaps.begin(), aoMaps.end());
+
+        // Extract material color/factor properties (e.g. glTF baseColorFactor)
+        aiColor4D baseColor;
+        if (material->Get(AI_MATKEY_BASE_COLOR, baseColor) == AI_SUCCESS) {
+            meshMaterial.albedo = {baseColor.r, baseColor.g, baseColor.b};
+        } else if (material->Get(AI_MATKEY_COLOR_DIFFUSE, baseColor) == AI_SUCCESS) {
+            meshMaterial.albedo = {baseColor.r, baseColor.g, baseColor.b};
+        }
+
+        float metallic, roughness;
+        if (material->Get(AI_MATKEY_METALLIC_FACTOR, metallic) == AI_SUCCESS) {
+            meshMaterial.metallic = metallic;
+        }
+        if (material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS) {
+            meshMaterial.roughness = roughness;
+        }
     }
 
-    return Mesh(vertices, indices, textures);
+    return Mesh(vertices, indices, textures, meshMaterial);
 }
 
 std::vector<MeshTexture> Model::LoadMaterialTextures(

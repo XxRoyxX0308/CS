@@ -13,6 +13,7 @@
 #include "App.hpp"
 
 #include "Core/Texture.hpp"
+#include "Gun/AACHoneyBadger.hpp"
 #include "Util/Input.hpp"
 #include "Util/Keycode.hpp"
 #include "Util/Logger.hpp"
@@ -87,6 +88,10 @@ void App::Start() {
     // ── 6. 設定出生點 ──────────────────────────────────────────────────
     m_Player.SpawnOnMap(camera, m_CollisionMesh);
 
+    // ── 7. 裝備武器 ──────────────────────────────────────────────────
+    auto gun = std::make_unique<Gun::AACHoneyBadger>();
+    m_Player.EquipGun(std::move(gun), m_Scene);
+
     // ── 狀態轉移 ──
     m_CurrentState = State::UPDATE;
     LOG_TRACE("App::Start complete");
@@ -158,6 +163,18 @@ void App::Update() {
         ImGui::Separator();
         ImGui::Text("FPS: %.1f", dt > 0.0f ? 1.0f / dt : 0.0f);
         ImGui::Text("[TAB] Toggle cursor  [ESC] Quit");
+
+        // 武器資訊
+        if (auto *gun = m_Player.GetGun()) {
+            ImGui::Separator();
+            ImGui::Text("Ammo: %d / %d", gun->GetCurrentAmmo(), gun->GetMagSize());
+            ImGui::Text("Reloading: %s", gun->IsReloading() ? "YES" : "no");
+            const auto &hit = gun->GetLastHit();
+            if (hit.hit) {
+                ImGui::Text("LastHit: (%.1f, %.1f, %.1f) d=%.1f",
+                            hit.point.x, hit.point.y, hit.point.z, hit.distance);
+            }
+        }
 
         ImGui::End();
     }

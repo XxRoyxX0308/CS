@@ -5,8 +5,10 @@ namespace Core3D {
 
 Mesh::Mesh(const std::vector<Vertex3D> &vertices,
            const std::vector<unsigned int> &indices,
-           const std::vector<MeshTexture> &textures)
-    : m_Vertices(vertices), m_Indices(indices), m_Textures(textures) {
+           const std::vector<MeshTexture> &textures,
+           const MeshMaterial &material)
+    : m_Vertices(vertices), m_Indices(indices), m_Textures(textures),
+      m_Material(material) {
     SetupMesh();
 }
 
@@ -14,6 +16,7 @@ Mesh::Mesh(Mesh &&other) {
     m_Vertices = std::move(other.m_Vertices);
     m_Indices = std::move(other.m_Indices);
     m_Textures = std::move(other.m_Textures);
+    m_Material = other.m_Material;
     m_VAO = other.m_VAO;
     m_VBO = other.m_VBO;
     m_EBO = other.m_EBO;
@@ -37,6 +40,7 @@ Mesh &Mesh::operator=(Mesh &&other) {
         m_Vertices = std::move(other.m_Vertices);
         m_Indices = std::move(other.m_Indices);
         m_Textures = std::move(other.m_Textures);
+        m_Material = other.m_Material;
         m_VAO = other.m_VAO;
         m_VBO = other.m_VBO;
         m_EBO = other.m_EBO;
@@ -174,6 +178,23 @@ void Mesh::Draw(const Core::Program &program) const {
     setFlag("hasRoughnessMap", hasRoughness);
     setFlag("hasAOMap", hasAO);
 
+    // Upload per-mesh material factors as shader fallbacks
+    auto setVec3 = [pid](const char *name, const glm::vec3 &v) {
+        GLint loc = glGetUniformLocation(pid, name);
+        if (loc >= 0) glUniform3f(loc, v.x, v.y, v.z);
+    };
+    auto setFloat = [pid](const char *name, float v) {
+        GLint loc = glGetUniformLocation(pid, name);
+        if (loc >= 0) glUniform1f(loc, v);
+    };
+    setVec3("pbr_albedo", m_Material.albedo);
+    setFloat("pbr_metallic", m_Material.metallic);
+    setFloat("pbr_roughness", m_Material.roughness);
+    setFloat("pbr_ao", m_Material.ao);
+    // Phong fallbacks
+    setVec3("material_diffuse", m_Material.albedo);
+    setVec3("material_ambient", m_Material.albedo * 0.1f);
+
     // Draw the mesh
     glBindVertexArray(m_VAO);
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_Indices.size()),
@@ -250,6 +271,22 @@ void Mesh::Draw(GLuint programId) const {
     setFlag("hasMetallicMap", hasMetallic);
     setFlag("hasRoughnessMap", hasRoughness);
     setFlag("hasAOMap", hasAO);
+
+    // Upload per-mesh material factors as shader fallbacks
+    auto setVec3 = [programId](const char *name, const glm::vec3 &v) {
+        GLint loc = glGetUniformLocation(programId, name);
+        if (loc >= 0) glUniform3f(loc, v.x, v.y, v.z);
+    };
+    auto setFloat = [programId](const char *name, float v) {
+        GLint loc = glGetUniformLocation(programId, name);
+        if (loc >= 0) glUniform1f(loc, v);
+    };
+    setVec3("pbr_albedo", m_Material.albedo);
+    setFloat("pbr_metallic", m_Material.metallic);
+    setFloat("pbr_roughness", m_Material.roughness);
+    setFloat("pbr_ao", m_Material.ao);
+    setVec3("material_diffuse", m_Material.albedo);
+    setVec3("material_ambient", m_Material.albedo * 0.1f);
 
     // Draw the mesh
     glBindVertexArray(m_VAO);

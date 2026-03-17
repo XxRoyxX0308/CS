@@ -49,6 +49,19 @@ struct MeshTexture {
 };
 
 /**
+ * @brief Per-mesh PBR material factors extracted from model files.
+ *
+ * Used as shader fallback values when texture maps are not present
+ * (e.g. glTF models that use baseColorFactor instead of textures).
+ */
+struct MeshMaterial {
+    glm::vec3 albedo{0.8f};
+    float metallic = 0.0f;
+    float roughness = 0.5f;
+    float ao = 1.0f;
+};
+
+/**
  * @brief A single mesh containing vertices, indices, and textures.
  *
  * This is the fundamental 3D rendering unit. A Model may contain
@@ -67,7 +80,8 @@ class Mesh {
 public:
     Mesh(const std::vector<Vertex3D> &vertices,
          const std::vector<unsigned int> &indices,
-         const std::vector<MeshTexture> &textures);
+         const std::vector<MeshTexture> &textures,
+         const MeshMaterial &material = {});
 
     Mesh(const Mesh &) = delete;
     Mesh(Mesh &&other);
@@ -96,6 +110,7 @@ private:
     std::vector<Vertex3D> m_Vertices;
     std::vector<unsigned int> m_Indices;
     std::vector<MeshTexture> m_Textures;
+    MeshMaterial m_Material;
 
     GLuint m_VAO = 0;
     GLuint m_VBO = 0;

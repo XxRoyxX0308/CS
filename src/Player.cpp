@@ -1,5 +1,6 @@
 #include "Player.hpp"
 #include "Collision/CapsuleCast.hpp"
+#include "Scene/SceneGraph.hpp"
 
 #include "Util/Input.hpp"
 #include "Util/Keycode.hpp"
@@ -51,7 +52,16 @@ void Player::SpawnOnMap(Core3D::Camera &camera,
 }
 
 // ============================================================================
-//  Update — 輸入 → 移動 → 物理 → 同步攝影機
+//  EquipGun — 裝備武器
+// ============================================================================
+void Player::EquipGun(std::unique_ptr<Gun::Gun> gun,
+                      Scene::SceneGraph &scene) {
+    m_Gun = std::move(gun);
+    m_Gun->Init(scene);
+}
+
+// ============================================================================
+//  Update — 輸入 → 移動 → 物理 → 同步攝影機 → 武器
 // ============================================================================
 void Player::Update(float dt, Core3D::Camera &camera,
                     const Collision::CollisionMesh &mesh) {
@@ -83,4 +93,23 @@ void Player::Update(float dt, Core3D::Camera &camera,
 
     // ── 同步攝影機 ──
     camera.SetPosition(m_Position + glm::vec3(0.0f, m_CameraYOffset, 0.0f));
+
+    // ── 武器系統 ──
+    if (m_Gun) {
+        // 開火（左鍵）
+        if (Util::Input::IsKeyPressed(Util::Keycode::MOUSE_LB)) {
+            m_Gun->Fire(camera, mesh);
+        }
+
+        // 換彈（R 鍵）
+        if (Util::Input::IsKeyDown(Util::Keycode::R)) {
+            m_Gun->StartReload();
+        }
+
+        // 更新武器狀態（冷卻、換彈動畫、後座力恢復）
+        m_Gun->Update(dt, camera);
+
+        // 同步武器位置到攝影機
+        m_Gun->SyncToCamera(camera);
+    }
 }

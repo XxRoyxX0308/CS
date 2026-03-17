@@ -67,3 +67,5 @@ CS/
 ## License
 
 見 [LICENSE](LICENSE)。
+
+[Gun model source](https://sketchfab.com/TastyTony/models)
