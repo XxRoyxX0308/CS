@@ -137,21 +137,16 @@ void Gun::SyncToCamera(const Core3D::Camera &camera) {
 
     m_Node->SetPosition(gunPos);
 
-    // Gun rotation = camera orientation (yaw + pitch)
-    float yawRad   = glm::radians(camera.GetYaw());
-    float pitchRad = glm::radians(camera.GetPitch());
+    glm::mat3 cameraBasis(camRight, camUp, -camFront);
+    glm::quat gunRot = glm::quat_cast(cameraBasis);
+    glm::quat leftTurn90 = glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-    // Build rotation: yaw around Y, then pitch around local X
-    glm::quat yawQ   = glm::angleAxis(yawRad, glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::quat pitchQ = glm::angleAxis(pitchRad, glm::vec3(1.0f, 0.0f, 0.0f));
+    gunRot = gunRot * leftTurn90;
 
-    glm::quat gunRot = yawQ * pitchQ;
-
-    // Apply reload tilt animation (rotate around local right axis)
     if (m_ReloadAnimAngle != 0.0f) {
         float tiltRad = glm::radians(-m_ReloadAnimAngle);
-        glm::quat tiltQ = glm::angleAxis(tiltRad, glm::vec3(1.0f, 0.0f, 0.0f));
-        gunRot = gunRot * tiltQ;
+        glm::quat tiltQ = glm::angleAxis(tiltRad, glm::vec3(0.0f, 0.0f, 1.0f));
+        gunRot = gunRot * tiltQ; 
     }
 
     m_Node->SetRotation(gunRot);
