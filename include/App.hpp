@@ -23,7 +23,8 @@
 
 #include "Collision/CollisionMesh.hpp"
 #include "Collision/CapsuleCast.hpp"
-#include "Player.hpp"
+#include "Effects/BulletHole.hpp"
+#include "Characters/Player.hpp"
 
 class App {
 public:
@@ -55,6 +56,9 @@ private:
 
     // ── 玩家 ──
     Player m_Player;
+
+    // ── 彈孔效果 ──
+    Effects::BulletHoleManager m_BulletHoles;
 
     // ── 滑鼠狀態 ──
     bool m_CursorLocked = true;

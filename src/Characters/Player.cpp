@@ -1,4 +1,4 @@
-#include "Player.hpp"
+#include "Characters/Player.hpp"
 #include "Collision/CapsuleCast.hpp"
 #include "Scene/SceneGraph.hpp"
 

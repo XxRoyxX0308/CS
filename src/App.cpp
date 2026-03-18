@@ -92,6 +92,9 @@ void App::Start() {
     auto gun = std::make_unique<Gun::AACHoneyBadger>();
     m_Player.EquipGun(std::move(gun), m_Scene);
 
+    // ── 8. 初始化彈孔效果 ────────────────────────────────────────────
+    m_BulletHoles.Init();
+
     // ── 狀態轉移 ──
     m_CurrentState = State::UPDATE;
     LOG_TRACE("App::Start complete");
@@ -120,6 +123,20 @@ void App::Update() {
     // ── 玩家移動 + 物理 ──
     m_Player.Update(dt, camera, m_CollisionMesh);
 
+    // ── 檢查子彈命中並生成彈孔 ──
+    if (auto *gun = m_Player.GetGun()) {
+        const auto &hit = gun->GetLastHit();
+        // Check if this is a new hit (simple check: distance > 0 means recent hit)
+        static glm::vec3 lastHitPoint(0.0f);
+        if (hit.hit && hit.point != lastHitPoint) {
+            m_BulletHoles.SpawnHole(hit.point, hit.normal);
+            lastHitPoint = hit.point;
+        }
+    }
+
+    // ── 更新彈孔效果 ──
+    m_BulletHoles.Update(dt);
+
     // ── 滑鼠視角（FPS 鎖定模式）──
     if (m_CursorLocked) {
         int xrel = 0, yrel = 0;
@@ -139,6 +156,13 @@ void App::Update() {
 
     // ── 渲染 ──
     m_Renderer.Render(m_Scene);
+
+    // ── 繪製彈孔效果 ──
+    {
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 proj = camera.GetProjectionMatrix();
+        m_BulletHoles.Draw(camera, view, proj);
+    }
 
     // ── Debug 面板 ──
     if (m_ShowDebugPanel) {
@@ -182,6 +206,10 @@ void App::Update() {
                             hit.point.x, hit.point.y, hit.point.z, hit.distance);
             }
         }
+
+        // 彈孔效果
+        ImGui::Separator();
+        ImGui::Text("Bullet Holes: %zu", m_BulletHoles.GetCount());
 
         ImGui::End();
     }

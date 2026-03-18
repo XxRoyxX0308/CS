@@ -27,26 +27,28 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/App.cpp
     ${CS_SRC_DIR}/Collision/CollisionMesh.cpp
     ${CS_SRC_DIR}/Collision/CapsuleCast.cpp
-    ${CS_SRC_DIR}/Character.cpp
-    ${CS_SRC_DIR}/Player.cpp
+    ${CS_SRC_DIR}/Characters/Character.cpp
+    ${CS_SRC_DIR}/Characters/Player.cpp
     ${CS_SRC_DIR}/Gun/RayCast.cpp
     ${CS_SRC_DIR}/Gun/Gun.cpp
     ${CS_SRC_DIR}/Gun/AACHoneyBadger.cpp
     ${CS_SRC_DIR}/Gun/SKS.cpp
     ${CS_SRC_DIR}/Gun/SiliconeGun.cpp
+    ${CS_SRC_DIR}/Effects/BulletHole.cpp
 )
 set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/App.hpp
     ${CS_INCLUDE_DIR}/Collision/CollisionTypes.hpp
     ${CS_INCLUDE_DIR}/Collision/CollisionMesh.hpp
     ${CS_INCLUDE_DIR}/Collision/CapsuleCast.hpp
-    ${CS_INCLUDE_DIR}/Character.hpp
-    ${CS_INCLUDE_DIR}/Player.hpp
+    ${CS_INCLUDE_DIR}/Characters/Character.hpp
+    ${CS_INCLUDE_DIR}/Characters/Player.hpp
     ${CS_INCLUDE_DIR}/Gun/RayCast.hpp
     ${CS_INCLUDE_DIR}/Gun/Gun.hpp
     ${CS_INCLUDE_DIR}/Gun/AACHoneyBadger.hpp
     ${CS_INCLUDE_DIR}/Gun/SKS.hpp
     ${CS_INCLUDE_DIR}/Gun/SiliconeGun.hpp
+    ${CS_INCLUDE_DIR}/Effects/BulletHole.hpp
 )
 
 # ── Executable ──────────────────────────────────────────────────────────────

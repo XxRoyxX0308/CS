@@ -1,4 +1,4 @@
-#include "Character.hpp"
+#include "Characters/Character.hpp"
 #include "Collision/CollisionMesh.hpp"
 #include "Collision/CapsuleCast.hpp"
 

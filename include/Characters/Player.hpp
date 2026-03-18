@@ -1,7 +1,7 @@
 #ifndef CS_PLAYER_HPP
 #define CS_PLAYER_HPP
 
-#include "Character.hpp"
+#include "Characters/Character.hpp"
 #include "Collision/CollisionMesh.hpp"
 #include "Core3D/Camera.hpp"
 #include "Gun/Gun.hpp"

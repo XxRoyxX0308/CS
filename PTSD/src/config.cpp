@@ -54,7 +54,7 @@ void PTSD_Config::Init() {
     AssignValueFromConfigFile(j, "window_height", WINDOW_HEIGHT);
     AssignValueFromConfigFile(j, "default_log_level", DEFAULT_LOG_LEVEL);
     AssignValueFromConfigFile(j, "fps_cap", FPS_CAP);
-
+    
     // 3D config
     AssignValueFromConfigFile(j, "default_fov", DEFAULT_FOV);
     AssignValueFromConfigFile(j, "near_clip_3d", NEAR_CLIP_3D);
