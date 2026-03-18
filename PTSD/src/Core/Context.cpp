@@ -80,6 +80,11 @@ Context::Context() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    // Enable backface culling for performance
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);  // Counter-clockwise winding is front-facing
+
     LOG_INFO("OpenGL Info");
     LOG_INFO("  Vendor: {}", glGetString(GL_VENDOR));
     LOG_INFO("  Renderer: {}", glGetString(GL_RENDERER));

@@ -5,7 +5,10 @@
 namespace Scene {
 
 SceneGraph::SceneGraph()
-    : m_Root(std::make_shared<SceneNode>()) {}
+    : m_Root(std::make_shared<SceneNode>()) {
+    // Pre-allocate buffer with reasonable initial capacity
+    m_FlattenBuffer.reserve(256);
+}
 
 void SceneGraph::AddNode(const std::shared_ptr<SceneNode> &node) {
     m_Root->AddChild(node);
@@ -15,25 +18,79 @@ void SceneGraph::RemoveNode(const std::shared_ptr<SceneNode> &node) {
     m_Root->RemoveChild(node);
 }
 
-std::vector<std::shared_ptr<SceneNode>> SceneGraph::FlattenTree() const {
-    std::vector<std::shared_ptr<SceneNode>> result;
+const std::vector<std::shared_ptr<SceneNode>> &SceneGraph::FlattenTree() {
+    // Clear but keep capacity to avoid reallocation
+    m_FlattenBuffer.clear();
+    m_CullStats = {};
+
     for (const auto &child : m_Root->GetChildren()) {
-        FlattenNode(child, result);
+        FlattenNode(child);
     }
-    return result;
+
+    m_CullStats.totalNodes = m_CullStats.visibleNodes;
+    return m_FlattenBuffer;
 }
 
-void SceneGraph::FlattenNode(
-    const std::shared_ptr<SceneNode> &node,
-    std::vector<std::shared_ptr<SceneNode>> &out) const {
+const std::vector<std::shared_ptr<SceneNode>> &SceneGraph::FlattenTreeCulled(
+    const Core3D::Frustum &frustum) {
+    // Clear but keep capacity to avoid reallocation
+    m_FlattenBuffer.clear();
+    m_CullStats = {};
 
+    for (const auto &child : m_Root->GetChildren()) {
+        FlattenNodeCulled(child, frustum);
+    }
+
+    return m_FlattenBuffer;
+}
+
+void SceneGraph::FlattenNode(const std::shared_ptr<SceneNode> &node) {
     if (node->IsVisible()) {
-        out.push_back(node);
+        m_FlattenBuffer.push_back(node);
+        ++m_CullStats.visibleNodes;
     }
 
     for (const auto &child : node->GetChildren()) {
-        FlattenNode(child, out);
+        FlattenNode(child);
     }
+}
+
+void SceneGraph::FlattenNodeCulled(const std::shared_ptr<SceneNode> &node,
+                                    const Core3D::Frustum &frustum) {
+    if (!node->IsVisible()) {
+        return;
+    }
+
+    ++m_CullStats.totalNodes;
+
+    // Check frustum culling
+    bool visible = true;
+    if (m_FrustumCullingEnabled && node->IsCullingEnabled()) {
+        Core3D::AABB worldBounds = node->GetWorldBounds();
+        if (worldBounds.IsValid()) {
+            visible = frustum.IsAABBVisible(worldBounds);
+        }
+    }
+
+    if (visible) {
+        m_FlattenBuffer.push_back(node);
+        ++m_CullStats.visibleNodes;
+    } else {
+        ++m_CullStats.culledNodes;
+    }
+
+    // Recursively process children
+    // Note: If parent is culled, we still need to check children
+    // because they might be visible if they have their own bounds
+    for (const auto &child : node->GetChildren()) {
+        FlattenNodeCulled(child, frustum);
+    }
+}
+
+void SceneGraph::UpdateFrustum() {
+    glm::mat4 view = m_Camera.GetViewMatrix();
+    glm::mat4 proj = m_Camera.GetProjectionMatrix();
+    m_Frustum.Update(proj * view);
 }
 
 LightsUBO SceneGraph::BuildLightsUBO() const {

@@ -25,6 +25,7 @@ Program::Program(const std::string &vertexShaderFilepath,
 
 Program::Program(Program &&other) {
     m_ProgramId = other.m_ProgramId;
+    m_UniformCache = std::move(other.m_UniformCache);
     other.m_ProgramId = 0;
 }
 
@@ -34,6 +35,7 @@ Program::~Program() {
 
 Program &Program::operator=(Program &&other) {
     m_ProgramId = other.m_ProgramId;
+    m_UniformCache = std::move(other.m_UniformCache);
     other.m_ProgramId = 0;
 
     return *this;
@@ -63,6 +65,59 @@ void Program::Validate() const {
         LOG_ERROR("Validation Failed:");
         LOG_ERROR("{}", message.data());
     }
+}
+
+// ====== Uniform Location Caching ======
+
+GLint Program::GetUniformLocation(const std::string &name) const {
+    auto it = m_UniformCache.find(name);
+    if (it != m_UniformCache.end()) {
+        return it->second;
+    }
+
+    GLint location = glGetUniformLocation(m_ProgramId, name.c_str());
+    m_UniformCache[name] = location;
+    return location;
+}
+
+GLint Program::GetUniformLocation(const char *name) const {
+    return GetUniformLocation(std::string(name));
+}
+
+void Program::ClearUniformCache() {
+    m_UniformCache.clear();
+}
+
+// ====== Uniform Setters ======
+
+void Program::SetUniform1i(const char *name, int value) const {
+    GLint loc = GetUniformLocation(name);
+    if (loc >= 0) glUniform1i(loc, value);
+}
+
+void Program::SetUniform1f(const char *name, float value) const {
+    GLint loc = GetUniformLocation(name);
+    if (loc >= 0) glUniform1f(loc, value);
+}
+
+void Program::SetUniform3f(const char *name, float x, float y, float z) const {
+    GLint loc = GetUniformLocation(name);
+    if (loc >= 0) glUniform3f(loc, x, y, z);
+}
+
+void Program::SetUniform3fv(const char *name, const float *value) const {
+    GLint loc = GetUniformLocation(name);
+    if (loc >= 0) glUniform3fv(loc, 1, value);
+}
+
+void Program::SetUniform4fv(const char *name, const float *value) const {
+    GLint loc = GetUniformLocation(name);
+    if (loc >= 0) glUniform4fv(loc, 1, value);
+}
+
+void Program::SetUniformMatrix4fv(const char *name, const float *value) const {
+    GLint loc = GetUniformLocation(name);
+    if (loc >= 0) glUniformMatrix4fv(loc, 1, GL_FALSE, value);
 }
 
 void Program::CheckStatus() const {

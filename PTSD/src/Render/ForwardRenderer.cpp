@@ -11,6 +11,12 @@ ForwardRenderer::ForwardRenderer()
       m_UsePBR(PTSD_Config::ENABLE_PBR) {
     InitPrograms();
     InitLightsUBO();
+    CacheUniformLocations();
+}
+
+ForwardRenderer::~ForwardRenderer() {
+    if (m_MatricesUBO != 0) glDeleteBuffers(1, &m_MatricesUBO);
+    if (m_LightsUBO != 0) glDeleteBuffers(1, &m_LightsUBO);
 }
 
 void ForwardRenderer::InitPrograms() {
@@ -22,21 +28,50 @@ void ForwardRenderer::InitPrograms() {
         PTSD_ASSETS_DIR "/shaders/PBR.vert",
         PTSD_ASSETS_DIR "/shaders/PBR.frag");
 
-    // Setup texture sampler uniforms for Phong
+    // Setup texture sampler uniforms for Phong (done once at init)
     m_PhongProgram->Bind();
-    glUniform1i(glGetUniformLocation(m_PhongProgram->GetId(), "texture_diffuse0"), 0);
-    glUniform1i(glGetUniformLocation(m_PhongProgram->GetId(), "texture_specular0"), 1);
-    glUniform1i(glGetUniformLocation(m_PhongProgram->GetId(), "texture_normal0"), 2);
-    glUniform1i(glGetUniformLocation(m_PhongProgram->GetId(), "shadowMap"), 8);
+    m_PhongProgram->SetUniform1i("texture_diffuse0", 0);
+    m_PhongProgram->SetUniform1i("texture_specular0", 1);
+    m_PhongProgram->SetUniform1i("texture_normal0", 2);
+    m_PhongProgram->SetUniform1i("shadowMap", 8);
 
-    // Setup texture sampler uniforms for PBR
+    // Setup texture sampler uniforms for PBR (done once at init)
     m_PBRProgram->Bind();
-    glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "texture_diffuse0"), 0);
-    glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "texture_normal0"), 1);
-    glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "texture_metallic0"), 2);
-    glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "texture_roughness0"), 3);
-    glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "texture_ao0"), 4);
-    glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "shadowMap"), 8);
+    m_PBRProgram->SetUniform1i("texture_diffuse0", 0);
+    m_PBRProgram->SetUniform1i("texture_normal0", 1);
+    m_PBRProgram->SetUniform1i("texture_metallic0", 2);
+    m_PBRProgram->SetUniform1i("texture_roughness0", 3);
+    m_PBRProgram->SetUniform1i("texture_ao0", 4);
+    m_PBRProgram->SetUniform1i("shadowMap", 8);
+}
+
+void ForwardRenderer::CacheUniformLocations() {
+    // Cache Phong shader uniform locations
+    m_PhongLoc.lightSpaceMatrix = m_PhongProgram->GetUniformLocation("lightSpaceMatrix");
+    m_PhongLoc.shadowEnabled = m_PhongProgram->GetUniformLocation("shadowEnabled");
+    m_PhongLoc.material_diffuse = m_PhongProgram->GetUniformLocation("material_diffuse");
+    m_PhongLoc.material_specular = m_PhongProgram->GetUniformLocation("material_specular");
+    m_PhongLoc.material_ambient = m_PhongProgram->GetUniformLocation("material_ambient");
+    m_PhongLoc.material_shininess = m_PhongProgram->GetUniformLocation("material_shininess");
+    m_PhongLoc.hasDiffuseMap = m_PhongProgram->GetUniformLocation("hasDiffuseMap");
+    m_PhongLoc.hasSpecularMap = m_PhongProgram->GetUniformLocation("hasSpecularMap");
+    m_PhongLoc.hasNormalMap = m_PhongProgram->GetUniformLocation("hasNormalMap");
+
+    // Cache PBR shader uniform locations
+    m_PBRLoc.lightSpaceMatrix = m_PBRProgram->GetUniformLocation("lightSpaceMatrix");
+    m_PBRLoc.shadowEnabled = m_PBRProgram->GetUniformLocation("shadowEnabled");
+    m_PBRLoc.pbr_albedo = m_PBRProgram->GetUniformLocation("pbr_albedo");
+    m_PBRLoc.pbr_metallic = m_PBRProgram->GetUniformLocation("pbr_metallic");
+    m_PBRLoc.pbr_roughness = m_PBRProgram->GetUniformLocation("pbr_roughness");
+    m_PBRLoc.pbr_ao = m_PBRProgram->GetUniformLocation("pbr_ao");
+    m_PBRLoc.hasAlbedoMap = m_PBRProgram->GetUniformLocation("hasAlbedoMap");
+    m_PBRLoc.hasNormalMap = m_PBRProgram->GetUniformLocation("hasNormalMap");
+    m_PBRLoc.hasMetallicMap = m_PBRProgram->GetUniformLocation("hasMetallicMap");
+    m_PBRLoc.hasRoughnessMap = m_PBRProgram->GetUniformLocation("hasRoughnessMap");
+    m_PBRLoc.hasAOMap = m_PBRProgram->GetUniformLocation("hasAOMap");
+
+    // Cache shadow shader model location
+    m_ShadowModelLoc = m_ShadowMap.GetShadowProgram().GetUniformLocation("model");
 }
 
 void ForwardRenderer::InitLightsUBO() {
@@ -59,7 +94,7 @@ void ForwardRenderer::InitLightsUBO() {
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     // Bind UBO block indices for both programs
-    auto bindUBOs = [this](const Core::Program &prog) {
+    auto bindUBOs = [](const Core::Program &prog) {
         GLuint matricesIdx = glGetUniformBlockIndex(prog.GetId(), "Matrices3D");
         if (matricesIdx != GL_INVALID_INDEX)
             glUniformBlockBinding(prog.GetId(), matricesIdx, 0);
@@ -74,6 +109,13 @@ void ForwardRenderer::InitLightsUBO() {
 }
 
 void ForwardRenderer::Render(Scene::SceneGraph &scene) {
+    m_Stats = {};
+
+    // Update frustum from camera
+    if (m_FrustumCullingEnabled) {
+        scene.UpdateFrustum();
+    }
+
     // 1. Shadow pass
     if (m_ShadowsEnabled && scene.HasDirectionalLight()) {
         ShadowPass(scene);
@@ -89,14 +131,14 @@ void ForwardRenderer::Render(Scene::SceneGraph &scene) {
 void ForwardRenderer::ShadowPass(Scene::SceneGraph &scene) {
     m_ShadowMap.BeginShadowPass(scene.GetDirectionalLight(), m_SceneRadius);
 
-    auto nodes = scene.FlattenTree();
+    // For shadow pass, we render all visible nodes (no frustum culling
+    // because light's view is different from camera's view)
+    const auto &nodes = scene.FlattenTree();
     for (const auto &node : nodes) {
         if (!node->GetDrawable()) continue;
 
         glm::mat4 model = node->GetWorldTransform();
-        GLint modelLoc = glGetUniformLocation(
-            m_ShadowMap.GetShadowProgram().GetId(), "model");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(m_ShadowModelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
         // Draw with shadow shader (just depth)
         node->GetDrawable()->Draw(Core3D::Matrices3D{});
@@ -106,7 +148,7 @@ void ForwardRenderer::ShadowPass(Scene::SceneGraph &scene) {
 }
 
 void ForwardRenderer::GeometryPass(Scene::SceneGraph &scene) {
-    // 確保繪製到預設 Framebuffer（螢幕），並重新綁定 UBO
+    // Bind default framebuffer and UBOs
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_MatricesUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, m_LightsUBO);
@@ -123,62 +165,49 @@ void ForwardRenderer::GeometryPass(Scene::SceneGraph &scene) {
     Scene::LightsUBO lightsData = scene.BuildLightsUBO();
     UploadLights(lightsData);
 
-    // Upload shadow uniforms
+    // Upload shadow uniforms using cached locations
     if (m_ShadowsEnabled && scene.HasDirectionalLight()) {
         m_ShadowMap.BindShadowTexture(8);
-        GLint lsmLoc = glGetUniformLocation(program.GetId(), "lightSpaceMatrix");
-        glUniformMatrix4fv(lsmLoc, 1, GL_FALSE,
-                           glm::value_ptr(m_ShadowMap.GetLightSpaceMatrix()));
-        GLint shadowEnabledLoc = glGetUniformLocation(program.GetId(),
-                                                       "shadowEnabled");
-        if (shadowEnabledLoc >= 0) glUniform1i(shadowEnabledLoc, 1);
+        GLint lsmLoc = m_UsePBR ? m_PBRLoc.lightSpaceMatrix : m_PhongLoc.lightSpaceMatrix;
+        GLint shadowEnabledLoc = m_UsePBR ? m_PBRLoc.shadowEnabled : m_PhongLoc.shadowEnabled;
+
+        if (lsmLoc >= 0) {
+            glUniformMatrix4fv(lsmLoc, 1, GL_FALSE,
+                               glm::value_ptr(m_ShadowMap.GetLightSpaceMatrix()));
+        }
+        if (shadowEnabledLoc >= 0) {
+            glUniform1i(shadowEnabledLoc, 1);
+        }
     } else {
-        GLint shadowEnabledLoc = glGetUniformLocation(program.GetId(),
-                                                       "shadowEnabled");
-        if (shadowEnabledLoc >= 0) glUniform1i(shadowEnabledLoc, 0);
+        GLint shadowEnabledLoc = m_UsePBR ? m_PBRLoc.shadowEnabled : m_PhongLoc.shadowEnabled;
+        if (shadowEnabledLoc >= 0) {
+            glUniform1i(shadowEnabledLoc, 0);
+        }
     }
 
-    // Set default material properties (used when no Material is attached)
-    if (m_UsePBR) {
-        GLint loc;
-        loc = glGetUniformLocation(program.GetId(), "pbr_albedo");
-        if (loc >= 0) glUniform3f(loc, 0.8f, 0.8f, 0.8f);
-        loc = glGetUniformLocation(program.GetId(), "pbr_metallic");
-        if (loc >= 0) glUniform1f(loc, 0.0f);
-        loc = glGetUniformLocation(program.GetId(), "pbr_roughness");
-        if (loc >= 0) glUniform1f(loc, 0.5f);
-        loc = glGetUniformLocation(program.GetId(), "pbr_ao");
-        if (loc >= 0) glUniform1f(loc, 1.0f);
-        loc = glGetUniformLocation(program.GetId(), "hasAlbedoMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasNormalMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasMetallicMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasRoughnessMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasAOMap");
-        if (loc >= 0) glUniform1i(loc, 0);
+    // Set default material properties
+    SetDefaultMaterialUniforms(program);
+
+    // Get visible nodes (with optional frustum culling)
+    const std::vector<std::shared_ptr<Scene::SceneNode>> *nodesPtr;
+    if (m_FrustumCullingEnabled) {
+        nodesPtr = &scene.FlattenTreeCulled(scene.GetFrustum());
+        const auto &stats = scene.GetCullStats();
+        m_Stats.totalNodes = stats.totalNodes;
+        m_Stats.visibleNodes = stats.visibleNodes;
+        m_Stats.culledNodes = stats.culledNodes;
     } else {
-        GLint loc;
-        loc = glGetUniformLocation(program.GetId(), "material_diffuse");
-        if (loc >= 0) glUniform3f(loc, 0.8f, 0.8f, 0.8f);
-        loc = glGetUniformLocation(program.GetId(), "material_specular");
-        if (loc >= 0) glUniform3f(loc, 1.0f, 1.0f, 1.0f);
-        loc = glGetUniformLocation(program.GetId(), "material_ambient");
-        if (loc >= 0) glUniform3f(loc, 0.1f, 0.1f, 0.1f);
-        loc = glGetUniformLocation(program.GetId(), "material_shininess");
-        if (loc >= 0) glUniform1f(loc, 32.0f);
-        loc = glGetUniformLocation(program.GetId(), "hasDiffuseMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasSpecularMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasNormalMap");
-        if (loc >= 0) glUniform1i(loc, 0);
+        nodesPtr = &scene.FlattenTree();
+        m_Stats.totalNodes = nodesPtr->size();
+        m_Stats.visibleNodes = nodesPtr->size();
     }
 
-    // Render all nodes
-    auto nodes = scene.FlattenTree();
+    const auto &nodes = *nodesPtr;
+
+    // TODO: Material sorting can be added here if m_MaterialSortingEnabled
+    // For now, render in tree order
+
+    // Render all visible nodes
     for (const auto &node : nodes) {
         if (!node->GetDrawable()) continue;
 
@@ -200,6 +229,29 @@ void ForwardRenderer::GeometryPass(Scene::SceneGraph &scene) {
         }
 
         node->GetDrawable()->Draw(matrices);
+        ++m_Stats.drawCalls;
+    }
+}
+
+void ForwardRenderer::SetDefaultMaterialUniforms(Core::Program &program) {
+    if (m_UsePBR) {
+        if (m_PBRLoc.pbr_albedo >= 0) glUniform3f(m_PBRLoc.pbr_albedo, 0.8f, 0.8f, 0.8f);
+        if (m_PBRLoc.pbr_metallic >= 0) glUniform1f(m_PBRLoc.pbr_metallic, 0.0f);
+        if (m_PBRLoc.pbr_roughness >= 0) glUniform1f(m_PBRLoc.pbr_roughness, 0.5f);
+        if (m_PBRLoc.pbr_ao >= 0) glUniform1f(m_PBRLoc.pbr_ao, 1.0f);
+        if (m_PBRLoc.hasAlbedoMap >= 0) glUniform1i(m_PBRLoc.hasAlbedoMap, 0);
+        if (m_PBRLoc.hasNormalMap >= 0) glUniform1i(m_PBRLoc.hasNormalMap, 0);
+        if (m_PBRLoc.hasMetallicMap >= 0) glUniform1i(m_PBRLoc.hasMetallicMap, 0);
+        if (m_PBRLoc.hasRoughnessMap >= 0) glUniform1i(m_PBRLoc.hasRoughnessMap, 0);
+        if (m_PBRLoc.hasAOMap >= 0) glUniform1i(m_PBRLoc.hasAOMap, 0);
+    } else {
+        if (m_PhongLoc.material_diffuse >= 0) glUniform3f(m_PhongLoc.material_diffuse, 0.8f, 0.8f, 0.8f);
+        if (m_PhongLoc.material_specular >= 0) glUniform3f(m_PhongLoc.material_specular, 1.0f, 1.0f, 1.0f);
+        if (m_PhongLoc.material_ambient >= 0) glUniform3f(m_PhongLoc.material_ambient, 0.1f, 0.1f, 0.1f);
+        if (m_PhongLoc.material_shininess >= 0) glUniform1f(m_PhongLoc.material_shininess, 32.0f);
+        if (m_PhongLoc.hasDiffuseMap >= 0) glUniform1i(m_PhongLoc.hasDiffuseMap, 0);
+        if (m_PhongLoc.hasSpecularMap >= 0) glUniform1i(m_PhongLoc.hasSpecularMap, 0);
+        if (m_PhongLoc.hasNormalMap >= 0) glUniform1i(m_PhongLoc.hasNormalMap, 0);
     }
 }
 

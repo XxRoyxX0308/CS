@@ -162,6 +162,13 @@ void App::Update() {
 
         ImGui::Separator();
         ImGui::Text("FPS: %.1f", dt > 0.0f ? 1.0f / dt : 0.0f);
+
+        // 渲染統計 (來自優化後的 ForwardRenderer)
+        const auto &stats = m_Renderer.GetStats();
+        ImGui::Text("Draw Calls: %zu", stats.drawCalls);
+        ImGui::Text("Nodes: %zu visible / %zu total (culled: %zu)",
+                    stats.visibleNodes, stats.totalNodes, stats.culledNodes);
+
         ImGui::Text("[TAB] Toggle cursor  [ESC] Quit");
 
         // 武器資訊
