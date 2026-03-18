@@ -88,11 +88,15 @@ void App::Start() {
     // ── 6. 設定出生點 ──────────────────────────────────────────────────
     m_Player.SpawnOnMap(camera, m_CollisionMesh);
 
-    // ── 7. 裝備武器 ──────────────────────────────────────────────────
+    // ── 7. 初始化角色模型 ────────────────────────────────────────────
+    // 開發階段預設顯示角色模型
+    m_Player.InitModel(m_Scene, Characters::CharacterType::FBI, true);
+
+    // ── 8. 裝備武器 ──────────────────────────────────────────────────
     auto gun = std::make_unique<Gun::AACHoneyBadger>();
     m_Player.EquipGun(std::move(gun), m_Scene);
 
-    // ── 8. 初始化彈孔效果 ────────────────────────────────────────────
+    // ── 9. 初始化彈孔效果 ────────────────────────────────────────────
     m_BulletHoles.Init();
 
     // ── 狀態轉移 ──
@@ -118,6 +122,20 @@ void App::Update() {
         m_CursorLocked = !m_CursorLocked;
         SDL_SetRelativeMouseMode(m_CursorLocked ? SDL_TRUE : SDL_FALSE);
         m_ShowDebugPanel = !m_CursorLocked;
+    }
+
+    // ── V：切換角色模型可見性 ──
+    if (Util::Input::IsKeyDown(Util::Keycode::V)) {
+        m_Player.ToggleModelVisibility();
+    }
+
+    // ── C：切換角色類型（FBI ↔ Terrorist）──
+    if (Util::Input::IsKeyDown(Util::Keycode::C)) {
+        auto currentType = m_Player.GetCharacterModel().GetCharacterType();
+        auto newType = (currentType == Characters::CharacterType::FBI)
+                           ? Characters::CharacterType::TERRORIST
+                           : Characters::CharacterType::FBI;
+        m_Player.SwitchCharacter(m_Scene, newType);
     }
 
     // ── 玩家移動 + 物理 ──
@@ -194,6 +212,18 @@ void App::Update() {
                     stats.visibleNodes, stats.totalNodes, stats.culledNodes);
 
         ImGui::Text("[TAB] Toggle cursor  [ESC] Quit");
+        ImGui::Text("[V] Toggle model  [C] Switch character");
+
+        // 角色血量資訊
+        ImGui::Separator();
+        ImGui::Text("Health: %.0f / %.0f", m_Player.GetHealth(), m_Player.GetMaxHealth());
+        ImGui::Text("Walking: %s", m_Player.IsWalking() ? "YES" : "no");
+        ImGui::Text("Model Visible: %s", m_Player.IsModelVisible() ? "YES" : "no");
+        ImGui::Text("Character: %s",
+                    m_Player.GetCharacterModel().GetCharacterType() ==
+                            Characters::CharacterType::FBI
+                        ? "FBI"
+                        : "Terrorist");
 
         // 武器資訊
         if (auto *gun = m_Player.GetGun()) {

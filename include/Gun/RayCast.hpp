@@ -2,6 +2,7 @@
 #define CS_GUN_RAYCAST_HPP
 
 #include "Collision/CollisionMesh.hpp"
+#include "Collision/CollisionTypes.hpp"
 
 #include <glm/glm.hpp>
 
@@ -32,6 +33,23 @@ namespace RayCast {
                       const glm::vec3 &direction,
                       const Collision::CollisionMesh &mesh,
                       float maxDist = 200.0f);
+
+    /**
+     * @brief Cast a ray against a capsule (for character hit detection).
+     *
+     * Tests ray intersection with a capsule defined by two hemispheres
+     * and a cylinder.
+     *
+     * @param origin    Ray origin (world space).
+     * @param direction Ray direction (must be normalized).
+     * @param capsule   The capsule to test against.
+     * @param maxDist   Maximum ray distance.
+     * @return RayHitResult with hit info (normal points outward from capsule).
+     */
+    RayHitResult CastAgainstCapsule(const glm::vec3 &origin,
+                                    const glm::vec3 &direction,
+                                    const Collision::Capsule &capsule,
+                                    float maxDist = 200.0f);
 
 } // namespace RayCast
 

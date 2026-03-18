@@ -22,6 +22,24 @@ void Player::Init(Core3D::Camera &camera) {
 }
 
 // ============================================================================
+//  InitModel — 初始化角色模型
+// ============================================================================
+void Player::InitModel(Scene::SceneGraph &scene,
+                       Characters::CharacterType type,
+                       bool visible) {
+    m_CharacterModel.Init(scene, type);
+    m_CharacterModel.SetVisible(visible);
+}
+
+// ============================================================================
+//  SwitchCharacter — 切換角色類型
+// ============================================================================
+void Player::SwitchCharacter(Scene::SceneGraph &scene,
+                             Characters::CharacterType type) {
+    m_CharacterModel.SwitchCharacter(scene, type);
+}
+
+// ============================================================================
 //  SpawnOnMap — 找出生點 (膠囊體地面掃掠)
 // ============================================================================
 void Player::SpawnOnMap(Core3D::Camera &camera,
@@ -61,21 +79,29 @@ void Player::EquipGun(std::unique_ptr<Gun::Gun> gun,
 }
 
 // ============================================================================
-//  Update — 輸入 → 移動 → 物理 → 同步攝影機 → 武器
+//  Update — 輸入 → 移動 → 物理 → 同步攝影機 → 武器 → 角色模型
 // ============================================================================
 void Player::Update(float dt, Core3D::Camera &camera,
                     const Collision::CollisionMesh &mesh) {
     // ── WASD 水平移動 ──
     camera.SetPosition(m_Position);
 
-    if (Util::Input::IsKeyPressed(Util::Keycode::W))
+    bool wPressed = Util::Input::IsKeyPressed(Util::Keycode::W);
+    bool sPressed = Util::Input::IsKeyPressed(Util::Keycode::S);
+    bool aPressed = Util::Input::IsKeyPressed(Util::Keycode::A);
+    bool dPressed = Util::Input::IsKeyPressed(Util::Keycode::D);
+
+    if (wPressed)
         camera.ProcessKeyboard(Core3D::CameraMovement::FORWARD, dt);
-    if (Util::Input::IsKeyPressed(Util::Keycode::S))
+    if (sPressed)
         camera.ProcessKeyboard(Core3D::CameraMovement::BACKWARD, dt);
-    if (Util::Input::IsKeyPressed(Util::Keycode::A))
+    if (aPressed)
         camera.ProcessKeyboard(Core3D::CameraMovement::LEFT, dt);
-    if (Util::Input::IsKeyPressed(Util::Keycode::D))
+    if (dPressed)
         camera.ProcessKeyboard(Core3D::CameraMovement::RIGHT, dt);
+
+    // Track walking state for animation
+    m_IsWalking = (wPressed || sPressed || aPressed || dPressed) && m_OnGround;
 
     glm::vec3 desiredPos = camera.GetPosition();
     desiredPos.y = m_Position.y; // 鎖定 Y
@@ -93,6 +119,12 @@ void Player::Update(float dt, Core3D::Camera &camera,
 
     // ── 同步攝影機 ──
     camera.SetPosition(m_Position + glm::vec3(0.0f, m_CameraYOffset, 0.0f));
+
+    // ── 更新角色模型 ──
+    // Position is eye height, model needs feet position
+    glm::vec3 feetPos = m_Position;
+    feetPos.y -= m_Height;
+    m_CharacterModel.Update(dt, feetPos, camera.GetYaw(), m_IsWalking);
 
     // ── 武器系統 ──
     if (m_Gun) {

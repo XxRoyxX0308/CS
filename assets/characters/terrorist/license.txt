@@ -1,0 +1,11 @@
+Model Information:
+* title:	csgo terrorist characters
+* source:	https://sketchfab.com/3d-models/csgo-terrorist-characters-8e72d0e070ee4369a9c2e5d3fca42b6a
+* author:	ErhanMatur (https://sketchfab.com/erhanmatur)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "csgo terrorist characters" (https://sketchfab.com/3d-models/csgo-terrorist-characters-8e72d0e070ee4369a9c2e5d3fca42b6a) by ErhanMatur (https://sketchfab.com/erhanmatur) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

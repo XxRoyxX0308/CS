@@ -2,6 +2,8 @@
 #include "Collision/CollisionMesh.hpp"
 #include "Collision/CapsuleCast.hpp"
 
+#include <algorithm>
+
 // ============================================================================
 //  MakeCapsule — build a Capsule from current position + dimensions
 // ============================================================================
@@ -29,6 +31,26 @@ void Character::Jump() {
         m_VelocityY = m_JumpSpeed;
         m_OnGround = false;
     }
+}
+
+// ============================================================================
+//  Health System
+// ============================================================================
+void Character::SetHealth(float health) {
+    m_Health = std::clamp(health, 0.0f, m_MaxHealth);
+}
+
+bool Character::TakeDamage(float damage) {
+    if (damage <= 0.0f || !IsAlive()) return IsAlive();
+
+    m_Health = std::max(0.0f, m_Health - damage);
+    return IsAlive();
+}
+
+void Character::Heal(float amount) {
+    if (amount <= 0.0f) return;
+
+    m_Health = std::min(m_MaxHealth, m_Health + amount);
 }
 
 // ============================================================================

@@ -68,4 +68,5 @@ CS/
 
 見 [LICENSE](LICENSE)。
 
-[Gun model source](https://sketchfab.com/TastyTony/models)
+[Gun model source] (https://sketchfab.com/TastyTony/models)
+[Character model source] (https://sketchfab.com/erhanmatur/collections/csgo-character-229341bc3fb84b4d931318208d9634e2)
