@@ -3,6 +3,8 @@
 #include "config.hpp"
 #include "Util/Logger.hpp"
 
+#include <chrono>
+
 namespace Render {
 
 ForwardRenderer::ForwardRenderer()
@@ -11,6 +13,11 @@ ForwardRenderer::ForwardRenderer()
       m_UsePBR(PTSD_Config::ENABLE_PBR) {
     InitPrograms();
     InitLightsUBO();
+    CacheUniformLocations();
+
+    // Pre-allocate buffers
+    m_VisibleNodes.reserve(1024);
+    m_FlattenBuffer.reserve(1024);
 }
 
 void ForwardRenderer::InitPrograms() {
@@ -37,6 +44,38 @@ void ForwardRenderer::InitPrograms() {
     glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "texture_roughness0"), 3);
     glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "texture_ao0"), 4);
     glUniform1i(glGetUniformLocation(m_PBRProgram->GetId(), "shadowMap"), 8);
+}
+
+void ForwardRenderer::CacheUniformLocations() {
+    // Cache Phong uniform locations
+    GLuint phongId = m_PhongProgram->GetId();
+    m_PhongUniforms.lightSpaceMatrix = glGetUniformLocation(phongId, "lightSpaceMatrix");
+    m_PhongUniforms.shadowEnabled = glGetUniformLocation(phongId, "shadowEnabled");
+    m_PhongUniforms.materialDiffuse = glGetUniformLocation(phongId, "material_diffuse");
+    m_PhongUniforms.materialSpecular = glGetUniformLocation(phongId, "material_specular");
+    m_PhongUniforms.materialAmbient = glGetUniformLocation(phongId, "material_ambient");
+    m_PhongUniforms.materialShininess = glGetUniformLocation(phongId, "material_shininess");
+    m_PhongUniforms.hasDiffuseMap = glGetUniformLocation(phongId, "hasDiffuseMap");
+    m_PhongUniforms.hasSpecularMap = glGetUniformLocation(phongId, "hasSpecularMap");
+    m_PhongUniforms.hasNormalMap = glGetUniformLocation(phongId, "hasNormalMap");
+
+    // Cache PBR uniform locations
+    GLuint pbrId = m_PBRProgram->GetId();
+    m_PBRUniforms.lightSpaceMatrix = glGetUniformLocation(pbrId, "lightSpaceMatrix");
+    m_PBRUniforms.shadowEnabled = glGetUniformLocation(pbrId, "shadowEnabled");
+    m_PBRUniforms.pbrAlbedo = glGetUniformLocation(pbrId, "pbr_albedo");
+    m_PBRUniforms.pbrMetallic = glGetUniformLocation(pbrId, "pbr_metallic");
+    m_PBRUniforms.pbrRoughness = glGetUniformLocation(pbrId, "pbr_roughness");
+    m_PBRUniforms.pbrAO = glGetUniformLocation(pbrId, "pbr_ao");
+    m_PBRUniforms.hasAlbedoMap = glGetUniformLocation(pbrId, "hasAlbedoMap");
+    m_PBRUniforms.pbrHasNormalMap = glGetUniformLocation(pbrId, "hasNormalMap");
+    m_PBRUniforms.hasMetallicMap = glGetUniformLocation(pbrId, "hasMetallicMap");
+    m_PBRUniforms.hasRoughnessMap = glGetUniformLocation(pbrId, "hasRoughnessMap");
+    m_PBRUniforms.hasAOMap = glGetUniformLocation(pbrId, "hasAOMap");
+
+    // Shadow pass uniform
+    m_ShadowModelLoc = glGetUniformLocation(
+        m_ShadowMap.GetShadowProgram().GetId(), "model");
 }
 
 void ForwardRenderer::InitLightsUBO() {
@@ -74,6 +113,14 @@ void ForwardRenderer::InitLightsUBO() {
 }
 
 void ForwardRenderer::Render(Scene::SceneGraph &scene) {
+    auto frameStart = std::chrono::high_resolution_clock::now();
+    m_Stats = RenderStats{}; // Reset stats
+
+    // Update frustum from camera
+    const auto &camera = scene.GetCamera();
+    glm::mat4 viewProj = camera.GetProjectionMatrix() * camera.GetViewMatrix();
+    m_Frustum.Update(viewProj);
+
     // 1. Shadow pass
     if (m_ShadowsEnabled && scene.HasDirectionalLight()) {
         ShadowPass(scene);
@@ -84,22 +131,67 @@ void ForwardRenderer::Render(Scene::SceneGraph &scene) {
 
     // 3. Skybox pass
     SkyboxPass(scene);
+
+    auto frameEnd = std::chrono::high_resolution_clock::now();
+    m_Stats.renderTimeMs = std::chrono::duration<float, std::milli>(
+        frameEnd - frameStart).count();
+}
+
+void ForwardRenderer::FrustumCull(
+    Scene::SceneGraph &scene,
+    std::vector<Scene::SceneNode *> &outVisibleNodes) {
+
+    auto cullStart = std::chrono::high_resolution_clock::now();
+    outVisibleNodes.clear();
+
+    // Reuse flatten buffer (avoids allocation)
+    m_FlattenBuffer.clear();
+    scene.FlattenTreeInto(m_FlattenBuffer);
+
+    m_Stats.totalNodes = static_cast<uint32_t>(m_FlattenBuffer.size());
+
+    for (const auto &nodePtr : m_FlattenBuffer) {
+        Scene::SceneNode *node = nodePtr.get();
+        if (!node->GetDrawable()) continue;
+
+        // Always-visible nodes bypass culling
+        if (node->IsAlwaysVisible()) {
+            outVisibleNodes.push_back(node);
+            continue;
+        }
+
+        // Frustum culling
+        if (m_FrustumCullingEnabled && node->HasAABB()) {
+            const Core3D::AABB &worldAABB = node->GetWorldAABB();
+            if (!m_Frustum.ContainsAABB(worldAABB)) {
+                m_Stats.culledNodes++;
+                continue;
+            }
+        }
+
+        outVisibleNodes.push_back(node);
+    }
+
+    m_Stats.visibleNodes = static_cast<uint32_t>(outVisibleNodes.size());
+
+    auto cullEnd = std::chrono::high_resolution_clock::now();
+    m_Stats.frustumCullTimeMs = std::chrono::duration<float, std::milli>(
+        cullEnd - cullStart).count();
 }
 
 void ForwardRenderer::ShadowPass(Scene::SceneGraph &scene) {
     m_ShadowMap.BeginShadowPass(scene.GetDirectionalLight(), m_SceneRadius);
 
-    auto nodes = scene.FlattenTree();
-    for (const auto &node : nodes) {
-        if (!node->GetDrawable()) continue;
+    // Cull nodes for shadow pass (use same frustum - could optimize with light frustum)
+    FrustumCull(scene, m_VisibleNodes);
 
-        glm::mat4 model = node->GetWorldTransform();
-        GLint modelLoc = glGetUniformLocation(
-            m_ShadowMap.GetShadowProgram().GetId(), "model");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    for (Scene::SceneNode *node : m_VisibleNodes) {
+        const glm::mat4 &model = node->GetWorldTransform();
+        glUniformMatrix4fv(m_ShadowModelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
         // Draw with shadow shader (just depth)
         node->GetDrawable()->Draw(Core3D::Matrices3D{});
+        m_Stats.drawCalls++;
     }
 
     m_ShadowMap.EndShadowPass();
@@ -115,75 +207,75 @@ void ForwardRenderer::GeometryPass(Scene::SceneGraph &scene) {
     glm::mat4 view = camera.GetViewMatrix();
     glm::mat4 projection = camera.GetProjectionMatrix();
 
-    // Choose shader program
+    // Choose shader program and uniforms
     Core::Program &program = m_UsePBR ? *m_PBRProgram : *m_PhongProgram;
+    const UniformLocations &uniforms = m_UsePBR ? m_PBRUniforms : m_PhongUniforms;
     program.Bind();
 
     // Upload lights
     Scene::LightsUBO lightsData = scene.BuildLightsUBO();
     UploadLights(lightsData);
 
-    // Upload shadow uniforms
+    // Upload shadow uniforms (using cached locations)
     if (m_ShadowsEnabled && scene.HasDirectionalLight()) {
         m_ShadowMap.BindShadowTexture(8);
-        GLint lsmLoc = glGetUniformLocation(program.GetId(), "lightSpaceMatrix");
-        glUniformMatrix4fv(lsmLoc, 1, GL_FALSE,
-                           glm::value_ptr(m_ShadowMap.GetLightSpaceMatrix()));
-        GLint shadowEnabledLoc = glGetUniformLocation(program.GetId(),
-                                                       "shadowEnabled");
-        if (shadowEnabledLoc >= 0) glUniform1i(shadowEnabledLoc, 1);
+        if (uniforms.lightSpaceMatrix >= 0) {
+            glUniformMatrix4fv(uniforms.lightSpaceMatrix, 1, GL_FALSE,
+                               glm::value_ptr(m_ShadowMap.GetLightSpaceMatrix()));
+        }
+        if (uniforms.shadowEnabled >= 0) {
+            glUniform1i(uniforms.shadowEnabled, 1);
+        }
     } else {
-        GLint shadowEnabledLoc = glGetUniformLocation(program.GetId(),
-                                                       "shadowEnabled");
-        if (shadowEnabledLoc >= 0) glUniform1i(shadowEnabledLoc, 0);
+        if (uniforms.shadowEnabled >= 0) {
+            glUniform1i(uniforms.shadowEnabled, 0);
+        }
     }
 
-    // Set default material properties (used when no Material is attached)
+    // Set default material properties (using cached locations)
     if (m_UsePBR) {
-        GLint loc;
-        loc = glGetUniformLocation(program.GetId(), "pbr_albedo");
-        if (loc >= 0) glUniform3f(loc, 0.8f, 0.8f, 0.8f);
-        loc = glGetUniformLocation(program.GetId(), "pbr_metallic");
-        if (loc >= 0) glUniform1f(loc, 0.0f);
-        loc = glGetUniformLocation(program.GetId(), "pbr_roughness");
-        if (loc >= 0) glUniform1f(loc, 0.5f);
-        loc = glGetUniformLocation(program.GetId(), "pbr_ao");
-        if (loc >= 0) glUniform1f(loc, 1.0f);
-        loc = glGetUniformLocation(program.GetId(), "hasAlbedoMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasNormalMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasMetallicMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasRoughnessMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasAOMap");
-        if (loc >= 0) glUniform1i(loc, 0);
+        if (m_PBRUniforms.pbrAlbedo >= 0)
+            glUniform3f(m_PBRUniforms.pbrAlbedo, 0.8f, 0.8f, 0.8f);
+        if (m_PBRUniforms.pbrMetallic >= 0)
+            glUniform1f(m_PBRUniforms.pbrMetallic, 0.0f);
+        if (m_PBRUniforms.pbrRoughness >= 0)
+            glUniform1f(m_PBRUniforms.pbrRoughness, 0.5f);
+        if (m_PBRUniforms.pbrAO >= 0)
+            glUniform1f(m_PBRUniforms.pbrAO, 1.0f);
+        if (m_PBRUniforms.hasAlbedoMap >= 0)
+            glUniform1i(m_PBRUniforms.hasAlbedoMap, 0);
+        if (m_PBRUniforms.pbrHasNormalMap >= 0)
+            glUniform1i(m_PBRUniforms.pbrHasNormalMap, 0);
+        if (m_PBRUniforms.hasMetallicMap >= 0)
+            glUniform1i(m_PBRUniforms.hasMetallicMap, 0);
+        if (m_PBRUniforms.hasRoughnessMap >= 0)
+            glUniform1i(m_PBRUniforms.hasRoughnessMap, 0);
+        if (m_PBRUniforms.hasAOMap >= 0)
+            glUniform1i(m_PBRUniforms.hasAOMap, 0);
     } else {
-        GLint loc;
-        loc = glGetUniformLocation(program.GetId(), "material_diffuse");
-        if (loc >= 0) glUniform3f(loc, 0.8f, 0.8f, 0.8f);
-        loc = glGetUniformLocation(program.GetId(), "material_specular");
-        if (loc >= 0) glUniform3f(loc, 1.0f, 1.0f, 1.0f);
-        loc = glGetUniformLocation(program.GetId(), "material_ambient");
-        if (loc >= 0) glUniform3f(loc, 0.1f, 0.1f, 0.1f);
-        loc = glGetUniformLocation(program.GetId(), "material_shininess");
-        if (loc >= 0) glUniform1f(loc, 32.0f);
-        loc = glGetUniformLocation(program.GetId(), "hasDiffuseMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasSpecularMap");
-        if (loc >= 0) glUniform1i(loc, 0);
-        loc = glGetUniformLocation(program.GetId(), "hasNormalMap");
-        if (loc >= 0) glUniform1i(loc, 0);
+        if (m_PhongUniforms.materialDiffuse >= 0)
+            glUniform3f(m_PhongUniforms.materialDiffuse, 0.8f, 0.8f, 0.8f);
+        if (m_PhongUniforms.materialSpecular >= 0)
+            glUniform3f(m_PhongUniforms.materialSpecular, 1.0f, 1.0f, 1.0f);
+        if (m_PhongUniforms.materialAmbient >= 0)
+            glUniform3f(m_PhongUniforms.materialAmbient, 0.1f, 0.1f, 0.1f);
+        if (m_PhongUniforms.materialShininess >= 0)
+            glUniform1f(m_PhongUniforms.materialShininess, 32.0f);
+        if (m_PhongUniforms.hasDiffuseMap >= 0)
+            glUniform1i(m_PhongUniforms.hasDiffuseMap, 0);
+        if (m_PhongUniforms.hasSpecularMap >= 0)
+            glUniform1i(m_PhongUniforms.hasSpecularMap, 0);
+        if (m_PhongUniforms.hasNormalMap >= 0)
+            glUniform1i(m_PhongUniforms.hasNormalMap, 0);
     }
 
-    // Render all nodes
-    auto nodes = scene.FlattenTree();
-    for (const auto &node : nodes) {
-        if (!node->GetDrawable()) continue;
+    // Frustum cull and render visible nodes
+    FrustumCull(scene, m_VisibleNodes);
 
-        glm::mat4 model = node->GetWorldTransform();
-        glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
+    for (Scene::SceneNode *node : m_VisibleNodes) {
+        // Use cached world transform and normal matrix
+        const glm::mat4 &model = node->GetWorldTransform();
+        const glm::mat4 &normalMatrix = node->GetNormalMatrix();
 
         Core3D::Matrices3D matrices;
         matrices.m_Model = model;
@@ -200,6 +292,7 @@ void ForwardRenderer::GeometryPass(Scene::SceneGraph &scene) {
         }
 
         node->GetDrawable()->Draw(matrices);
+        m_Stats.drawCalls++;
     }
 }
 

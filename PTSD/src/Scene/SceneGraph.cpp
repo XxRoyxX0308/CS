@@ -17,10 +17,16 @@ void SceneGraph::RemoveNode(const std::shared_ptr<SceneNode> &node) {
 
 std::vector<std::shared_ptr<SceneNode>> SceneGraph::FlattenTree() const {
     std::vector<std::shared_ptr<SceneNode>> result;
-    for (const auto &child : m_Root->GetChildren()) {
-        FlattenNode(child, result);
-    }
+    FlattenTreeInto(result);
     return result;
+}
+
+void SceneGraph::FlattenTreeInto(
+    std::vector<std::shared_ptr<SceneNode>> &outNodes) const {
+    outNodes.clear();
+    for (const auto &child : m_Root->GetChildren()) {
+        FlattenNode(child, outNodes);
+    }
 }
 
 void SceneGraph::FlattenNode(

@@ -76,6 +76,7 @@ void App::Start() {
     m_MapNode->SetRotation(
         glm::quat(glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f)));
     m_MapNode->SetDrawable(m_MapModel);
+    m_MapNode->SetStatic(true);  // Mark as static for optimization hints
     m_Scene.GetRoot()->AddChild(m_MapNode);
 
     // 擴大陰影範圍以覆蓋整張地圖
@@ -163,6 +164,21 @@ void App::Update() {
         ImGui::Separator();
         ImGui::Text("FPS: %.1f", dt > 0.0f ? 1.0f / dt : 0.0f);
         ImGui::Text("[TAB] Toggle cursor  [ESC] Quit");
+
+        // 渲染統計
+        {
+            const auto &stats = m_Renderer.GetLastFrameStats();
+            ImGui::Separator();
+            ImGui::Text("=== Render Stats ===");
+            ImGui::Text("Visible/Total: %u/%u", stats.visibleNodes, stats.totalNodes);
+            ImGui::Text("Culled: %u (%.1f%%)", stats.culledNodes,
+                        stats.totalNodes > 0
+                            ? 100.0f * stats.culledNodes / stats.totalNodes
+                            : 0.0f);
+            ImGui::Text("Draw Calls: %u", stats.drawCalls);
+            ImGui::Text("Cull Time: %.2f ms", stats.frustumCullTimeMs);
+            ImGui::Text("Render Time: %.2f ms", stats.renderTimeMs);
+        }
 
         // 武器資訊
         if (auto *gun = m_Player.GetGun()) {

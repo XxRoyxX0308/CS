@@ -56,6 +56,12 @@ public:
      */
     std::vector<std::shared_ptr<SceneNode>> FlattenTree() const;
 
+    /**
+     * @brief Flatten into a pre-allocated buffer (avoids per-frame allocation).
+     * @param outNodes Output buffer to fill (will be cleared first).
+     */
+    void FlattenTreeInto(std::vector<std::shared_ptr<SceneNode>> &outNodes) const;
+
     // ====== Camera ======
 
     Core3D::Camera &GetCamera() { return m_Camera; }
