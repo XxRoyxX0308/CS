@@ -8,6 +8,7 @@
 //  ③ 地圖網格碰撞（Mesh collision）讓腳色站在地面上
 //  ④ 方向光（太陽光）+ ForwardRenderer 渲染
 //  ⑤ TAB 切換 Debug 面板 / 游標鎖定
+//  ⑥ 網路連線 (LAN Listen Server)
 // ============================================================================
 
 #include "App.hpp"
@@ -20,16 +21,12 @@
 #include "Util/Time.hpp"
 
 #include <SDL.h>
+#include <imgui.h>
 
 // ============================================================================
 //  BuildMapTransform — Source engine Z-up → OpenGL Y-up, Hammer → meters
 // ============================================================================
 static glm::mat4 BuildMapTransform() {
-    // Source / Hammer coordinate system: X-right, Y-forward, Z-up
-    // OpenGL: X-right, Y-up, Z-backward
-    // → Rotate -90° around X to swap Y↔Z, then scale Hammer units to meters.
-    //   1 Hammer unit ≈ 0.01905 m → scale factor ~0.02
-
     constexpr float SCALE = 0.02f;
 
     glm::mat4 transform(1.0f);
@@ -37,6 +34,262 @@ static glm::mat4 BuildMapTransform() {
     transform = glm::rotate(transform, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
     return transform;
+}
+
+// ============================================================================
+//  SetupNetworkCallbacks — 設置網路事件回調
+// ============================================================================
+void App::SetupNetworkCallbacks() {
+    m_Network.SetOnPlayerJoined([this](uint8_t playerId, const std::string& name) {
+        LOG_INFO("Player {} ({}) joined the game", name, playerId);
+
+        // Create remote player
+        auto& remote = m_RemotePlayers[playerId];
+        remote.SetPlayerId(playerId);
+        remote.Init(m_Scene, Characters::CharacterType::TERRORIST);
+    });
+
+    m_Network.SetOnPlayerLeft([this](uint8_t playerId) {
+        LOG_INFO("Player {} left the game", playerId);
+
+        // Remove remote player
+        auto it = m_RemotePlayers.find(playerId);
+        if (it != m_RemotePlayers.end()) {
+            it->second.SetVisible(false);
+            m_RemotePlayers.erase(it);
+        }
+    });
+
+    m_Network.SetOnConnected([this](uint8_t playerId) {
+        LOG_INFO("Connected to server as player {}", playerId);
+        m_MenuState.isConnecting = false;
+        m_CurrentState = State::GAME_START;
+    });
+
+    m_Network.SetOnDisconnected([this]() {
+        LOG_INFO("Disconnected from server");
+        m_RemotePlayers.clear();
+        m_CurrentState = State::MAIN_MENU;
+    });
+
+    m_Network.SetOnBulletEffect([this](const glm::vec3& pos, const glm::vec3& normal) {
+        HandleBulletEffect(pos, normal);
+    });
+}
+
+// ============================================================================
+//  SampleLocalInput — 採樣本地輸入狀態
+// ============================================================================
+Network::InputState App::SampleLocalInput() const {
+    Network::InputState input;
+    input.keys = 0;
+
+    if (Util::Input::IsKeyPressed(Util::Keycode::W)) input.keys |= Network::INPUT_W;
+    if (Util::Input::IsKeyPressed(Util::Keycode::S)) input.keys |= Network::INPUT_S;
+    if (Util::Input::IsKeyPressed(Util::Keycode::A)) input.keys |= Network::INPUT_A;
+    if (Util::Input::IsKeyPressed(Util::Keycode::D)) input.keys |= Network::INPUT_D;
+    if (Util::Input::IsKeyDown(Util::Keycode::SPACE)) input.keys |= Network::INPUT_JUMP;
+    if (Util::Input::IsKeyPressed(Util::Keycode::MOUSE_LB)) input.keys |= Network::INPUT_FIRE;
+    if (Util::Input::IsKeyDown(Util::Keycode::R)) input.keys |= Network::INPUT_RELOAD;
+
+    auto& camera = m_Scene.GetCamera();
+    input.yaw = camera.GetYaw();
+    input.pitch = camera.GetPitch();
+
+    return input;
+}
+
+// ============================================================================
+//  HandleBulletEffect — 處理彈孔效果
+// ============================================================================
+void App::HandleBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
+    m_BulletHoles.SpawnHole(pos, normal);
+}
+
+// ============================================================================
+//  MainMenu() — 主選單
+// ============================================================================
+void App::MainMenu() {
+    // 釋放游標
+    if (m_CursorLocked) {
+        SDL_SetRelativeMouseMode(SDL_FALSE);
+        m_CursorLocked = false;
+    }
+
+    // 設置網路回調
+    static bool callbacksSetup = false;
+    if (!callbacksSetup) {
+        SetupNetworkCallbacks();
+        callbacksSetup = true;
+    }
+
+    // 清除螢幕
+    glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // 更新網路（用於 LAN 發現）
+    const float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+    m_Network.Update(dt);
+
+    // 主選單視窗
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(450, 400));
+
+    ImGui::Begin("Counter-Strike LAN", nullptr,
+                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "CS:GO Style FPS - LAN Multiplayer");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // ── 玩家名稱 ──
+    ImGui::Text("Player Name:");
+    ImGui::InputText("##PlayerName", m_MenuState.playerName, sizeof(m_MenuState.playerName));
+    ImGui::Spacing();
+
+    ImGui::Separator();
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 創建遊戲區塊
+    // ══════════════════════════════════════════════════════════════════════
+    ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Host a Game");
+
+    ImGui::Text("Server Name:");
+    ImGui::InputText("##ServerName", m_MenuState.serverName, sizeof(m_MenuState.serverName));
+
+    if (ImGui::Button("Create Game", ImVec2(200, 40))) {
+        if (m_Network.HostGame(Network::DEFAULT_PORT, m_MenuState.serverName, m_MenuState.playerName)) {
+            m_CurrentState = State::LOBBY;
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 加入遊戲區塊
+    // ══════════════════════════════════════════════════════════════════════
+    ImGui::TextColored(ImVec4(0.2f, 0.6f, 1.0f, 1.0f), "Join a Game");
+
+    // 手動 IP 輸入
+    ImGui::Text("IP Address:");
+    ImGui::SetNextItemWidth(200);
+    ImGui::InputText("##IPAddress", m_MenuState.ipAddress, sizeof(m_MenuState.ipAddress));
+    ImGui::SameLine();
+    if (ImGui::Button("Connect")) {
+        if (m_Network.JoinGame(m_MenuState.ipAddress, Network::DEFAULT_PORT, m_MenuState.playerName)) {
+            m_MenuState.isConnecting = true;
+            m_MenuState.connectionTimer = 0.0f;
+        }
+    }
+
+    // LAN 伺服器列表
+    ImGui::Text("LAN Servers:");
+    ImGui::BeginChild("ServerList", ImVec2(0, 80), true);
+
+    const auto& servers = m_Network.GetDiscoveredServers();
+    for (size_t i = 0; i < servers.size(); ++i) {
+        const auto& server = servers[i];
+        char label[128];
+        snprintf(label, sizeof(label), "%s (%d/%d) - %s:%d",
+                 server.name.c_str(), server.playerCount, server.maxPlayers,
+                 server.ip.c_str(), server.port);
+
+        if (ImGui::Selectable(label, m_MenuState.selectedServerIndex == static_cast<int>(i))) {
+            m_MenuState.selectedServerIndex = static_cast<int>(i);
+            strncpy(m_MenuState.ipAddress, server.ip.c_str(), sizeof(m_MenuState.ipAddress) - 1);
+        }
+    }
+
+    ImGui::EndChild();
+
+    // 探索按鈕
+    if (m_Network.IsDiscovering()) {
+        if (ImGui::Button("Stop Refresh")) {
+            m_Network.StopDiscovery();
+        }
+    } else {
+        if (ImGui::Button("Refresh LAN")) {
+            m_Network.StartDiscovery();
+        }
+    }
+
+    // 連線中狀態
+    if (m_MenuState.isConnecting) {
+        m_MenuState.connectionTimer += dt;
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Connecting...");
+
+        if (m_MenuState.connectionTimer > 5.0f) {
+            m_MenuState.isConnecting = false;
+            m_Network.Disconnect();
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    // ── 退出按鈕 ──
+    if (ImGui::Button("Quit", ImVec2(100, 30))) {
+        m_CurrentState = State::GAME_END;
+    }
+
+    ImGui::End();
+}
+
+// ============================================================================
+//  Lobby() — 大廳（等待玩家）
+// ============================================================================
+void App::Lobby() {
+    // 清除螢幕
+    glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    const float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+    m_Network.Update(dt);
+
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(350, 250));
+
+    ImGui::Begin("Game Lobby", nullptr,
+                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+
+    if (m_Network.IsHost()) {
+        ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Hosting: %s", m_Network.GetGameName().c_str());
+        ImGui::Text("Players: %d/%d", m_Network.GetPlayerCount(), Network::MAX_PLAYERS);
+        ImGui::Separator();
+
+        ImGui::Text("Players in lobby:");
+        ImGui::BulletText("Host (You)");
+
+        for (const auto& [playerId, info] : m_RemotePlayers) {
+            ImGui::BulletText("Player %d", playerId);
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        if (ImGui::Button("Start Game", ImVec2(150, 40))) {
+            m_CurrentState = State::GAME_START;
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(100, 40))) {
+            m_Network.Disconnect();
+            m_CurrentState = State::MAIN_MENU;
+        }
+    } else {
+        // Client mode (should not normally be here, transitions directly to GAME_START)
+        ImGui::Text("Waiting for connection...");
+
+        if (ImGui::Button("Cancel", ImVec2(100, 40))) {
+            m_Network.Disconnect();
+            m_CurrentState = State::MAIN_MENU;
+        }
+    }
+
+    ImGui::End();
 }
 
 // ============================================================================
@@ -48,11 +301,11 @@ void App::Start() {
     // ── 1. 攝影機 & 玩家設定 ──────────────────────────────────────────────
     auto &camera = m_Scene.GetCamera();
     m_Player.Init(camera);
-    
+
     // ── 2. 鎖定游標（FPS 模式）──────────────────────────────────────────
     SDL_SetRelativeMouseMode(SDL_TRUE);
     m_CursorLocked = true;
-    
+
     // ── 3. 方向光（太陽光）──────────────────────────────────────────────
     Scene::DirectionalLight sun;
     sun.direction = glm::normalize(glm::vec3(-0.5f, -1.0f, -0.3f));
@@ -70,7 +323,6 @@ void App::Start() {
     m_MapModel = std::make_shared<Core3D::Model>(mapPath, false);
     m_MapNode = std::make_shared<Scene::SceneNode>();
 
-    // 從 transform 矩陣拆出 scale 與 rotation 給 SceneNode
     constexpr float SCALE = 0.02f;
     m_MapNode->SetScale(glm::vec3(SCALE));
     m_MapNode->SetRotation(
@@ -78,7 +330,6 @@ void App::Start() {
     m_MapNode->SetDrawable(m_MapModel);
     m_Scene.GetRoot()->AddChild(m_MapNode);
 
-    // 擴大陰影範圍以覆蓋整張地圖
     m_Renderer.SetSceneRadius(80.0f);
 
     // ── 5. 建立地圖碰撞 ────────────────────────────────────────────────
@@ -89,7 +340,6 @@ void App::Start() {
     m_Player.SpawnOnMap(camera, m_CollisionMesh);
 
     // ── 7. 初始化角色模型 ────────────────────────────────────────────
-    // 開發階段預設顯示角色模型
     m_Player.InitModel(m_Scene, Characters::CharacterType::FBI, true);
 
     // ── 8. 裝備武器 ──────────────────────────────────────────────────
@@ -100,8 +350,112 @@ void App::Start() {
     m_BulletHoles.Init();
 
     // ── 狀態轉移 ──
-    m_CurrentState = State::UPDATE;
+    m_CurrentState = State::GAME_UPDATE;
     LOG_TRACE("App::Start complete");
+}
+
+// ============================================================================
+//  BuildAndBroadcastGameState — 建立並廣播遊戲狀態（Host only）
+// ============================================================================
+void App::BuildAndBroadcastGameState() {
+    if (!m_Network.IsHost()) return;
+
+    std::vector<Network::NetPlayerState> states;
+
+    // Add host player (player 0)
+    Network::NetPlayerState hostState;
+    hostState.playerId = 0;
+    hostState.SetPosition(m_Player.GetPosition());
+
+    auto& camera = m_Scene.GetCamera();
+    hostState.yaw = camera.GetYaw();
+    hostState.pitch = camera.GetPitch();
+    hostState.velocityY = m_Player.GetVelocityY();
+    hostState.health = static_cast<uint8_t>(m_Player.GetHealth());
+    hostState.currentAmmo = m_Player.GetGun() ? m_Player.GetGun()->GetCurrentAmmo() : 0;
+
+    hostState.flags = 0;
+    if (m_Player.IsOnGround()) hostState.flags |= Network::FLAG_ON_GROUND;
+    if (m_Player.GetGun() && m_Player.GetGun()->IsReloading()) hostState.flags |= Network::FLAG_IS_RELOADING;
+    hostState.flags |= Network::FLAG_IS_ALIVE;
+    if (m_Player.IsWalking()) hostState.flags |= Network::FLAG_IS_WALKING;
+
+    states.push_back(hostState);
+
+    // Add remote players
+    for (const auto& [playerId, remote] : m_RemotePlayers) {
+        Network::NetPlayerState state;
+        state.playerId = playerId;
+        state.SetPosition(remote.GetPosition());
+        state.yaw = remote.GetYaw();
+        state.pitch = remote.GetPitch();
+        state.health = static_cast<uint8_t>(remote.GetHealth());
+        state.flags = remote.IsAlive() ? Network::FLAG_IS_ALIVE : 0;
+        states.push_back(state);
+    }
+
+    m_Network.BroadcastGameState(states.data(), static_cast<uint8_t>(states.size()));
+}
+
+// ============================================================================
+//  ProcessRemoteInputs — 處理遠端玩家輸入（Host only）
+// ============================================================================
+void App::ProcessRemoteInputs(float dt) {
+    auto inputs = m_Network.GetPendingInputs();
+
+    for (const auto& pending : inputs) {
+        auto it = m_RemotePlayers.find(pending.playerId);
+        if (it == m_RemotePlayers.end()) continue;
+
+        // Simple state update based on input
+        // In a full implementation, we would simulate physics here
+        Network::NetPlayerState state;
+        state.playerId = pending.playerId;
+        state.yaw = pending.input.yaw;
+        state.pitch = pending.input.pitch;
+
+        // For now, just update the rotation
+        it->second.SetInterpolatedTransform(
+            it->second.GetPosition(),
+            pending.input.yaw,
+            pending.input.pitch
+        );
+    }
+}
+
+// ============================================================================
+//  UpdateNetworkHost — Host 模式更新
+// ============================================================================
+void App::UpdateNetworkHost(float dt) {
+    // Process network events
+    m_Network.Update(dt);
+
+    // Process remote player inputs
+    ProcessRemoteInputs(dt);
+
+    // Broadcast game state
+    BuildAndBroadcastGameState();
+}
+
+// ============================================================================
+//  UpdateNetworkClient — Client 模式更新
+// ============================================================================
+void App::UpdateNetworkClient(float dt) {
+    // Process network events
+    m_Network.Update(dt);
+
+    // Send local input
+    Network::InputState input = SampleLocalInput();
+    m_Network.SendInput(input);
+
+    // Update remote players with interpolated state
+    float renderTime = m_Network.GetRenderTime();
+    for (auto& [playerId, remote] : m_RemotePlayers) {
+        auto state = m_Network.GetInterpolatedState(playerId);
+        if (state) {
+            remote.UpdateFromNetworkState(*state, dt);
+        }
+    }
 }
 
 // ============================================================================
@@ -113,7 +467,8 @@ void App::Update() {
 
     // ── 退出 ──
     if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) {
-        m_CurrentState = State::END;
+        m_Network.Disconnect();
+        m_CurrentState = State::GAME_END;
         return;
     }
 
@@ -138,22 +493,40 @@ void App::Update() {
         m_Player.SwitchCharacter(m_Scene, newType);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // 網路更新
+    // ══════════════════════════════════════════════════════════════════════
+    if (m_Network.IsHost()) {
+        UpdateNetworkHost(dt);
+    } else if (m_Network.IsClient()) {
+        UpdateNetworkClient(dt);
+    }
+
     // ── 玩家移動 + 物理 ──
     m_Player.Update(dt, camera, m_CollisionMesh);
 
     // ── 檢查子彈命中並生成彈孔 ──
     if (auto *gun = m_Player.GetGun()) {
         const auto &hit = gun->GetLastHit();
-        // Check if this is a new hit (simple check: distance > 0 means recent hit)
         static glm::vec3 lastHitPoint(0.0f);
         if (hit.hit && hit.point != lastHitPoint) {
             m_BulletHoles.SpawnHole(hit.point, hit.normal);
             lastHitPoint = hit.point;
+
+            // Broadcast bullet effect to all clients (if host)
+            if (m_Network.IsHost()) {
+                m_Network.BroadcastBulletEffect(hit.point, hit.normal);
+            }
         }
     }
 
     // ── 更新彈孔效果 ──
     m_BulletHoles.Update(dt);
+
+    // ── 更新遠端玩家 ──
+    for (auto& [playerId, remote] : m_RemotePlayers) {
+        // Remote players are updated via network state
+    }
 
     // ── 滑鼠視角（FPS 鎖定模式）──
     if (m_CursorLocked) {
@@ -162,15 +535,9 @@ void App::Update() {
         if (xrel != 0 || yrel != 0) {
             camera.ProcessMouseMovement(
                 static_cast<float>(xrel),
-                static_cast<float>(-yrel)); // SDL Y 向下，pitch 向上為正
+                static_cast<float>(-yrel));
         }
     }
-
-    // // ── 滾輪縮放 FOV ──
-    // if (Util::Input::IfScroll()) {
-    //     auto scroll = Util::Input::GetScrollDistance();
-    //     camera.ProcessMouseScroll(scroll.y);
-    // }
 
     // ── 渲染 ──
     m_Renderer.Render(m_Scene);
@@ -194,7 +561,6 @@ void App::Update() {
         ImGui::Text("VelocityY: %.2f", m_Player.GetVelocityY());
         ImGui::Text("OnGround: %s", m_Player.IsOnGround() ? "true" : "false");
 
-        // 地圖碰撞資訊
         {
             Collision::Capsule dbgCap = m_Player.MakeCapsule();
             auto dbgGround = Collision::CapsuleCast::SweepVertical(dbgCap, m_CollisionMesh, -6.0f);
@@ -205,7 +571,6 @@ void App::Update() {
         ImGui::Separator();
         ImGui::Text("FPS: %.1f", dt > 0.0f ? 1.0f / dt : 0.0f);
 
-        // 渲染統計 (來自優化後的 ForwardRenderer)
         const auto &stats = m_Renderer.GetStats();
         ImGui::Text("Draw Calls: %zu", stats.drawCalls);
         ImGui::Text("Nodes: %zu visible / %zu total (culled: %zu)",
@@ -213,6 +578,19 @@ void App::Update() {
 
         ImGui::Text("[TAB] Toggle cursor  [ESC] Quit");
         ImGui::Text("[V] Toggle model  [C] Switch character");
+
+        // 網路狀態
+        ImGui::Separator();
+        if (m_Network.IsHost()) {
+            ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Mode: HOST");
+            ImGui::Text("Players: %d", m_Network.GetPlayerCount());
+        } else if (m_Network.IsClient()) {
+            ImGui::TextColored(ImVec4(0.2f, 0.6f, 1.0f, 1.0f), "Mode: CLIENT");
+            ImGui::Text("Player ID: %d", m_Network.GetLocalPlayerId());
+        } else {
+            ImGui::Text("Mode: OFFLINE");
+        }
+        ImGui::Text("Remote Players: %zu", m_RemotePlayers.size());
 
         // 角色血量資訊
         ImGui::Separator();
@@ -250,5 +628,6 @@ void App::Update() {
 // ============================================================================
 void App::End() {
     LOG_TRACE("App::End");
+    m_Network.Disconnect();
     SDL_SetRelativeMouseMode(SDL_FALSE);
 }

@@ -109,6 +109,14 @@ FetchContent_Declare(
     SOURCE_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/lib/stb
 )
 
+FetchContent_Declare(
+    enet
+
+    GIT_REPOSITORY  https://github.com/lsalzman/enet.git
+    GIT_TAG         v1.3.18
+    SOURCE_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/lib/enet
+)
+
 set(BUILD_SHARED_LIBS FALSE)
 
 set(SDL2IMAGE_INSTALL OFF)
@@ -142,7 +150,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 add_compile_definitions(GLEW_NO_GLU)
 
-FetchContent_MakeAvailable(glew sdl2 sdl2_image sdl2_ttf sdl2_mixer spdlog glm googletest imgui nlohmann_json assimp stb)
+FetchContent_MakeAvailable(glew sdl2 sdl2_image sdl2_ttf sdl2_mixer spdlog glm googletest imgui nlohmann_json assimp stb enet)
 
 # stb is header-only, create an interface library
 add_library(stb INTERFACE)
@@ -189,7 +197,14 @@ set(DEPENDENCY_LINK_LIBRARIES
 
     assimp::assimp
     stb
+
+    enet
 )
+
+# Windows needs winsock for ENet
+if(WIN32)
+    list(APPEND DEPENDENCY_LINK_LIBRARIES ws2_32 winmm)
+endif()
 
 set(DEPENDENCY_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/sdl2/include/
@@ -201,4 +216,5 @@ set(DEPENDENCY_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/assimp/include/
     ${CMAKE_BINARY_DIR}/lib/assimp/include/
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/stb/
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/enet/include/
 )

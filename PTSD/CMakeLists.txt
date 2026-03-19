@@ -165,6 +165,12 @@ target_include_directories(PTSD SYSTEM PRIVATE
 target_include_directories(PTSD PRIVATE
     ${INCLUDE_DIR}
 )
+
+# Prevent Windows min/max macros from interfering with std library
+if(WIN32)
+    target_compile_definitions(PTSD PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(PTSD PRIVATE PTSD_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 else()

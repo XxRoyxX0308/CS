@@ -14,15 +14,23 @@ int main(int, char **) {
         context->Setup();
 
         switch (app.GetCurrentState()) {
-        case App::State::START:
+        case App::State::MAIN_MENU:
+            app.MainMenu();
+            break;
+
+        case App::State::LOBBY:
+            app.Lobby();
+            break;
+
+        case App::State::GAME_START:
             app.Start();
             break;
 
-        case App::State::UPDATE:
+        case App::State::GAME_UPDATE:
             app.Update();
             break;
 
-        case App::State::END:
+        case App::State::GAME_END:
             app.End();
             context->SetExit(true);
             break;

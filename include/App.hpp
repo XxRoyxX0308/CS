@@ -1,6 +1,16 @@
 #ifndef CS_APP_HPP
 #define CS_APP_HPP
 
+// Prevent Windows min/max macros from interfering with std library and GLM
+#ifdef _WIN32
+    #ifndef NOMINMAX
+    #define NOMINMAX
+    #endif
+    #ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+    #endif
+#endif
+
 // ============================================================================
 //  App.hpp — CS FPS 遊戲主類別
 // ============================================================================
@@ -25,23 +35,32 @@
 #include "Collision/CapsuleCast.hpp"
 #include "Effects/BulletHole.hpp"
 #include "Characters/Player.hpp"
+#include "Characters/RemotePlayer.hpp"
+#include "Network/NetworkManager.hpp"
+
+#include <unordered_map>
+#include <string>
 
 class App {
 public:
     enum class State {
-        START,
-        UPDATE,
-        END,
+        MAIN_MENU,    // 主選單（Create/Join）
+        LOBBY,        // 等待連線/等待玩家
+        GAME_START,   // 遊戲初始化
+        GAME_UPDATE,  // 遊戲進行中
+        GAME_END,     // 結束清理
     };
 
     State GetCurrentState() const { return m_CurrentState; }
 
+    void MainMenu();
+    void Lobby();
     void Start();
     void Update();
     void End();
 
 private:
-    State m_CurrentState = State::START;
+    State m_CurrentState = State::MAIN_MENU;
 
     // ── 場景 & 渲染 ──
     Scene::SceneGraph m_Scene;
@@ -65,6 +84,37 @@ private:
 
     // ── Debug ──
     bool m_ShowDebugPanel = false;
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 網路系統
+    // ══════════════════════════════════════════════════════════════════════
+
+    // ── 網路管理器 ──
+    Network::NetworkManager m_Network;
+
+    // ── 遠端玩家 ──
+    std::unordered_map<uint8_t, Characters::RemotePlayer> m_RemotePlayers;
+
+    // ── 選單狀態 ──
+    struct MenuState {
+        char serverName[64] = "CS Game";
+        char playerName[32] = "Player";
+        char ipAddress[32] = "127.0.0.1";
+        int selectedServerIndex = -1;
+        bool isConnecting = false;
+        float connectionTimer = 0.0f;
+    } m_MenuState;
+
+    // ── 網路輔助方法 ──
+    void SetupNetworkCallbacks();
+    void UpdateNetworkHost(float dt);
+    void UpdateNetworkClient(float dt);
+    void BuildAndBroadcastGameState();
+    void ProcessRemoteInputs(float dt);
+    void HandleBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+
+    // ── 輸入採樣（用於網路同步）──
+    Network::InputState SampleLocalInput() const;
 };
 
 #endif // CS_APP_HPP
