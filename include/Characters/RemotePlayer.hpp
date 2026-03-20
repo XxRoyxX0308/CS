@@ -3,8 +3,8 @@
 
 #include "Characters/CharacterModel.hpp"
 #include "Network/NetworkTypes.hpp"
-#include "Core3D/Model.hpp"
 #include "Scene/SceneNode.hpp"
+#include "Core3D/Model.hpp"
 #include <glm/glm.hpp>
 #include <memory>
 
@@ -22,11 +22,20 @@ public:
     // Initialize with scene and character type
     void Init(Scene::SceneGraph& scene, CharacterType type);
 
-    // Update from network state
+    // Update from network state (Client mode - receives state from server)
     void UpdateFromNetworkState(const Network::NetPlayerState& state, float dt);
+
+    // Update for Host mode - interpolate toward target and update model
+    void Update(float dt);
 
     // Set interpolated transform directly
     void SetInterpolatedTransform(const glm::vec3& position, float yaw, float pitch);
+
+    // Direct setters for Host mode
+    void SetPosition(const glm::vec3& position) { m_TargetPosition = position; }
+    void SetYaw(float yaw) { m_TargetYaw = yaw; }
+    void SetPitch(float pitch) { m_TargetPitch = pitch; }
+    void SetWalking(bool walking) { m_IsWalking = walking; }
 
     // Getters
     uint8_t GetPlayerId() const { return m_PlayerId; }
@@ -71,11 +80,14 @@ private:
     // Character model
     CharacterModel m_Model;
     bool m_ModelInitialized = false;
-    bool m_HasReceivedState = false;  // For first-state snap
 
-    // Gun model for remote player
+    // Gun model (third-person view)
     std::shared_ptr<Core3D::Model> m_GunModel;
     std::shared_ptr<Scene::SceneNode> m_GunNode;
+    Scene::SceneGraph* m_Scene = nullptr;
+
+    // Update gun position to match character
+    void UpdateGunTransform();
 
     // Smoothing factor
     static constexpr float SMOOTH_FACTOR = 0.2f;

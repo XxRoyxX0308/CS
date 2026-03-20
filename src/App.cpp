@@ -403,23 +403,54 @@ void App::BuildAndBroadcastGameState() {
 void App::ProcessRemoteInputs(float dt) {
     auto inputs = m_Network.GetPendingInputs();
 
+    constexpr float MOVE_SPEED = 5.0f;
+
     for (const auto& pending : inputs) {
         auto it = m_RemotePlayers.find(pending.playerId);
         if (it == m_RemotePlayers.end()) continue;
 
-        // Simple state update based on input
-        // In a full implementation, we would simulate physics here
-        Network::NetPlayerState state;
-        state.playerId = pending.playerId;
-        state.yaw = pending.input.yaw;
-        state.pitch = pending.input.pitch;
+        auto& remote = it->second;
+        const auto& input = pending.input;
 
-        // For now, just update the rotation
-        it->second.SetInterpolatedTransform(
-            it->second.GetPosition(),
-            pending.input.yaw,
-            pending.input.pitch
-        );
+        // Calculate movement direction based on input keys
+        glm::vec3 position = remote.GetPosition();
+        float yawRad = glm::radians(input.yaw);
+
+        // Calculate forward and right vectors based on yaw
+        glm::vec3 forward(glm::sin(yawRad), 0.0f, -glm::cos(yawRad));
+        glm::vec3 right(glm::cos(yawRad), 0.0f, glm::sin(yawRad));
+
+        glm::vec3 moveDir(0.0f);
+        bool isWalking = false;
+
+        if (input.keys & Network::INPUT_W) {
+            moveDir += forward;
+            isWalking = true;
+        }
+        if (input.keys & Network::INPUT_S) {
+            moveDir -= forward;
+            isWalking = true;
+        }
+        if (input.keys & Network::INPUT_A) {
+            moveDir -= right;
+            isWalking = true;
+        }
+        if (input.keys & Network::INPUT_D) {
+            moveDir += right;
+            isWalking = true;
+        }
+
+        // Normalize and apply movement
+        if (glm::length(moveDir) > 0.0f) {
+            moveDir = glm::normalize(moveDir);
+            position += moveDir * MOVE_SPEED * dt;
+        }
+
+        // Update remote player state
+        remote.SetPosition(position);
+        remote.SetYaw(input.yaw);
+        remote.SetPitch(input.pitch);
+        remote.SetWalking(isWalking);
     }
 }
 
@@ -432,6 +463,11 @@ void App::UpdateNetworkHost(float dt) {
 
     // Process remote player inputs
     ProcessRemoteInputs(dt);
+
+    // Update all remote players (interpolation and model)
+    for (auto& [playerId, remote] : m_RemotePlayers) {
+        remote.Update(dt);
+    }
 
     // Broadcast game state
     BuildAndBroadcastGameState();

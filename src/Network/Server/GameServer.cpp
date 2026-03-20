@@ -22,7 +22,7 @@ GameServer::~GameServer() {
     Stop();
 }
 
-bool GameServer::Start(uint16_t port, const std::string& gameName) {
+bool GameServer::Start(uint16_t port, const std::string& gameName, const std::string& hostName) {
     if (m_IsRunning) {
         LOG_WARN("Server already running");
         return false;
@@ -42,6 +42,7 @@ bool GameServer::Start(uint16_t port, const std::string& gameName) {
     }
 
     m_GameName = gameName;
+    m_HostName = hostName;
     m_Port = port;
     m_ServerTick = 0;
     m_IsRunning = true;
@@ -49,7 +50,7 @@ bool GameServer::Start(uint16_t port, const std::string& gameName) {
     // Reserve player ID 0 for host
     m_UsedPlayerIds[0] = true;
 
-    LOG_INFO("Game server started: {} on port {}", gameName, port);
+    LOG_INFO("Game server started: {} on port {} (host: {})", gameName, port, hostName);
     return true;
 }
 
@@ -192,7 +193,13 @@ void GameServer::HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& pac
         }
     }
 
-    // Notify the new player about existing players
+    // Notify the new player about existing players (including Host)
+    // First, notify about Host (player 0)
+    auto hostNotify = PacketBuilder::PlayerJoined(0, m_HostName.c_str());
+    m_Socket.SendToPeer(peerId, hostNotify.data(), hostNotify.size(),
+                        CHANNEL_RELIABLE, true);
+
+    // Then notify about other connected clients
     for (const auto& [existingPlayerId, existingClient] : m_Clients) {
         if (existingPlayerId != playerId) {
             auto existingNotify = PacketBuilder::PlayerJoined(existingPlayerId, existingClient.playerName.c_str());

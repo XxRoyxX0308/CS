@@ -25,7 +25,7 @@ bool NetworkManager::HostGame(uint16_t port, const std::string& gameName, const 
     m_Server = std::make_unique<GameServer>();
     SetupServerCallbacks();
 
-    if (!m_Server->Start(port, gameName)) {
+    if (!m_Server->Start(port, gameName, hostPlayerName)) {
         m_Server.reset();
         return false;
     }

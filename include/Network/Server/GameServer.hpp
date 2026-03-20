@@ -48,7 +48,7 @@ public:
     ~GameServer();
 
     // Server lifecycle
-    bool Start(uint16_t port, const std::string& gameName);
+    bool Start(uint16_t port, const std::string& gameName, const std::string& hostName = "Host");
     void Stop();
     bool IsRunning() const { return m_IsRunning; }
 
@@ -99,6 +99,7 @@ private:
 
     bool m_IsRunning = false;
     std::string m_GameName;
+    std::string m_HostName;  // Host player name (player 0)
     uint16_t m_Port = DEFAULT_PORT;
     uint32_t m_ServerTick = 0;
 
