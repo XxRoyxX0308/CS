@@ -363,7 +363,7 @@ void App::Start() {
     m_Player.SpawnOnMap(camera, m_CollisionMesh);
 
     // ── 7. 初始化角色模型 ────────────────────────────────────────────
-    m_Player.InitModel(m_Scene, Characters::CharacterType::FBI, true);
+    m_Player.InitModel(m_Scene, Characters::CharacterType::FBI, false);
 
     // ── 8. 裝備武器 ──────────────────────────────────────────────────
     auto gun = std::make_unique<Gun::AACHoneyBadger>();

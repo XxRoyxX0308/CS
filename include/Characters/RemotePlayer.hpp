@@ -64,6 +64,7 @@ private:
 
     // Current visual state
     glm::vec3 m_Position{0.0f};
+    float m_Height = 1.7f;
     float m_Yaw = 0.0f;
     float m_Pitch = 0.0f;
 

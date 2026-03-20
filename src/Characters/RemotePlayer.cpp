@@ -10,7 +10,7 @@ namespace Characters {
 static const std::string GUN_MODEL_PATH = std::string(ASSETS_DIR) + "/guns/aac_honey_badger/scene.gltf";
 static constexpr glm::vec3 GUN_SCALE = glm::vec3(0.020f);
 // Offset from character center (right, up, forward in character's local space)
-static constexpr glm::vec3 GUN_OFFSET = glm::vec3(0.3f, 1.2f, 0.2f);
+static constexpr glm::vec3 GUN_OFFSET = glm::vec3(0.4f, -0.45f, -0.2f);
 
 void RemotePlayer::Init(Scene::SceneGraph& scene, CharacterType type) {
     m_Scene = &scene;
@@ -41,6 +41,8 @@ void RemotePlayer::UpdateFromNetworkState(const Network::NetPlayerState& state, 
     float t = 1.0f - std::pow(1.0f - SMOOTH_FACTOR, dt * 60.0f);
 
     m_Position = glm::mix(m_Position, m_TargetPosition, t);
+    glm::vec3 feetPos = m_Position;
+    feetPos.y -= m_Height;
 
     // Angle interpolation (handle wraparound)
     float yawDiff = std::fmod(m_TargetYaw - m_Yaw + 540.0f, 360.0f) - 180.0f;
@@ -50,7 +52,7 @@ void RemotePlayer::UpdateFromNetworkState(const Network::NetPlayerState& state, 
 
     // Update model
     if (m_ModelInitialized) {
-        m_Model.Update(dt, m_Position, m_Yaw, m_IsWalking);
+        m_Model.Update(dt, feetPos, m_Yaw, m_IsWalking);
         UpdateGunTransform();
     }
 }
@@ -66,6 +68,8 @@ void RemotePlayer::Update(float dt) {
     float t = 1.0f - std::pow(1.0f - SMOOTH_FACTOR, dt * 60.0f);
 
     m_Position = glm::mix(m_Position, m_TargetPosition, t);
+    glm::vec3 feetPos = m_Position;
+    feetPos.y -= m_Height;
 
     // Angle interpolation (handle wraparound)
     float yawDiff = std::fmod(m_TargetYaw - m_Yaw + 540.0f, 360.0f) - 180.0f;
@@ -75,7 +79,7 @@ void RemotePlayer::Update(float dt) {
 
     // Update model
     if (m_ModelInitialized) {
-        m_Model.Update(dt, m_Position, m_Yaw, m_IsWalking);
+        m_Model.Update(dt, feetPos, m_Yaw, m_IsWalking);
         UpdateGunTransform();
     }
 }
@@ -99,18 +103,13 @@ void RemotePlayer::UpdateGunTransform() {
 
     m_GunNode->SetPosition(gunPos);
 
-    // Gun rotation: face the same direction as character
-    // The gun model faces +Z by default, so we need to rotate it
-    float rotationY = glm::radians(m_Yaw - 90.0f);
-    glm::quat rotation = glm::angleAxis(-rotationY, glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::quat upTurn90 = glm::angleAxis(glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    rotation = rotation * upTurn90;
+    glm::mat3 cameraBasis(right, up, -forward);
+    glm::quat gunRot = glm::quat_cast(cameraBasis);
 
-    // Apply pitch for aiming direction
-    glm::quat pitchRotation = glm::angleAxis(glm::radians(-m_Pitch), right);
-    rotation = pitchRotation * rotation;
+    glm::quat pitchRotation = glm::angleAxis(glm::radians(-m_Pitch), forward);
+    gunRot = pitchRotation * gunRot;
 
-    m_GunNode->SetRotation(rotation);
+    m_GunNode->SetRotation(gunRot);
 }
 
 void RemotePlayer::SetVisible(bool visible) {
