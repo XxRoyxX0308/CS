@@ -141,6 +141,14 @@ void GameServer::HandlePacket(uint32_t peerId, const std::vector<uint8_t>& data)
             break;
         }
 
+        case PacketType::C2S_PLAYER_CONFIG: {
+            auto packet = PacketParser::ParsePlayerConfig(data);
+            if (packet) {
+                HandlePlayerConfig(peerId, *packet);
+            }
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -204,6 +212,11 @@ void GameServer::HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& pac
         if (existingPlayerId != playerId) {
             auto existingNotify = PacketBuilder::PlayerJoined(existingPlayerId, existingClient.playerName.c_str());
             m_Socket.SendToPeer(peerId, existingNotify.data(), existingNotify.size(),
+                                CHANNEL_RELIABLE, true);
+
+            // Also send their config
+            auto configNotify = PacketBuilder::PlayerConfig(existingPlayerId, existingClient.characterType, existingClient.gunType);
+            m_Socket.SendToPeer(peerId, configNotify.data(), configNotify.size(),
                                 CHANNEL_RELIABLE, true);
         }
     }
@@ -305,6 +318,33 @@ void GameServer::BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId) {
 void GameServer::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     auto packet = PacketBuilder::BulletEffect(pos, normal);
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
+}
+
+void GameServer::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+    auto packet = PacketBuilder::PlayerConfig(playerId, characterType, gunType);
+    m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+}
+
+void GameServer::HandlePlayerConfig(uint32_t peerId, const PlayerConfigPacket& packet) {
+    auto it = m_PeerToPlayer.find(peerId);
+    if (it == m_PeerToPlayer.end()) return;
+
+    uint8_t playerId = it->second;
+    auto& client = m_Clients[playerId];
+
+    // Store the config
+    client.characterType = packet.characterType;
+    client.gunType = packet.gunType;
+
+    LOG_INFO("Player {} config: character={}, gun={}", playerId, packet.characterType, packet.gunType);
+
+    // Broadcast to all clients (including the sender, so they know server received it)
+    BroadcastPlayerConfig(playerId, packet.characterType, packet.gunType);
+
+    // Notify host via callback
+    if (m_OnPlayerConfig) {
+        m_OnPlayerConfig(playerId, packet.characterType, packet.gunType);
+    }
 }
 
 void GameServer::HandleClientBulletEffect(uint32_t peerId, const BulletEffectPacket& packet) {

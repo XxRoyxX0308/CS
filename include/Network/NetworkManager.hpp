@@ -28,6 +28,7 @@ public:
     using OnDisconnectedCallback = std::function<void()>;
     using OnPlayerHitCallback = std::function<void(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
+    using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
 
     NetworkManager();
     ~NetworkManager();
@@ -86,6 +87,11 @@ public:
     // ── Send Effects (Client mode) ──
 
     void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+    void SendPlayerConfig(uint8_t characterType, uint8_t gunType);
+
+    // ── Broadcast (Host mode) ──
+
+    void BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType);
 
     // ── LAN Discovery ──
 
@@ -102,6 +108,7 @@ public:
     void SetOnDisconnected(OnDisconnectedCallback cb) { m_OnDisconnected = std::move(cb); }
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
+    void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
 
     // ── Server Info ──
 
@@ -129,6 +136,7 @@ private:
     OnDisconnectedCallback m_OnDisconnected;
     OnPlayerHitCallback m_OnPlayerHit;
     OnBulletEffectCallback m_OnBulletEffect;
+    OnPlayerConfigCallback m_OnPlayerConfig;
 };
 
 } // namespace Network

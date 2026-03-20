@@ -64,6 +64,9 @@ void App::SetupNetworkCallbacks() {
         LOG_INFO("Connected to server as player {}", playerId);
         m_MenuState.isConnecting = false;
         m_CurrentState = State::GAME_START;
+
+        // Send our character/gun config to server after a short delay (after game starts)
+        // This will be done in Update when the game starts
     });
 
     m_Network.SetOnDisconnected([this]() {
@@ -74,6 +77,18 @@ void App::SetupNetworkCallbacks() {
 
     m_Network.SetOnBulletEffect([this](const glm::vec3& pos, const glm::vec3& normal) {
         HandleBulletEffect(pos, normal);
+    });
+
+    m_Network.SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t /*gunType*/) {
+        LOG_INFO("Player {} changed to character type {}", playerId, characterType);
+
+        auto it = m_RemotePlayers.find(playerId);
+        if (it != m_RemotePlayers.end()) {
+            // Re-initialize with correct character type
+            auto type = (characterType == 0) ? Characters::CharacterType::FBI
+                                              : Characters::CharacterType::TERRORIST;
+            it->second.Init(m_Scene, type);
+        }
     });
 }
 
@@ -95,6 +110,14 @@ Network::InputState App::SampleLocalInput() const {
     auto& camera = m_Scene.GetCamera();
     input.yaw = camera.GetYaw();
     input.pitch = camera.GetPitch();
+
+    // Include absolute position for accurate sync
+    input.position = m_Player.GetPosition();
+
+    // Set flags
+    input.flags = 0;
+    if (m_Player.IsWalking()) input.flags |= Network::FLAG_IS_WALKING;
+    if (m_Player.IsOnGround()) input.flags |= Network::FLAG_ON_GROUND;
 
     return input;
 }
@@ -349,6 +372,18 @@ void App::Start() {
     // ── 9. 初始化彈孔效果 ────────────────────────────────────────────
     m_BulletHoles.Init();
 
+    // ── 10. 發送角色配置給其他玩家 ────────────────────────────────────
+    if (m_Network.IsClient()) {
+        auto charType = m_Player.GetCharacterModel().GetCharacterType();
+        uint8_t charTypeId = (charType == Characters::CharacterType::FBI) ? 0 : 1;
+        m_Network.SendPlayerConfig(charTypeId, 0);  // 0 = AAC Honey Badger
+    } else if (m_Network.IsHost()) {
+        // Host broadcasts its own config
+        auto charType = m_Player.GetCharacterModel().GetCharacterType();
+        uint8_t charTypeId = (charType == Characters::CharacterType::FBI) ? 0 : 1;
+        m_Network.BroadcastPlayerConfig(0, charTypeId, 0);  // Player 0 = Host
+    }
+
     // ── 狀態轉移 ──
     m_CurrentState = State::GAME_UPDATE;
     LOG_TRACE("App::Start complete");
@@ -400,10 +435,8 @@ void App::BuildAndBroadcastGameState() {
 // ============================================================================
 //  ProcessRemoteInputs — 處理遠端玩家輸入（Host only）
 // ============================================================================
-void App::ProcessRemoteInputs(float dt) {
+void App::ProcessRemoteInputs(float /*dt*/) {
     auto inputs = m_Network.GetPendingInputs();
-
-    constexpr float MOVE_SPEED = 5.0f;
 
     for (const auto& pending : inputs) {
         auto it = m_RemotePlayers.find(pending.playerId);
@@ -412,41 +445,11 @@ void App::ProcessRemoteInputs(float dt) {
         auto& remote = it->second;
         const auto& input = pending.input;
 
-        // Calculate movement direction based on input keys
-        glm::vec3 position = remote.GetPosition();
-        float yawRad = glm::radians(input.yaw);
+        // Use absolute position from client
+        glm::vec3 position(input.posX, input.posY, input.posZ);
+        bool isWalking = (input.flags & Network::FLAG_IS_WALKING) != 0;
 
-        // Calculate forward and right vectors based on yaw
-        glm::vec3 forward(glm::sin(yawRad), 0.0f, -glm::cos(yawRad));
-        glm::vec3 right(glm::cos(yawRad), 0.0f, glm::sin(yawRad));
-
-        glm::vec3 moveDir(0.0f);
-        bool isWalking = false;
-
-        if (input.keys & Network::INPUT_W) {
-            moveDir += forward;
-            isWalking = true;
-        }
-        if (input.keys & Network::INPUT_S) {
-            moveDir -= forward;
-            isWalking = true;
-        }
-        if (input.keys & Network::INPUT_A) {
-            moveDir -= right;
-            isWalking = true;
-        }
-        if (input.keys & Network::INPUT_D) {
-            moveDir += right;
-            isWalking = true;
-        }
-
-        // Normalize and apply movement
-        if (glm::length(moveDir) > 0.0f) {
-            moveDir = glm::normalize(moveDir);
-            position += moveDir * MOVE_SPEED * dt;
-        }
-
-        // Update remote player state
+        // Update remote player state with absolute position
         remote.SetPosition(position);
         remote.SetYaw(input.yaw);
         remote.SetPitch(input.pitch);
@@ -527,6 +530,14 @@ void App::Update() {
                            ? Characters::CharacterType::TERRORIST
                            : Characters::CharacterType::FBI;
         m_Player.SwitchCharacter(m_Scene, newType);
+
+        // Notify other players about character change
+        uint8_t charTypeId = (newType == Characters::CharacterType::FBI) ? 0 : 1;
+        if (m_Network.IsClient()) {
+            m_Network.SendPlayerConfig(charTypeId, 0);
+        } else if (m_Network.IsHost()) {
+            m_Network.BroadcastPlayerConfig(0, charTypeId, 0);
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════

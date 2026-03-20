@@ -176,6 +176,12 @@ void GameClient::HandlePacket(const std::vector<uint8_t>& data) {
             break;
         }
 
+        case PacketType::S2C_PLAYER_CONFIG: {
+            auto packet = PacketParser::ParsePlayerConfig(data);
+            if (packet) HandlePlayerConfig(*packet);
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -254,6 +260,15 @@ void GameClient::HandleBulletEffect(const BulletEffectPacket& packet) {
     }
 }
 
+void GameClient::HandlePlayerConfig(const PlayerConfigPacket& packet) {
+    LOG_INFO("Received config for player {}: character={}, gun={}",
+             packet.playerId, packet.characterType, packet.gunType);
+
+    if (m_OnPlayerConfig) {
+        m_OnPlayerConfig(packet.playerId, packet.characterType, packet.gunType);
+    }
+}
+
 void GameClient::SendInput(const InputState& input) {
     if (m_ConnectionState != ConnectionState::Connected) return;
 
@@ -268,6 +283,15 @@ void GameClient::SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal)
 
     auto packet = PacketBuilder::ClientBulletEffect(pos, normal);
     m_Socket.SendToServer(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+}
+
+void GameClient::SendPlayerConfig(uint8_t characterType, uint8_t gunType) {
+    if (m_ConnectionState != ConnectionState::Connected) return;
+
+    auto packet = PacketBuilder::ClientPlayerConfig(characterType, gunType);
+    m_Socket.SendToServer(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+
+    LOG_INFO("Sent player config: character={}, gun={}", characterType, gunType);
 }
 
 std::optional<NetPlayerState> GameClient::GetLocalPlayerState() const {

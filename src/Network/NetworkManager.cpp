@@ -186,6 +186,18 @@ void NetworkManager::SendBulletEffect(const glm::vec3& pos, const glm::vec3& nor
     }
 }
 
+void NetworkManager::SendPlayerConfig(uint8_t characterType, uint8_t gunType) {
+    if (m_Client) {
+        m_Client->SendPlayerConfig(characterType, gunType);
+    }
+}
+
+void NetworkManager::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+    if (m_Server) {
+        m_Server->BroadcastPlayerConfig(playerId, characterType, gunType);
+    }
+}
+
 void NetworkManager::StartDiscovery() {
     if (m_Client) {
         m_Client->StartDiscovery();
@@ -251,6 +263,12 @@ void NetworkManager::SetupServerCallbacks() {
             m_OnBulletEffect(pos, normal);
         }
     });
+
+    m_Server->SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+        if (m_OnPlayerConfig) {
+            m_OnPlayerConfig(playerId, characterType, gunType);
+        }
+    });
 }
 
 void NetworkManager::SetupClientCallbacks() {
@@ -293,6 +311,12 @@ void NetworkManager::SetupClientCallbacks() {
     m_Client->SetOnBulletEffect([this](const glm::vec3& pos, const glm::vec3& normal) {
         if (m_OnBulletEffect) {
             m_OnBulletEffect(pos, normal);
+        }
+    });
+
+    m_Client->SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+        if (m_OnPlayerConfig) {
+            m_OnPlayerConfig(playerId, characterType, gunType);
         }
     });
 }
