@@ -3,6 +3,8 @@
 
 #include "Characters/CharacterModel.hpp"
 #include "Network/NetworkTypes.hpp"
+#include "Core3D/Model.hpp"
+#include "Scene/SceneNode.hpp"
 #include <glm/glm.hpp>
 #include <memory>
 
@@ -69,6 +71,11 @@ private:
     // Character model
     CharacterModel m_Model;
     bool m_ModelInitialized = false;
+    bool m_HasReceivedState = false;  // For first-state snap
+
+    // Gun model for remote player
+    std::shared_ptr<Core3D::Model> m_GunModel;
+    std::shared_ptr<Scene::SceneNode> m_GunNode;
 
     // Smoothing factor
     static constexpr float SMOOTH_FACTOR = 0.2f;
