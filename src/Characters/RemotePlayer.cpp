@@ -6,8 +6,7 @@
 namespace Characters {
 
 void RemotePlayer::Init(Scene::SceneGraph& scene, CharacterType type) {
-    m_Model.Init(scene, type);
-    m_Model.SetVisible(true);
+    m_Model.Init(scene, type, true);  // Pass visible=true directly
     m_ModelInitialized = true;
 }
 

@@ -180,6 +180,12 @@ void NetworkManager::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3
     }
 }
 
+void NetworkManager::SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
+    if (m_Client) {
+        m_Client->SendBulletEffect(pos, normal);
+    }
+}
+
 void NetworkManager::StartDiscovery() {
     if (m_Client) {
         m_Client->StartDiscovery();
@@ -237,6 +243,12 @@ void NetworkManager::SetupServerCallbacks() {
     m_Server->SetOnPlayerLeft([this](uint8_t playerId) {
         if (m_OnPlayerLeft) {
             m_OnPlayerLeft(playerId);
+        }
+    });
+
+    m_Server->SetOnBulletEffect([this](const glm::vec3& pos, const glm::vec3& normal) {
+        if (m_OnBulletEffect) {
+            m_OnBulletEffect(pos, normal);
         }
     });
 }

@@ -245,6 +245,22 @@ inline std::vector<uint8_t> BulletEffect(const glm::vec3& pos, const glm::vec3& 
     );
 }
 
+inline std::vector<uint8_t> ClientBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
+    BulletEffectPacket packet{};
+    packet.header.type = static_cast<uint8_t>(PacketType::C2S_BULLET_EFFECT);
+    packet.x = pos.x;
+    packet.y = pos.y;
+    packet.z = pos.z;
+    packet.nx = normal.x;
+    packet.ny = normal.y;
+    packet.nz = normal.z;
+
+    return std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t*>(&packet) + sizeof(packet)
+    );
+}
+
 inline std::vector<uint8_t> DiscoveryQuery() {
     DiscoveryQueryPacket packet{};
     std::memcpy(packet.magic, DISCOVERY_MAGIC, 4);

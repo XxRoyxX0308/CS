@@ -513,9 +513,13 @@ void App::Update() {
             m_BulletHoles.SpawnHole(hit.point, hit.normal);
             lastHitPoint = hit.point;
 
-            // Broadcast bullet effect to all clients (if host)
+            // Sync bullet effect across network
             if (m_Network.IsHost()) {
+                // Host broadcasts to all clients
                 m_Network.BroadcastBulletEffect(hit.point, hit.normal);
+            } else if (m_Network.IsClient()) {
+                // Client sends to server (which will broadcast to others and notify host)
+                m_Network.SendBulletEffect(hit.point, hit.normal);
             }
         }
     }

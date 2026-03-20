@@ -61,6 +61,7 @@ enum class PacketType : uint8_t {
 
     // Input (Client → Server)
     C2S_INPUT          = 0x20,
+    C2S_BULLET_EFFECT  = 0x21,  // Client sends bullet hit to server
 
     // State (Server → Client)
     S2C_GAME_STATE     = 0x30,

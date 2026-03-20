@@ -263,6 +263,13 @@ void GameClient::SendInput(const InputState& input) {
     m_Socket.SendToServer(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
 }
 
+void GameClient::SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
+    if (m_ConnectionState != ConnectionState::Connected) return;
+
+    auto packet = PacketBuilder::ClientBulletEffect(pos, normal);
+    m_Socket.SendToServer(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+}
+
 std::optional<NetPlayerState> GameClient::GetLocalPlayerState() const {
     return m_StateBuffer.GetLatestState(m_LocalPlayerId);
 }

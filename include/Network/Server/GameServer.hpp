@@ -42,6 +42,7 @@ public:
     using OnPlayerJoinedCallback = std::function<void(uint8_t playerId, const std::string& name)>;
     using OnPlayerLeftCallback = std::function<void(uint8_t playerId)>;
     using OnInputReceivedCallback = std::function<void(uint8_t playerId, const InputPacket& input)>;
+    using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
 
     GameServer();
     ~GameServer();
@@ -76,6 +77,7 @@ public:
     void SetOnPlayerJoined(OnPlayerJoinedCallback cb) { m_OnPlayerJoined = std::move(cb); }
     void SetOnPlayerLeft(OnPlayerLeftCallback cb) { m_OnPlayerLeft = std::move(cb); }
     void SetOnInputReceived(OnInputReceivedCallback cb) { m_OnInputReceived = std::move(cb); }
+    void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
 
     // Server info
     const std::string& GetGameName() const { return m_GameName; }
@@ -87,6 +89,7 @@ private:
     void HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& packet);
     void HandleDisconnect(uint32_t peerId);
     void HandleInput(uint32_t peerId, const InputPacket& packet);
+    void HandleClientBulletEffect(uint32_t peerId, const BulletEffectPacket& packet);
 
     uint8_t AllocatePlayerId();
     void FreePlayerId(uint8_t playerId);
@@ -111,6 +114,7 @@ private:
     OnPlayerJoinedCallback m_OnPlayerJoined;
     OnPlayerLeftCallback m_OnPlayerLeft;
     OnInputReceivedCallback m_OnInputReceived;
+    OnBulletEffectCallback m_OnBulletEffect;
 
     // State broadcast rate limiting
     float m_BroadcastTimer = 0.0f;

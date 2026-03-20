@@ -132,6 +132,14 @@ void GameServer::HandlePacket(uint32_t peerId, const std::vector<uint8_t>& data)
             break;
         }
 
+        case PacketType::C2S_BULLET_EFFECT: {
+            auto packet = PacketParser::ParseBulletEffect(data);
+            if (packet) {
+                HandleClientBulletEffect(peerId, *packet);
+            }
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -290,6 +298,32 @@ void GameServer::BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId) {
 void GameServer::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     auto packet = PacketBuilder::BulletEffect(pos, normal);
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
+}
+
+void GameServer::HandleClientBulletEffect(uint32_t peerId, const BulletEffectPacket& packet) {
+    // Get the player ID for the sender
+    auto it = m_PeerToPlayer.find(peerId);
+    if (it == m_PeerToPlayer.end()) return;
+
+    uint8_t senderId = it->second;
+
+    // Forward bullet effect to all OTHER clients and notify host
+    glm::vec3 pos(packet.x, packet.y, packet.z);
+    glm::vec3 normal(packet.nx, packet.ny, packet.nz);
+
+    // Broadcast to all other clients (not the sender)
+    auto broadcastPacket = PacketBuilder::BulletEffect(pos, normal);
+    for (const auto& [playerId, client] : m_Clients) {
+        if (playerId != senderId) {
+            m_Socket.SendToPeer(client.peerId, broadcastPacket.data(), broadcastPacket.size(),
+                               CHANNEL_UNRELIABLE, false);
+        }
+    }
+
+    // Notify host via callback
+    if (m_OnBulletEffect) {
+        m_OnBulletEffect(pos, normal);
+    }
 }
 
 std::vector<PendingInput> GameServer::GetPendingInputs() {

@@ -46,6 +46,9 @@ public:
     // Send input to server
     void SendInput(const InputState& input);
 
+    // Send bullet effect to server (client hit detection)
+    void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+
     // Get local player ID (assigned by server)
     uint8_t GetLocalPlayerId() const { return m_LocalPlayerId; }
 

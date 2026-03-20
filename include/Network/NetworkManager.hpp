@@ -83,6 +83,10 @@ public:
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
 
+    // ── Send Effects (Client mode) ──
+
+    void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+
     // ── LAN Discovery ──
 
     void StartDiscovery();

@@ -49,8 +49,9 @@ public:
      * @brief Initialize and load the character model.
      * @param scene The scene graph to attach the model to.
      * @param type The character type to load.
+     * @param visible Whether the model should be visible initially (default: false).
      */
-    void Init(Scene::SceneGraph &scene, CharacterType type);
+    void Init(Scene::SceneGraph &scene, CharacterType type, bool visible = false);
 
     /**
      * @brief Switch to a different character type.

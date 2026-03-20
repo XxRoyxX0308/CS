@@ -23,13 +23,14 @@ std::string CharacterModel::GetModelPath(CharacterType type) {
 // ============================================================================
 //  Init — Initialize the character model
 // ============================================================================
-void CharacterModel::Init(Scene::SceneGraph &scene, CharacterType type) {
+void CharacterModel::Init(Scene::SceneGraph &scene, CharacterType type, bool visible) {
     m_CurrentType = type;
     m_Scene = &scene;
+    m_Visible = visible;  // Set visibility before LoadModel
     LoadModel(scene);
     m_Initialized = true;
-    LOG_INFO("CharacterModel initialized with type: {}",
-             type == CharacterType::FBI ? "FBI" : "Terrorist");
+    LOG_INFO("CharacterModel initialized with type: {}, visible: {}",
+             type == CharacterType::FBI ? "FBI" : "Terrorist", visible);
 }
 
 // ============================================================================
