@@ -135,6 +135,18 @@ Collision::Capsule RemotePlayer::MakeCapsule() const {
     return cap;
 }
 
+std::shared_ptr<Core3D::Model> RemotePlayer::GetCharacterModelPtr() const {
+    if (!m_ModelInitialized) return nullptr;
+    return m_Model.GetModel();
+}
+
+glm::mat4 RemotePlayer::GetModelWorldTransform() const {
+    if (!m_ModelInitialized) return glm::mat4(1.0f);
+    auto node = m_Model.GetNode();
+    if (!node) return glm::mat4(1.0f);
+    return node->GetWorldTransform();
+}
+
 bool RemotePlayer::TakeDamage(float damage) {
     if (damage <= 0.0f || !m_IsAlive) return m_IsAlive;
     m_Health = std::max(0.0f, m_Health - damage);
@@ -144,9 +156,11 @@ bool RemotePlayer::TakeDamage(float damage) {
     return m_IsAlive;
 }
 
-void RemotePlayer::Respawn() {
+void RemotePlayer::Respawn(const glm::vec3& spawnPosition) {
     m_Health = 100.0f;
     m_IsAlive = true;
+    m_Position = spawnPosition;
+    m_TargetPosition = spawnPosition;
 }
 
 } // namespace Characters

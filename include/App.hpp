@@ -40,7 +40,6 @@
 
 #include <unordered_map>
 #include <string>
-#include <cfloat>
 
 class App {
 public:
@@ -114,19 +113,24 @@ private:
     void ProcessRemoteInputs(float dt);
     void HandleBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
 
-    // ── 玩家命中檢測 ──
+    // ── 輸入採樣（用於網路同步）──
+    Network::InputState SampleLocalInput() const;
+
+    // ── 玩家命中檢測結果 ──
     struct PlayerHitResult {
         bool hit = false;
         uint8_t playerId = 0xFF;
-        float distance = FLT_MAX;
+        float distance = std::numeric_limits<float>::max();
         glm::vec3 point{0.0f};
     };
-    PlayerHitResult CheckPlayerHit(const glm::vec3& origin, const glm::vec3& direction, float maxDist);
+
+    // ── 戰鬥系統 ──
+    PlayerHitResult CheckPlayerHit(const glm::vec3& origin,
+                                   const glm::vec3& direction,
+                                   float maxDist);
     void HandlePlayerDamage(uint8_t victimId, float damage, const glm::vec3& hitPoint);
     void CheckAndHandleRespawn();
-
-    // ── 輸入採樣（用於網路同步）──
-    Network::InputState SampleLocalInput() const;
+    glm::vec3 GetSpawnPoint() const;
 };
 
 #endif // CS_APP_HPP

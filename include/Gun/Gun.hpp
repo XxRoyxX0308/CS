@@ -50,10 +50,10 @@ public:
     void SyncToCamera(const Core3D::Camera &camera);
 
     // ── Getters ──
-    int   GetCurrentAmmo() const { return m_CurrentAmmo; }
-    int   GetMagSize()     const { return m_MagSize; }
-    bool  IsReloading()    const { return m_IsReloading; }
-    float GetDamage()      const { return m_Damage; }
+    int  GetCurrentAmmo() const { return m_CurrentAmmo; }
+    int  GetMagSize()     const { return m_MagSize; }
+    bool IsReloading()    const { return m_IsReloading; }
+    float GetDamage()     const { return m_Damage; }
 
     /** @brief Get the last fire ray hit result (for debug/effects). */
     const RayHitResult &GetLastHit() const { return m_LastHit; }

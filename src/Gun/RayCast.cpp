@@ -225,5 +225,85 @@ RayHitResult Cast(const glm::vec3 &origin,
     return result;
 }
 
+// ============================================================================
+//  Möller–Trumbore ray–triangle intersection (with vec3 vertices)
+// ============================================================================
+static bool RayTriangleIntersectVec3(const glm::vec3 &origin,
+                                     const glm::vec3 &dir,
+                                     const glm::vec3 &v0,
+                                     const glm::vec3 &v1,
+                                     const glm::vec3 &v2,
+                                     float &outT,
+                                     glm::vec3 &outNormal) {
+    constexpr float EPSILON = 1e-7f;
+
+    glm::vec3 edge1 = v1 - v0;
+    glm::vec3 edge2 = v2 - v0;
+    glm::vec3 h     = glm::cross(dir, edge2);
+    float a         = glm::dot(edge1, h);
+
+    if (std::fabs(a) < EPSILON) return false; // Parallel
+
+    float f = 1.0f / a;
+    glm::vec3 s = origin - v0;
+    float u = f * glm::dot(s, h);
+    if (u < 0.0f || u > 1.0f) return false;
+
+    glm::vec3 q = glm::cross(s, edge1);
+    float v = f * glm::dot(dir, q);
+    if (v < 0.0f || u + v > 1.0f) return false;
+
+    float t = f * glm::dot(edge2, q);
+    if (t > EPSILON) {
+        outT = t;
+        outNormal = glm::normalize(glm::cross(edge1, edge2));
+        return true;
+    }
+    return false;
+}
+
+// ============================================================================
+//  CastAgainstModel — raycast against a 3D model
+// ============================================================================
+RayHitResult CastAgainstModel(const glm::vec3 &origin,
+                              const glm::vec3 &direction,
+                              const Core3D::Model &model,
+                              const glm::mat4 &worldTransform,
+                              float maxDist) {
+    RayHitResult result;
+    float closestT = maxDist;
+
+    // Normal transformation matrix (inverse transpose of upper 3x3)
+    glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(worldTransform)));
+
+    // Iterate through all meshes in the model
+    for (const auto &mesh : model.GetMeshes()) {
+        const auto &vertices = mesh.GetVertices();
+        const auto &indices = mesh.GetIndices();
+
+        // Process each triangle (3 indices per triangle)
+        for (size_t i = 0; i + 2 < indices.size(); i += 3) {
+            // Get vertex positions and transform to world space
+            glm::vec3 v0 = glm::vec3(worldTransform * glm::vec4(vertices[indices[i]].position, 1.0f));
+            glm::vec3 v1 = glm::vec3(worldTransform * glm::vec4(vertices[indices[i + 1]].position, 1.0f));
+            glm::vec3 v2 = glm::vec3(worldTransform * glm::vec4(vertices[indices[i + 2]].position, 1.0f));
+
+            float t = 0.0f;
+            glm::vec3 normal;
+            if (RayTriangleIntersectVec3(origin, direction, v0, v1, v2, t, normal)) {
+                if (t < closestT) {
+                    closestT = t;
+                    result.hit = true;
+                    result.distance = t;
+                    result.point = origin + direction * t;
+                    result.normal = glm::normalize(normalMatrix * normal);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
 } // namespace RayCast
 } // namespace Gun

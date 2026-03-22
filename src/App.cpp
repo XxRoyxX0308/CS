@@ -704,25 +704,29 @@ void App::End() {
 }
 
 // ============================================================================
-//  CheckPlayerHit — 檢測射線是否命中任何玩家
+//  CheckPlayerHit — 檢測射線是否命中任何玩家（使用角色模型）
 // ============================================================================
 App::PlayerHitResult App::CheckPlayerHit(const glm::vec3& origin,
                                           const glm::vec3& direction,
                                           float maxDist) {
     PlayerHitResult result;
 
-    // Check all remote players
+    // Check all remote players using their character models
     for (const auto& [playerId, remote] : m_RemotePlayers) {
         if (!remote.IsAlive()) continue;
 
-        Collision::Capsule capsule = remote.MakeCapsule();
-        auto hit = Gun::RayCast::CastAgainstCapsule(origin, direction, capsule, maxDist);
+        // Get character model for accurate hit detection
+        auto model = remote.GetCharacterModelPtr();
+        if (model) {
+            glm::mat4 transform = remote.GetModelWorldTransform();
+            auto hit = Gun::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
 
-        if (hit.hit && hit.distance < result.distance) {
-            result.hit = true;
-            result.playerId = playerId;
-            result.distance = hit.distance;
-            result.point = hit.point;
+            if (hit.hit && hit.distance < result.distance) {
+                result.hit = true;
+                result.playerId = playerId;
+                result.distance = hit.distance;
+                result.point = hit.point;
+            }
         }
     }
 
@@ -752,6 +756,39 @@ void App::HandlePlayerDamage(uint8_t victimId, float damage, const glm::vec3& hi
 }
 
 // ============================================================================
+//  GetSpawnPoint — 計算重生點位置
+// ============================================================================
+glm::vec3 App::GetSpawnPoint() const {
+    // 使用與 Player::SpawnOnMap 相同的邏輯
+    float spawnX = 10.0f;
+    float spawnZ = 0.0f;
+
+    // 建立膠囊體從高處向下掃掠以找到地面
+    Collision::Capsule cap;
+    cap.radius = 0.3f;   // 標準角色半徑
+    cap.height = 1.7f - 2.0f * 0.3f;  // 標準角色高度
+    if (cap.height < 0.0f) cap.height = 0.0f;
+    cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
+
+    auto groundY = Collision::CapsuleCast::SweepVertical(cap, m_CollisionMesh, -200.0f);
+    if (groundY.has_value()) {
+        return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
+    }
+
+    // 備用重生點
+    spawnX = -5.0f;
+    spawnZ = -5.0f;
+    cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
+    groundY = Collision::CapsuleCast::SweepVertical(cap, m_CollisionMesh, -200.0f);
+    if (groundY.has_value()) {
+        return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
+    }
+
+    // 最後備用：返回默認位置
+    return glm::vec3(10.0f, 5.0f, 0.0f);
+}
+
+// ============================================================================
 //  CheckAndHandleRespawn — 檢測本地玩家死亡並重生
 // ============================================================================
 void App::CheckAndHandleRespawn() {
@@ -765,8 +802,10 @@ void App::CheckAndHandleRespawn() {
     if (m_Network.IsHost()) {
         for (auto& [playerId, remote] : m_RemotePlayers) {
             if (!remote.IsAlive()) {
-                remote.Respawn();
-                LOG_INFO("Remote player {} respawned", playerId);
+                glm::vec3 spawnPos = GetSpawnPoint();
+                remote.Respawn(spawnPos);
+                LOG_INFO("Remote player {} respawned at ({}, {}, {})",
+                         playerId, spawnPos.x, spawnPos.y, spawnPos.z);
             }
         }
     }

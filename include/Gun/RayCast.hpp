@@ -3,6 +3,7 @@
 
 #include "Collision/CollisionMesh.hpp"
 #include "Collision/CollisionTypes.hpp"
+#include "Core3D/Model.hpp"
 
 #include <glm/glm.hpp>
 
@@ -50,6 +51,25 @@ namespace RayCast {
                                     const glm::vec3 &direction,
                                     const Collision::Capsule &capsule,
                                     float maxDist = 200.0f);
+
+    /**
+     * @brief Cast a ray against a 3D model (for accurate character hit detection).
+     *
+     * Uses Möller–Trumbore ray–triangle intersection on all model triangles.
+     * The model vertices are transformed to world space using the provided matrix.
+     *
+     * @param origin         Ray origin (world space).
+     * @param direction      Ray direction (must be normalized).
+     * @param model          The 3D model to test against.
+     * @param worldTransform Model-to-world transformation matrix.
+     * @param maxDist        Maximum ray distance.
+     * @return RayHitResult with hit info.
+     */
+    RayHitResult CastAgainstModel(const glm::vec3 &origin,
+                                  const glm::vec3 &direction,
+                                  const Core3D::Model &model,
+                                  const glm::mat4 &worldTransform,
+                                  float maxDist = 200.0f);
 
 } // namespace RayCast
 

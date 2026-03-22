@@ -55,9 +55,13 @@ public:
     // Create capsule for hit detection (compatible with Collision::Capsule)
     Collision::Capsule MakeCapsule() const;
 
+    // Model access for hit detection
+    std::shared_ptr<Core3D::Model> GetCharacterModelPtr() const;
+    glm::mat4 GetModelWorldTransform() const;
+
     // Damage system
     bool TakeDamage(float damage);
-    void Respawn();
+    void Respawn(const glm::vec3& spawnPosition);
 
 private:
     uint8_t m_PlayerId = 0xFF;

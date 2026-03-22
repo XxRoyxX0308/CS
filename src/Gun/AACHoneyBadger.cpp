@@ -13,7 +13,6 @@ void AACHoneyBadger::Configure() {
     m_MagSize        = 30;
     m_ReloadTime     = 1.8f;
     m_BulletRange    = 200.0f;
-    m_Damage         = 25.0f;  // 4 hits to kill
 }
 
 } // namespace Gun

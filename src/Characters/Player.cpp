@@ -70,19 +70,14 @@ void Player::SpawnOnMap(Core3D::Camera &camera,
 }
 
 // ============================================================================
-//  Respawn — 重生（死亡後傳送到出生點並恢復血量）
+//  Respawn — 重生（重置血量並回到出生點）
 // ============================================================================
 void Player::Respawn(Core3D::Camera &camera,
                      const Collision::CollisionMesh &mesh) {
-    // Reset health
-    ResetHealth();
-
-    // Reset velocity
-    m_VelocityY = 0.0f;
-    m_OnGround = true;
-
-    // Respawn at spawn point
-    SpawnOnMap(camera, mesh);
+    ResetHealth();       // 重置血量到滿血
+    m_VelocityY = 0.0f;  // 清除垂直速度
+    m_OnGround = true;   // 假設重生在地面
+    SpawnOnMap(camera, mesh);  // 回到出生點
 }
 
 // ============================================================================
