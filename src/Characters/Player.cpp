@@ -70,6 +70,22 @@ void Player::SpawnOnMap(Core3D::Camera &camera,
 }
 
 // ============================================================================
+//  Respawn — 重生（死亡後傳送到出生點並恢復血量）
+// ============================================================================
+void Player::Respawn(Core3D::Camera &camera,
+                     const Collision::CollisionMesh &mesh) {
+    // Reset health
+    ResetHealth();
+
+    // Reset velocity
+    m_VelocityY = 0.0f;
+    m_OnGround = true;
+
+    // Respawn at spawn point
+    SpawnOnMap(camera, mesh);
+}
+
+// ============================================================================
 //  EquipGun — 裝備武器
 // ============================================================================
 void Player::EquipGun(std::unique_ptr<Gun::Gun> gun,

@@ -15,6 +15,7 @@
 
 #include "Core/Texture.hpp"
 #include "Gun/AACHoneyBadger.hpp"
+#include "Gun/RayCast.hpp"
 #include "Util/Input.hpp"
 #include "Util/Keycode.hpp"
 #include "Util/Logger.hpp"
@@ -552,24 +553,43 @@ void App::Update() {
     // ── 玩家移動 + 物理 ──
     m_Player.Update(dt, camera, m_CollisionMesh);
 
-    // ── 檢查子彈命中並生成彈孔 ──
+    // ── 檢查子彈命中並生成彈孔 + 玩家傷害檢測 ──
     if (auto *gun = m_Player.GetGun()) {
-        const auto &hit = gun->GetLastHit();
+        const auto &mapHit = gun->GetLastHit();
         static glm::vec3 lastHitPoint(0.0f);
-        if (hit.hit && hit.point != lastHitPoint) {
-            m_BulletHoles.SpawnHole(hit.point, hit.normal);
-            lastHitPoint = hit.point;
 
-            // Sync bullet effect across network
-            if (m_Network.IsHost()) {
-                // Host broadcasts to all clients
-                m_Network.BroadcastBulletEffect(hit.point, hit.normal);
-            } else if (m_Network.IsClient()) {
-                // Client sends to server (which will broadcast to others and notify host)
-                m_Network.SendBulletEffect(hit.point, hit.normal);
+        // Only process new hits
+        if (mapHit.hit && mapHit.point != lastHitPoint) {
+            lastHitPoint = mapHit.point;
+
+            // Check if we hit a player (raycast against all remote players)
+            auto& camera = m_Scene.GetCamera();
+            PlayerHitResult playerHit = CheckPlayerHit(
+                camera.GetPosition(),
+                camera.GetFront(),
+                gun->GetLastHit().distance  // Only check up to the map hit distance
+            );
+
+            if (playerHit.hit && playerHit.distance < mapHit.distance) {
+                // Hit a player before hitting the map
+                HandlePlayerDamage(playerHit.playerId, gun->GetDamage(), playerHit.point);
+                // Don't spawn bullet hole on map since we hit a player
+            } else {
+                // Hit the map, spawn bullet hole
+                m_BulletHoles.SpawnHole(mapHit.point, mapHit.normal);
+
+                // Sync bullet effect across network
+                if (m_Network.IsHost()) {
+                    m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
+                } else if (m_Network.IsClient()) {
+                    m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
+                }
             }
         }
     }
+
+    // ── 檢查玩家死亡並重生 ──
+    CheckAndHandleRespawn();
 
     // ── 更新彈孔效果 ──
     m_BulletHoles.Update(dt);
@@ -681,4 +701,73 @@ void App::End() {
     LOG_TRACE("App::End");
     m_Network.Disconnect();
     SDL_SetRelativeMouseMode(SDL_FALSE);
+}
+
+// ============================================================================
+//  CheckPlayerHit — 檢測射線是否命中任何玩家
+// ============================================================================
+App::PlayerHitResult App::CheckPlayerHit(const glm::vec3& origin,
+                                          const glm::vec3& direction,
+                                          float maxDist) {
+    PlayerHitResult result;
+
+    // Check all remote players
+    for (const auto& [playerId, remote] : m_RemotePlayers) {
+        if (!remote.IsAlive()) continue;
+
+        Collision::Capsule capsule = remote.MakeCapsule();
+        auto hit = Gun::RayCast::CastAgainstCapsule(origin, direction, capsule, maxDist);
+
+        if (hit.hit && hit.distance < result.distance) {
+            result.hit = true;
+            result.playerId = playerId;
+            result.distance = hit.distance;
+            result.point = hit.point;
+        }
+    }
+
+    // If we're a client, also check the host (player 0) - represented as remote player
+    // But in host mode, we check remote players. In client mode, all other players
+    // including host appear as remote players, so this is already covered.
+
+    return result;
+}
+
+// ============================================================================
+//  HandlePlayerDamage — 處理玩家傷害
+// ============================================================================
+void App::HandlePlayerDamage(uint8_t victimId, float damage, const glm::vec3& hitPoint) {
+    auto it = m_RemotePlayers.find(victimId);
+    if (it == m_RemotePlayers.end()) return;
+
+    auto& victim = it->second;
+    bool stillAlive = victim.TakeDamage(damage);
+
+    LOG_INFO("Player {} hit for {} damage, health now: {}", victimId, damage, victim.GetHealth());
+
+    if (!stillAlive) {
+        LOG_INFO("Player {} was killed!", victimId);
+        // The respawn will be handled by the network state update
+    }
+}
+
+// ============================================================================
+//  CheckAndHandleRespawn — 檢測本地玩家死亡並重生
+// ============================================================================
+void App::CheckAndHandleRespawn() {
+    if (!m_Player.IsAlive()) {
+        auto& camera = m_Scene.GetCamera();
+        m_Player.Respawn(camera, m_CollisionMesh);
+        LOG_INFO("Player respawned");
+    }
+
+    // Check remote players for respawn (Host only)
+    if (m_Network.IsHost()) {
+        for (auto& [playerId, remote] : m_RemotePlayers) {
+            if (!remote.IsAlive()) {
+                remote.Respawn();
+                LOG_INFO("Remote player {} respawned", playerId);
+            }
+        }
+    }
 }

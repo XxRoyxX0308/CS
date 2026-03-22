@@ -29,6 +29,9 @@ public:
     // 在地圖上找出生點並放置角色
     void SpawnOnMap(Core3D::Camera &camera, const Collision::CollisionMesh &mesh);
 
+    // 重生（死亡後傳送到出生點並恢復血量）
+    void Respawn(Core3D::Camera &camera, const Collision::CollisionMesh &mesh);
+
     // 每幀更新（輸入 → 移動 → 物理 → 同步攝影機 → 武器）
     void Update(float dt, Core3D::Camera &camera, const Collision::CollisionMesh &mesh);
 

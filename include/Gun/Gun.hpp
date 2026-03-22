@@ -50,9 +50,10 @@ public:
     void SyncToCamera(const Core3D::Camera &camera);
 
     // ── Getters ──
-    int  GetCurrentAmmo() const { return m_CurrentAmmo; }
-    int  GetMagSize()     const { return m_MagSize; }
-    bool IsReloading()    const { return m_IsReloading; }
+    int   GetCurrentAmmo() const { return m_CurrentAmmo; }
+    int   GetMagSize()     const { return m_MagSize; }
+    bool  IsReloading()    const { return m_IsReloading; }
+    float GetDamage()      const { return m_Damage; }
 
     /** @brief Get the last fire ray hit result (for debug/effects). */
     const RayHitResult &GetLastHit() const { return m_LastHit; }
@@ -79,6 +80,7 @@ protected:
     int   m_MagSize         = 30;      // magazine capacity
     float m_ReloadTime      = 2.0f;    // seconds to reload
     float m_BulletRange     = 200.0f;  // max hitscan range (meters)
+    float m_Damage          = 25.0f;   // damage per hit
 
     // ── Runtime state ──
     int   m_CurrentAmmo   = 0;

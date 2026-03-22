@@ -126,12 +126,27 @@ void RemotePlayer::SetCharacterType(CharacterType type) {
     // For now, just note the type change
 }
 
-RemotePlayer::Capsule RemotePlayer::MakeCapsule() const {
-    Capsule cap;
+Collision::Capsule RemotePlayer::MakeCapsule() const {
+    Collision::Capsule cap;
     cap.radius = RADIUS;
+    cap.height = HEIGHT - 2.0f * RADIUS;
+    if (cap.height < 0.0f) cap.height = 0.0f;
     cap.base = m_Position - glm::vec3(0.0f, HEIGHT - RADIUS, 0.0f);
-    cap.tip = m_Position + glm::vec3(0.0f, RADIUS, 0.0f);
     return cap;
+}
+
+bool RemotePlayer::TakeDamage(float damage) {
+    if (damage <= 0.0f || !m_IsAlive) return m_IsAlive;
+    m_Health = std::max(0.0f, m_Health - damage);
+    if (m_Health <= 0.0f) {
+        m_IsAlive = false;
+    }
+    return m_IsAlive;
+}
+
+void RemotePlayer::Respawn() {
+    m_Health = 100.0f;
+    m_IsAlive = true;
 }
 
 } // namespace Characters

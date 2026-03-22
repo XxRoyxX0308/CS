@@ -2,6 +2,7 @@
 #define CHARACTERS_REMOTE_PLAYER_HPP
 
 #include "Characters/CharacterModel.hpp"
+#include "Collision/CollisionTypes.hpp"
 #include "Network/NetworkTypes.hpp"
 #include "Scene/SceneNode.hpp"
 #include "Core3D/Model.hpp"
@@ -51,13 +52,12 @@ public:
     void SetVisible(bool visible);
     void SetCharacterType(CharacterType type);
 
-    // Create capsule for hit detection
-    struct Capsule {
-        glm::vec3 base;
-        glm::vec3 tip;
-        float radius;
-    };
-    Capsule MakeCapsule() const;
+    // Create capsule for hit detection (compatible with Collision::Capsule)
+    Collision::Capsule MakeCapsule() const;
+
+    // Damage system
+    bool TakeDamage(float damage);
+    void Respawn();
 
 private:
     uint8_t m_PlayerId = 0xFF;
