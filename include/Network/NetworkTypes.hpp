@@ -63,6 +63,7 @@ enum class PacketType : uint8_t {
     C2S_INPUT          = 0x20,
     C2S_BULLET_EFFECT  = 0x21,
     C2S_PLAYER_CONFIG  = 0x22,
+    C2S_PLAYER_HIT     = 0x23,  // Client reports hitting another player
 
     // State (Server → Client)
     S2C_GAME_STATE     = 0x30,
@@ -195,6 +196,14 @@ struct PlayerDeathPacket {
     PacketHeader header;
     uint8_t victimId;
     uint8_t killerId;
+};
+
+// Client → Server: Player hit notification
+struct ClientPlayerHitPacket {
+    PacketHeader header;
+    uint8_t victimId;      // Who was hit
+    float damage;          // How much damage
+    float hitX, hitY, hitZ; // Where the hit occurred
 };
 
 struct BulletEffectPacket {

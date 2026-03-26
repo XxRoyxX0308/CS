@@ -149,6 +149,14 @@ void GameServer::HandlePacket(uint32_t peerId, const std::vector<uint8_t>& data)
             break;
         }
 
+        case PacketType::C2S_PLAYER_HIT: {
+            auto packet = PacketParser::ParseClientPlayerHit(data);
+            if (packet) {
+                HandleClientPlayerHit(peerId, *packet);
+            }
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -370,6 +378,24 @@ void GameServer::HandleClientBulletEffect(uint32_t peerId, const BulletEffectPac
     // Notify host via callback
     if (m_OnBulletEffect) {
         m_OnBulletEffect(pos, normal);
+    }
+}
+
+void GameServer::HandleClientPlayerHit(uint32_t peerId, const ClientPlayerHitPacket& packet) {
+    // Get the attacker's player ID
+    auto it = m_PeerToPlayer.find(peerId);
+    if (it == m_PeerToPlayer.end()) return;
+
+    uint8_t attackerId = it->second;
+    uint8_t victimId = packet.victimId;
+    glm::vec3 hitPos(packet.hitX, packet.hitY, packet.hitZ);
+
+    LOG_INFO("Client {} reports hitting player {} for {} damage",
+             attackerId, victimId, packet.damage);
+
+    // Notify the host (App) via callback so it can apply damage and broadcast
+    if (m_OnPlayerHit) {
+        m_OnPlayerHit(attackerId, victimId, packet.damage, hitPos);
     }
 }
 

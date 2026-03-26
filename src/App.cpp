@@ -91,6 +91,79 @@ void App::SetupNetworkCallbacks() {
             it->second.Init(m_Scene, type);
         }
     });
+
+    // Handle client-reported hits (Host receives this from clients)
+    m_Network.SetOnClientPlayerHit([this](uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos) {
+        LOG_INFO("Server received hit report: player {} hit player {} for {} damage",
+                 attackerId, victimId, damage);
+
+        // Check if victim is the host (player 0)
+        if (victimId == 0) {
+            // Host was hit by a client
+            bool stillAlive = m_Player.TakeDamage(damage);
+            uint8_t newHealth = static_cast<uint8_t>(m_Player.GetHealth());
+
+            // Broadcast the hit to all clients
+            m_Network.BroadcastPlayerHit(victimId, attackerId, newHealth, hitPos);
+
+            if (!stillAlive) {
+                LOG_INFO("Host (player 0) was killed by player {}!", attackerId);
+                m_Network.BroadcastPlayerDeath(victimId, attackerId);
+            }
+        } else {
+            // Another remote player was hit
+            auto it = m_RemotePlayers.find(victimId);
+            if (it != m_RemotePlayers.end()) {
+                auto& victim = it->second;
+                bool stillAlive = victim.TakeDamage(damage);
+                uint8_t newHealth = static_cast<uint8_t>(victim.GetHealth());
+
+                // Broadcast the hit to all clients
+                m_Network.BroadcastPlayerHit(victimId, attackerId, newHealth, hitPos);
+
+                if (!stillAlive) {
+                    LOG_INFO("Player {} was killed by player {}!", victimId, attackerId);
+                    m_Network.BroadcastPlayerDeath(victimId, attackerId);
+                }
+            }
+        }
+    });
+
+    // Handle hit notifications from server (Client receives this)
+    m_Network.SetOnPlayerHit([this](uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos) {
+        LOG_INFO("Player {} was hit by player {}, new health: {}", victimId, attackerId, newHealth);
+
+        // Check if we are the victim
+        if (victimId == m_Network.GetLocalPlayerId()) {
+            // We were hit - update our health
+            m_Player.SetHealth(static_cast<float>(newHealth));
+            LOG_INFO("We were hit! Health now: {}", newHealth);
+        } else {
+            // Another player was hit - update their health in our view
+            auto it = m_RemotePlayers.find(victimId);
+            if (it != m_RemotePlayers.end()) {
+                it->second.SetHealth(static_cast<float>(newHealth));
+            }
+        }
+    });
+
+    // Handle death notifications from server (Client receives this)
+    m_Network.SetOnPlayerDeath([this](uint8_t victimId, uint8_t killerId) {
+        LOG_INFO("Player {} was killed by player {}!", victimId, killerId);
+
+        // Check if we died
+        if (victimId == m_Network.GetLocalPlayerId()) {
+            // We died - set health to 0 to trigger respawn
+            m_Player.SetHealth(0.0f);
+            LOG_INFO("We died! Respawning...");
+        } else {
+            // Another player died
+            auto it = m_RemotePlayers.find(victimId);
+            if (it != m_RemotePlayers.end()) {
+                it->second.SetHealth(0.0f);
+            }
+        }
+    });
 }
 
 // ============================================================================
@@ -741,17 +814,39 @@ App::PlayerHitResult App::CheckPlayerHit(const glm::vec3& origin,
 //  HandlePlayerDamage — 處理玩家傷害
 // ============================================================================
 void App::HandlePlayerDamage(uint8_t victimId, float damage, const glm::vec3& hitPoint) {
-    auto it = m_RemotePlayers.find(victimId);
-    if (it == m_RemotePlayers.end()) return;
+    // If we're the host, we process damage and broadcast
+    if (m_Network.IsHost()) {
+        // Check if victim is a remote player or the host (id 0)
+        if (victimId == 0) {
+            // Host was hit (attacking yourself or edge case)
+            // This shouldn't happen in normal gameplay
+            return;
+        }
 
-    auto& victim = it->second;
-    bool stillAlive = victim.TakeDamage(damage);
+        auto it = m_RemotePlayers.find(victimId);
+        if (it == m_RemotePlayers.end()) return;
 
-    LOG_INFO("Player {} hit for {} damage, health now: {}", victimId, damage, victim.GetHealth());
+        auto& victim = it->second;
+        bool stillAlive = victim.TakeDamage(damage);
+        uint8_t newHealth = static_cast<uint8_t>(victim.GetHealth());
+        uint8_t attackerId = m_Network.GetLocalPlayerId();  // Host is attacker
 
-    if (!stillAlive) {
-        LOG_INFO("Player {} was killed!", victimId);
-        // The respawn will be handled by the network state update
+        LOG_INFO("Player {} hit for {} damage, health now: {}", victimId, damage, newHealth);
+
+        // Broadcast the hit to all clients
+        m_Network.BroadcastPlayerHit(victimId, attackerId, newHealth, hitPoint);
+
+        if (!stillAlive) {
+            LOG_INFO("Player {} was killed by player {}!", victimId, attackerId);
+            // Broadcast death to all clients
+            m_Network.BroadcastPlayerDeath(victimId, attackerId);
+        }
+    }
+    // If we're a client, we send hit report to server
+    else if (m_Network.IsClient()) {
+        // Client detected a hit - send to server for validation and broadcast
+        m_Network.SendPlayerHit(victimId, damage, hitPoint);
+        LOG_INFO("Client reports hitting player {} for {} damage", victimId, damage);
     }
 }
 
