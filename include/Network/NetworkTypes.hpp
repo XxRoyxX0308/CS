@@ -61,13 +61,16 @@ enum class PacketType : uint8_t {
 
     // Input (Client → Server)
     C2S_INPUT          = 0x20,
-    C2S_BULLET_EFFECT  = 0x21,  // Client sends bullet hit to server
+    C2S_BULLET_EFFECT  = 0x21,
+    C2S_PLAYER_CONFIG  = 0x22,
+    C2S_PLAYER_HIT     = 0x23,  // Client reports hitting another player
 
     // State (Server → Client)
     S2C_GAME_STATE     = 0x30,
     S2C_PLAYER_HIT     = 0x31,
     S2C_PLAYER_DEATH   = 0x32,
     S2C_BULLET_EFFECT  = 0x33,
+    S2C_PLAYER_CONFIG  = 0x34,
 
     // Sync
     S2C_FULL_SYNC      = 0x40,
@@ -134,6 +137,17 @@ struct InputPacket {
     uint8_t keys;
     float yaw;
     float pitch;
+    float posX, posY, posZ;
+    uint8_t flags;
+};
+
+// ── Player Config Packet ──
+
+struct PlayerConfigPacket {
+    PacketHeader header;
+    uint8_t playerId;
+    uint8_t characterType;
+    uint8_t gunType;
 };
 
 // ── Player State (within GameState) ──
@@ -184,6 +198,14 @@ struct PlayerDeathPacket {
     uint8_t killerId;
 };
 
+// Client → Server: Player hit notification
+struct ClientPlayerHitPacket {
+    PacketHeader header;
+    uint8_t victimId;      // Who was hit
+    float damage;          // How much damage
+    float hitX, hitY, hitZ; // Where the hit occurred
+};
+
 struct BulletEffectPacket {
     PacketHeader header;
     float x, y, z;
@@ -209,6 +231,8 @@ struct InputState {
     uint8_t keys = 0;
     float yaw = 0.0f;
     float pitch = 0.0f;
+    glm::vec3 position{0.0f};
+    uint8_t flags = 0;
 
     bool HasW() const { return keys & INPUT_W; }
     bool HasS() const { return keys & INPUT_S; }
@@ -217,6 +241,7 @@ struct InputState {
     bool HasJump() const { return keys & INPUT_JUMP; }
     bool HasFire() const { return keys & INPUT_FIRE; }
     bool HasReload() const { return keys & INPUT_RELOAD; }
+    bool IsWalking() const { return flags & FLAG_IS_WALKING; }
 };
 
 // ── Input Record (for prediction history) ──

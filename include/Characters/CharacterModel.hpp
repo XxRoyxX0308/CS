@@ -77,6 +77,7 @@ public:
     // ── Getters ──
     CharacterType GetCharacterType() const { return m_CurrentType; }
     const std::shared_ptr<Scene::SceneNode> &GetNode() const { return m_Node; }
+    std::shared_ptr<Core3D::Model> GetModel() const { return m_Model; }
 
     /**
      * @brief Check if walking animation is available.

@@ -20,6 +20,10 @@ struct ClientConnection {
     std::string playerName;
     bool isConnected = false;
 
+    // Character/gun configuration
+    uint8_t characterType = 0;  // 0 = FBI, 1 = Terrorist
+    uint8_t gunType = 0;        // 0 = AAC Honey Badger
+
     // Latest input from client
     InputPacket lastInput{};
     uint32_t lastInputSequence = 0;
@@ -43,12 +47,14 @@ public:
     using OnPlayerLeftCallback = std::function<void(uint8_t playerId)>;
     using OnInputReceivedCallback = std::function<void(uint8_t playerId, const InputPacket& input)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
+    using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
+    using OnPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
 
     GameServer();
     ~GameServer();
 
     // Server lifecycle
-    bool Start(uint16_t port, const std::string& gameName);
+    bool Start(uint16_t port, const std::string& gameName, const std::string& hostName = "Host");
     void Stop();
     bool IsRunning() const { return m_IsRunning; }
 
@@ -62,6 +68,7 @@ public:
     void BroadcastPlayerHit(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos);
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+    void BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType);
 
     // Get pending inputs from clients (for host to process)
     std::vector<PendingInput> GetPendingInputs();
@@ -78,6 +85,8 @@ public:
     void SetOnPlayerLeft(OnPlayerLeftCallback cb) { m_OnPlayerLeft = std::move(cb); }
     void SetOnInputReceived(OnInputReceivedCallback cb) { m_OnInputReceived = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
+    void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
+    void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
 
     // Server info
     const std::string& GetGameName() const { return m_GameName; }
@@ -90,6 +99,8 @@ private:
     void HandleDisconnect(uint32_t peerId);
     void HandleInput(uint32_t peerId, const InputPacket& packet);
     void HandleClientBulletEffect(uint32_t peerId, const BulletEffectPacket& packet);
+    void HandlePlayerConfig(uint32_t peerId, const PlayerConfigPacket& packet);
+    void HandleClientPlayerHit(uint32_t peerId, const ClientPlayerHitPacket& packet);
 
     uint8_t AllocatePlayerId();
     void FreePlayerId(uint8_t playerId);
@@ -99,6 +110,7 @@ private:
 
     bool m_IsRunning = false;
     std::string m_GameName;
+    std::string m_HostName;  // Host player name (player 0)
     uint16_t m_Port = DEFAULT_PORT;
     uint32_t m_ServerTick = 0;
 
@@ -115,6 +127,8 @@ private:
     OnPlayerLeftCallback m_OnPlayerLeft;
     OnInputReceivedCallback m_OnInputReceived;
     OnBulletEffectCallback m_OnBulletEffect;
+    OnPlayerConfigCallback m_OnPlayerConfig;
+    OnPlayerHitCallback m_OnPlayerHit;
 
     // State broadcast rate limiting
     float m_BroadcastTimer = 0.0f;

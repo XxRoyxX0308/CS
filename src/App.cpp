@@ -15,6 +15,7 @@
 
 #include "Core/Texture.hpp"
 #include "Gun/AACHoneyBadger.hpp"
+#include "Gun/RayCast.hpp"
 #include "Util/Input.hpp"
 #include "Util/Keycode.hpp"
 #include "Util/Logger.hpp"
@@ -64,6 +65,9 @@ void App::SetupNetworkCallbacks() {
         LOG_INFO("Connected to server as player {}", playerId);
         m_MenuState.isConnecting = false;
         m_CurrentState = State::GAME_START;
+
+        // Send our character/gun config to server after a short delay (after game starts)
+        // This will be done in Update when the game starts
     });
 
     m_Network.SetOnDisconnected([this]() {
@@ -74,6 +78,91 @@ void App::SetupNetworkCallbacks() {
 
     m_Network.SetOnBulletEffect([this](const glm::vec3& pos, const glm::vec3& normal) {
         HandleBulletEffect(pos, normal);
+    });
+
+    m_Network.SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t /*gunType*/) {
+        LOG_INFO("Player {} changed to character type {}", playerId, characterType);
+
+        auto it = m_RemotePlayers.find(playerId);
+        if (it != m_RemotePlayers.end()) {
+            // Re-initialize with correct character type
+            auto type = (characterType == 0) ? Characters::CharacterType::FBI
+                                              : Characters::CharacterType::TERRORIST;
+            it->second.Init(m_Scene, type);
+        }
+    });
+
+    // Handle client-reported hits (Host receives this from clients)
+    m_Network.SetOnClientPlayerHit([this](uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos) {
+        LOG_INFO("Server received hit report: player {} hit player {} for {} damage",
+                 attackerId, victimId, damage);
+
+        // Check if victim is the host (player 0)
+        if (victimId == 0) {
+            // Host was hit by a client
+            bool stillAlive = m_Player.TakeDamage(damage);
+            uint8_t newHealth = static_cast<uint8_t>(m_Player.GetHealth());
+
+            // Broadcast the hit to all clients
+            m_Network.BroadcastPlayerHit(victimId, attackerId, newHealth, hitPos);
+
+            if (!stillAlive) {
+                LOG_INFO("Host (player 0) was killed by player {}!", attackerId);
+                m_Network.BroadcastPlayerDeath(victimId, attackerId);
+            }
+        } else {
+            // Another remote player was hit
+            auto it = m_RemotePlayers.find(victimId);
+            if (it != m_RemotePlayers.end()) {
+                auto& victim = it->second;
+                bool stillAlive = victim.TakeDamage(damage);
+                uint8_t newHealth = static_cast<uint8_t>(victim.GetHealth());
+
+                // Broadcast the hit to all clients
+                m_Network.BroadcastPlayerHit(victimId, attackerId, newHealth, hitPos);
+
+                if (!stillAlive) {
+                    LOG_INFO("Player {} was killed by player {}!", victimId, attackerId);
+                    m_Network.BroadcastPlayerDeath(victimId, attackerId);
+                }
+            }
+        }
+    });
+
+    // Handle hit notifications from server (Client receives this)
+    m_Network.SetOnPlayerHit([this](uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos) {
+        LOG_INFO("Player {} was hit by player {}, new health: {}", victimId, attackerId, newHealth);
+
+        // Check if we are the victim
+        if (victimId == m_Network.GetLocalPlayerId()) {
+            // We were hit - update our health
+            m_Player.SetHealth(static_cast<float>(newHealth));
+            LOG_INFO("We were hit! Health now: {}", newHealth);
+        } else {
+            // Another player was hit - update their health in our view
+            auto it = m_RemotePlayers.find(victimId);
+            if (it != m_RemotePlayers.end()) {
+                it->second.SetHealth(static_cast<float>(newHealth));
+            }
+        }
+    });
+
+    // Handle death notifications from server (Client receives this)
+    m_Network.SetOnPlayerDeath([this](uint8_t victimId, uint8_t killerId) {
+        LOG_INFO("Player {} was killed by player {}!", victimId, killerId);
+
+        // Check if we died
+        if (victimId == m_Network.GetLocalPlayerId()) {
+            // We died - set health to 0 to trigger respawn
+            m_Player.SetHealth(0.0f);
+            LOG_INFO("We died! Respawning...");
+        } else {
+            // Another player died
+            auto it = m_RemotePlayers.find(victimId);
+            if (it != m_RemotePlayers.end()) {
+                it->second.SetHealth(0.0f);
+            }
+        }
     });
 }
 
@@ -95,6 +184,14 @@ Network::InputState App::SampleLocalInput() const {
     auto& camera = m_Scene.GetCamera();
     input.yaw = camera.GetYaw();
     input.pitch = camera.GetPitch();
+
+    // Include absolute position for accurate sync
+    input.position = m_Player.GetPosition();
+
+    // Set flags
+    input.flags = 0;
+    if (m_Player.IsWalking()) input.flags |= Network::FLAG_IS_WALKING;
+    if (m_Player.IsOnGround()) input.flags |= Network::FLAG_ON_GROUND;
 
     return input;
 }
@@ -340,7 +437,7 @@ void App::Start() {
     m_Player.SpawnOnMap(camera, m_CollisionMesh);
 
     // ── 7. 初始化角色模型 ────────────────────────────────────────────
-    m_Player.InitModel(m_Scene, Characters::CharacterType::FBI, true);
+    m_Player.InitModel(m_Scene, Characters::CharacterType::FBI, false);
 
     // ── 8. 裝備武器 ──────────────────────────────────────────────────
     auto gun = std::make_unique<Gun::AACHoneyBadger>();
@@ -348,6 +445,18 @@ void App::Start() {
 
     // ── 9. 初始化彈孔效果 ────────────────────────────────────────────
     m_BulletHoles.Init();
+
+    // ── 10. 發送角色配置給其他玩家 ────────────────────────────────────
+    if (m_Network.IsClient()) {
+        auto charType = m_Player.GetCharacterModel().GetCharacterType();
+        uint8_t charTypeId = (charType == Characters::CharacterType::FBI) ? 0 : 1;
+        m_Network.SendPlayerConfig(charTypeId, 0);  // 0 = AAC Honey Badger
+    } else if (m_Network.IsHost()) {
+        // Host broadcasts its own config
+        auto charType = m_Player.GetCharacterModel().GetCharacterType();
+        uint8_t charTypeId = (charType == Characters::CharacterType::FBI) ? 0 : 1;
+        m_Network.BroadcastPlayerConfig(0, charTypeId, 0);  // Player 0 = Host
+    }
 
     // ── 狀態轉移 ──
     m_CurrentState = State::GAME_UPDATE;
@@ -400,26 +509,25 @@ void App::BuildAndBroadcastGameState() {
 // ============================================================================
 //  ProcessRemoteInputs — 處理遠端玩家輸入（Host only）
 // ============================================================================
-void App::ProcessRemoteInputs(float dt) {
+void App::ProcessRemoteInputs(float /*dt*/) {
     auto inputs = m_Network.GetPendingInputs();
 
     for (const auto& pending : inputs) {
         auto it = m_RemotePlayers.find(pending.playerId);
         if (it == m_RemotePlayers.end()) continue;
 
-        // Simple state update based on input
-        // In a full implementation, we would simulate physics here
-        Network::NetPlayerState state;
-        state.playerId = pending.playerId;
-        state.yaw = pending.input.yaw;
-        state.pitch = pending.input.pitch;
+        auto& remote = it->second;
+        const auto& input = pending.input;
 
-        // For now, just update the rotation
-        it->second.SetInterpolatedTransform(
-            it->second.GetPosition(),
-            pending.input.yaw,
-            pending.input.pitch
-        );
+        // Use absolute position from client
+        glm::vec3 position(input.posX, input.posY, input.posZ);
+        bool isWalking = (input.flags & Network::FLAG_IS_WALKING) != 0;
+
+        // Update remote player state with absolute position
+        remote.SetPosition(position);
+        remote.SetYaw(input.yaw);
+        remote.SetPitch(input.pitch);
+        remote.SetWalking(isWalking);
     }
 }
 
@@ -432,6 +540,11 @@ void App::UpdateNetworkHost(float dt) {
 
     // Process remote player inputs
     ProcessRemoteInputs(dt);
+
+    // Update all remote players (interpolation and model)
+    for (auto& [playerId, remote] : m_RemotePlayers) {
+        remote.Update(dt);
+    }
 
     // Broadcast game state
     BuildAndBroadcastGameState();
@@ -491,6 +604,14 @@ void App::Update() {
                            ? Characters::CharacterType::TERRORIST
                            : Characters::CharacterType::FBI;
         m_Player.SwitchCharacter(m_Scene, newType);
+
+        // Notify other players about character change
+        uint8_t charTypeId = (newType == Characters::CharacterType::FBI) ? 0 : 1;
+        if (m_Network.IsClient()) {
+            m_Network.SendPlayerConfig(charTypeId, 0);
+        } else if (m_Network.IsHost()) {
+            m_Network.BroadcastPlayerConfig(0, charTypeId, 0);
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -505,24 +626,43 @@ void App::Update() {
     // ── 玩家移動 + 物理 ──
     m_Player.Update(dt, camera, m_CollisionMesh);
 
-    // ── 檢查子彈命中並生成彈孔 ──
+    // ── 檢查子彈命中並生成彈孔 + 玩家傷害檢測 ──
     if (auto *gun = m_Player.GetGun()) {
-        const auto &hit = gun->GetLastHit();
+        const auto &mapHit = gun->GetLastHit();
         static glm::vec3 lastHitPoint(0.0f);
-        if (hit.hit && hit.point != lastHitPoint) {
-            m_BulletHoles.SpawnHole(hit.point, hit.normal);
-            lastHitPoint = hit.point;
 
-            // Sync bullet effect across network
-            if (m_Network.IsHost()) {
-                // Host broadcasts to all clients
-                m_Network.BroadcastBulletEffect(hit.point, hit.normal);
-            } else if (m_Network.IsClient()) {
-                // Client sends to server (which will broadcast to others and notify host)
-                m_Network.SendBulletEffect(hit.point, hit.normal);
+        // Only process new hits
+        if (mapHit.hit && mapHit.point != lastHitPoint) {
+            lastHitPoint = mapHit.point;
+
+            // Check if we hit a player (raycast against all remote players)
+            auto& camera = m_Scene.GetCamera();
+            PlayerHitResult playerHit = CheckPlayerHit(
+                camera.GetPosition(),
+                camera.GetFront(),
+                gun->GetLastHit().distance  // Only check up to the map hit distance
+            );
+
+            if (playerHit.hit && playerHit.distance < mapHit.distance) {
+                // Hit a player before hitting the map
+                HandlePlayerDamage(playerHit.playerId, gun->GetDamage(), playerHit.point);
+                // Don't spawn bullet hole on map since we hit a player
+            } else {
+                // Hit the map, spawn bullet hole
+                m_BulletHoles.SpawnHole(mapHit.point, mapHit.normal);
+
+                // Sync bullet effect across network
+                if (m_Network.IsHost()) {
+                    m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
+                } else if (m_Network.IsClient()) {
+                    m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
+                }
             }
         }
     }
+
+    // ── 檢查玩家死亡並重生 ──
+    CheckAndHandleRespawn();
 
     // ── 更新彈孔效果 ──
     m_BulletHoles.Update(dt);
@@ -634,4 +774,134 @@ void App::End() {
     LOG_TRACE("App::End");
     m_Network.Disconnect();
     SDL_SetRelativeMouseMode(SDL_FALSE);
+}
+
+// ============================================================================
+//  CheckPlayerHit — 檢測射線是否命中任何玩家（使用角色模型）
+// ============================================================================
+App::PlayerHitResult App::CheckPlayerHit(const glm::vec3& origin,
+                                          const glm::vec3& direction,
+                                          float maxDist) {
+    PlayerHitResult result;
+
+    // Check all remote players using their character models
+    for (const auto& [playerId, remote] : m_RemotePlayers) {
+        if (!remote.IsAlive()) continue;
+
+        // Get character model for accurate hit detection
+        auto model = remote.GetCharacterModelPtr();
+        if (model) {
+            glm::mat4 transform = remote.GetModelWorldTransform();
+            auto hit = Gun::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
+
+            if (hit.hit && hit.distance < result.distance) {
+                result.hit = true;
+                result.playerId = playerId;
+                result.distance = hit.distance;
+                result.point = hit.point;
+            }
+        }
+    }
+
+    // If we're a client, also check the host (player 0) - represented as remote player
+    // But in host mode, we check remote players. In client mode, all other players
+    // including host appear as remote players, so this is already covered.
+
+    return result;
+}
+
+// ============================================================================
+//  HandlePlayerDamage — 處理玩家傷害
+// ============================================================================
+void App::HandlePlayerDamage(uint8_t victimId, float damage, const glm::vec3& hitPoint) {
+    // If we're the host, we process damage and broadcast
+    if (m_Network.IsHost()) {
+        // Check if victim is a remote player or the host (id 0)
+        if (victimId == 0) {
+            // Host was hit (attacking yourself or edge case)
+            // This shouldn't happen in normal gameplay
+            return;
+        }
+
+        auto it = m_RemotePlayers.find(victimId);
+        if (it == m_RemotePlayers.end()) return;
+
+        auto& victim = it->second;
+        bool stillAlive = victim.TakeDamage(damage);
+        uint8_t newHealth = static_cast<uint8_t>(victim.GetHealth());
+        uint8_t attackerId = m_Network.GetLocalPlayerId();  // Host is attacker
+
+        LOG_INFO("Player {} hit for {} damage, health now: {}", victimId, damage, newHealth);
+
+        // Broadcast the hit to all clients
+        m_Network.BroadcastPlayerHit(victimId, attackerId, newHealth, hitPoint);
+
+        if (!stillAlive) {
+            LOG_INFO("Player {} was killed by player {}!", victimId, attackerId);
+            // Broadcast death to all clients
+            m_Network.BroadcastPlayerDeath(victimId, attackerId);
+        }
+    }
+    // If we're a client, we send hit report to server
+    else if (m_Network.IsClient()) {
+        // Client detected a hit - send to server for validation and broadcast
+        m_Network.SendPlayerHit(victimId, damage, hitPoint);
+        LOG_INFO("Client reports hitting player {} for {} damage", victimId, damage);
+    }
+}
+
+// ============================================================================
+//  GetSpawnPoint — 計算重生點位置
+// ============================================================================
+glm::vec3 App::GetSpawnPoint() const {
+    // 使用與 Player::SpawnOnMap 相同的邏輯
+    float spawnX = 10.0f;
+    float spawnZ = 0.0f;
+
+    // 建立膠囊體從高處向下掃掠以找到地面
+    Collision::Capsule cap;
+    cap.radius = 0.3f;   // 標準角色半徑
+    cap.height = 1.7f - 2.0f * 0.3f;  // 標準角色高度
+    if (cap.height < 0.0f) cap.height = 0.0f;
+    cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
+
+    auto groundY = Collision::CapsuleCast::SweepVertical(cap, m_CollisionMesh, -200.0f);
+    if (groundY.has_value()) {
+        return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
+    }
+
+    // 備用重生點
+    spawnX = -5.0f;
+    spawnZ = -5.0f;
+    cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
+    groundY = Collision::CapsuleCast::SweepVertical(cap, m_CollisionMesh, -200.0f);
+    if (groundY.has_value()) {
+        return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
+    }
+
+    // 最後備用：返回默認位置
+    return glm::vec3(10.0f, 5.0f, 0.0f);
+}
+
+// ============================================================================
+//  CheckAndHandleRespawn — 檢測本地玩家死亡並重生
+// ============================================================================
+void App::CheckAndHandleRespawn() {
+    if (!m_Player.IsAlive()) {
+        auto& camera = m_Scene.GetCamera();
+        m_Player.Respawn(camera, m_CollisionMesh);
+        LOG_INFO("Player respawned");
+    }
+
+    // Check remote players for respawn (Host only)
+    if (m_Network.IsHost()) {
+        for (auto& [playerId, remote] : m_RemotePlayers) {
+            if (!remote.IsAlive()) {
+                glm::vec3 spawnPos = GetSpawnPoint();
+                remote.Respawn(spawnPos);
+                LOG_INFO("Remote player {} respawned at ({}, {}, {})",
+                         playerId, spawnPos.x, spawnPos.y, spawnPos.z);
+            }
+        }
+    }
 }

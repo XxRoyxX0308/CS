@@ -27,7 +27,10 @@ public:
     using OnConnectedCallback = std::function<void(uint8_t playerId)>;
     using OnDisconnectedCallback = std::function<void()>;
     using OnPlayerHitCallback = std::function<void(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos)>;
+    using OnPlayerDeathCallback = std::function<void(uint8_t victimId, uint8_t killerId)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
+    using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
+    using OnClientPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
 
     NetworkManager();
     ~NetworkManager();
@@ -86,6 +89,12 @@ public:
     // ── Send Effects (Client mode) ──
 
     void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+    void SendPlayerConfig(uint8_t characterType, uint8_t gunType);
+    void SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos);
+
+    // ── Broadcast (Host mode) ──
+
+    void BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType);
 
     // ── LAN Discovery ──
 
@@ -101,7 +110,10 @@ public:
     void SetOnConnected(OnConnectedCallback cb) { m_OnConnected = std::move(cb); }
     void SetOnDisconnected(OnDisconnectedCallback cb) { m_OnDisconnected = std::move(cb); }
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
+    void SetOnPlayerDeath(OnPlayerDeathCallback cb) { m_OnPlayerDeath = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
+    void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
+    void SetOnClientPlayerHit(OnClientPlayerHitCallback cb) { m_OnClientPlayerHit = std::move(cb); }
 
     // ── Server Info ──
 
@@ -128,7 +140,10 @@ private:
     OnConnectedCallback m_OnConnected;
     OnDisconnectedCallback m_OnDisconnected;
     OnPlayerHitCallback m_OnPlayerHit;
+    OnPlayerDeathCallback m_OnPlayerDeath;
     OnBulletEffectCallback m_OnBulletEffect;
+    OnPlayerConfigCallback m_OnPlayerConfig;
+    OnClientPlayerHitCallback m_OnClientPlayerHit;
 };
 
 } // namespace Network

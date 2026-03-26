@@ -171,6 +171,36 @@ inline std::vector<uint8_t> Input(uint32_t sequence, const InputState& input) {
     packet.keys = input.keys;
     packet.yaw = input.yaw;
     packet.pitch = input.pitch;
+    packet.posX = input.position.x;
+    packet.posY = input.position.y;
+    packet.posZ = input.position.z;
+    packet.flags = input.flags;
+
+    return std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t*>(&packet) + sizeof(packet)
+    );
+}
+
+inline std::vector<uint8_t> PlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+    PlayerConfigPacket packet{};
+    packet.header.type = static_cast<uint8_t>(PacketType::S2C_PLAYER_CONFIG);
+    packet.playerId = playerId;
+    packet.characterType = characterType;
+    packet.gunType = gunType;
+
+    return std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t*>(&packet) + sizeof(packet)
+    );
+}
+
+inline std::vector<uint8_t> ClientPlayerConfig(uint8_t characterType, uint8_t gunType) {
+    PlayerConfigPacket packet{};
+    packet.header.type = static_cast<uint8_t>(PacketType::C2S_PLAYER_CONFIG);
+    packet.playerId = 0;
+    packet.characterType = characterType;
+    packet.gunType = gunType;
 
     return std::vector<uint8_t>(
         reinterpret_cast<uint8_t*>(&packet),
@@ -261,6 +291,21 @@ inline std::vector<uint8_t> ClientBulletEffect(const glm::vec3& pos, const glm::
     );
 }
 
+inline std::vector<uint8_t> ClientPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos) {
+    ClientPlayerHitPacket packet{};
+    packet.header.type = static_cast<uint8_t>(PacketType::C2S_PLAYER_HIT);
+    packet.victimId = victimId;
+    packet.damage = damage;
+    packet.hitX = hitPos.x;
+    packet.hitY = hitPos.y;
+    packet.hitZ = hitPos.z;
+
+    return std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t*>(&packet) + sizeof(packet)
+    );
+}
+
 inline std::vector<uint8_t> DiscoveryQuery() {
     DiscoveryQueryPacket packet{};
     std::memcpy(packet.magic, DISCOVERY_MAGIC, 4);
@@ -339,6 +384,27 @@ inline std::optional<PlayerHitPacket> ParsePlayerHit(const std::vector<uint8_t>&
 inline std::optional<BulletEffectPacket> ParseBulletEffect(const std::vector<uint8_t>& data) {
     if (data.size() < sizeof(BulletEffectPacket)) return std::nullopt;
     BulletEffectPacket packet;
+    std::memcpy(&packet, data.data(), sizeof(packet));
+    return packet;
+}
+
+inline std::optional<PlayerConfigPacket> ParsePlayerConfig(const std::vector<uint8_t>& data) {
+    if (data.size() < sizeof(PlayerConfigPacket)) return std::nullopt;
+    PlayerConfigPacket packet;
+    std::memcpy(&packet, data.data(), sizeof(packet));
+    return packet;
+}
+
+inline std::optional<ClientPlayerHitPacket> ParseClientPlayerHit(const std::vector<uint8_t>& data) {
+    if (data.size() < sizeof(ClientPlayerHitPacket)) return std::nullopt;
+    ClientPlayerHitPacket packet;
+    std::memcpy(&packet, data.data(), sizeof(packet));
+    return packet;
+}
+
+inline std::optional<PlayerDeathPacket> ParsePlayerDeath(const std::vector<uint8_t>& data) {
+    if (data.size() < sizeof(PlayerDeathPacket)) return std::nullopt;
+    PlayerDeathPacket packet;
     std::memcpy(&packet, data.data(), sizeof(packet));
     return packet;
 }

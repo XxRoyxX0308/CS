@@ -22,7 +22,7 @@ GameServer::~GameServer() {
     Stop();
 }
 
-bool GameServer::Start(uint16_t port, const std::string& gameName) {
+bool GameServer::Start(uint16_t port, const std::string& gameName, const std::string& hostName) {
     if (m_IsRunning) {
         LOG_WARN("Server already running");
         return false;
@@ -42,6 +42,7 @@ bool GameServer::Start(uint16_t port, const std::string& gameName) {
     }
 
     m_GameName = gameName;
+    m_HostName = hostName;
     m_Port = port;
     m_ServerTick = 0;
     m_IsRunning = true;
@@ -49,7 +50,7 @@ bool GameServer::Start(uint16_t port, const std::string& gameName) {
     // Reserve player ID 0 for host
     m_UsedPlayerIds[0] = true;
 
-    LOG_INFO("Game server started: {} on port {}", gameName, port);
+    LOG_INFO("Game server started: {} on port {} (host: {})", gameName, port, hostName);
     return true;
 }
 
@@ -140,6 +141,22 @@ void GameServer::HandlePacket(uint32_t peerId, const std::vector<uint8_t>& data)
             break;
         }
 
+        case PacketType::C2S_PLAYER_CONFIG: {
+            auto packet = PacketParser::ParsePlayerConfig(data);
+            if (packet) {
+                HandlePlayerConfig(peerId, *packet);
+            }
+            break;
+        }
+
+        case PacketType::C2S_PLAYER_HIT: {
+            auto packet = PacketParser::ParseClientPlayerHit(data);
+            if (packet) {
+                HandleClientPlayerHit(peerId, *packet);
+            }
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -192,11 +209,22 @@ void GameServer::HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& pac
         }
     }
 
-    // Notify the new player about existing players
+    // Notify the new player about existing players (including Host)
+    // First, notify about Host (player 0)
+    auto hostNotify = PacketBuilder::PlayerJoined(0, m_HostName.c_str());
+    m_Socket.SendToPeer(peerId, hostNotify.data(), hostNotify.size(),
+                        CHANNEL_RELIABLE, true);
+
+    // Then notify about other connected clients
     for (const auto& [existingPlayerId, existingClient] : m_Clients) {
         if (existingPlayerId != playerId) {
             auto existingNotify = PacketBuilder::PlayerJoined(existingPlayerId, existingClient.playerName.c_str());
             m_Socket.SendToPeer(peerId, existingNotify.data(), existingNotify.size(),
+                                CHANNEL_RELIABLE, true);
+
+            // Also send their config
+            auto configNotify = PacketBuilder::PlayerConfig(existingPlayerId, existingClient.characterType, existingClient.gunType);
+            m_Socket.SendToPeer(peerId, configNotify.data(), configNotify.size(),
                                 CHANNEL_RELIABLE, true);
         }
     }
@@ -300,6 +328,33 @@ void GameServer::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& no
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
 }
 
+void GameServer::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+    auto packet = PacketBuilder::PlayerConfig(playerId, characterType, gunType);
+    m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+}
+
+void GameServer::HandlePlayerConfig(uint32_t peerId, const PlayerConfigPacket& packet) {
+    auto it = m_PeerToPlayer.find(peerId);
+    if (it == m_PeerToPlayer.end()) return;
+
+    uint8_t playerId = it->second;
+    auto& client = m_Clients[playerId];
+
+    // Store the config
+    client.characterType = packet.characterType;
+    client.gunType = packet.gunType;
+
+    LOG_INFO("Player {} config: character={}, gun={}", playerId, packet.characterType, packet.gunType);
+
+    // Broadcast to all clients (including the sender, so they know server received it)
+    BroadcastPlayerConfig(playerId, packet.characterType, packet.gunType);
+
+    // Notify host via callback
+    if (m_OnPlayerConfig) {
+        m_OnPlayerConfig(playerId, packet.characterType, packet.gunType);
+    }
+}
+
 void GameServer::HandleClientBulletEffect(uint32_t peerId, const BulletEffectPacket& packet) {
     // Get the player ID for the sender
     auto it = m_PeerToPlayer.find(peerId);
@@ -323,6 +378,24 @@ void GameServer::HandleClientBulletEffect(uint32_t peerId, const BulletEffectPac
     // Notify host via callback
     if (m_OnBulletEffect) {
         m_OnBulletEffect(pos, normal);
+    }
+}
+
+void GameServer::HandleClientPlayerHit(uint32_t peerId, const ClientPlayerHitPacket& packet) {
+    // Get the attacker's player ID
+    auto it = m_PeerToPlayer.find(peerId);
+    if (it == m_PeerToPlayer.end()) return;
+
+    uint8_t attackerId = it->second;
+    uint8_t victimId = packet.victimId;
+    glm::vec3 hitPos(packet.hitX, packet.hitY, packet.hitZ);
+
+    LOG_INFO("Client {} reports hitting player {} for {} damage",
+             attackerId, victimId, packet.damage);
+
+    // Notify the host (App) via callback so it can apply damage and broadcast
+    if (m_OnPlayerHit) {
+        m_OnPlayerHit(attackerId, victimId, packet.damage, hitPos);
     }
 }
 

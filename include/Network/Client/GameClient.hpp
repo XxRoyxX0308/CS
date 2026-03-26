@@ -29,7 +29,9 @@ public:
     using OnPlayerJoinedCallback = std::function<void(uint8_t playerId, const std::string& name)>;
     using OnPlayerLeftCallback = std::function<void(uint8_t playerId)>;
     using OnPlayerHitCallback = std::function<void(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos)>;
+    using OnPlayerDeathCallback = std::function<void(uint8_t victimId, uint8_t killerId)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
+    using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
 
     GameClient();
     ~GameClient();
@@ -48,6 +50,12 @@ public:
 
     // Send bullet effect to server (client hit detection)
     void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+
+    // Send player hit to server (client detected hitting another player)
+    void SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos);
+
+    // Send player config to server (character/gun type)
+    void SendPlayerConfig(uint8_t characterType, uint8_t gunType);
 
     // Get local player ID (assigned by server)
     uint8_t GetLocalPlayerId() const { return m_LocalPlayerId; }
@@ -79,7 +87,9 @@ public:
     void SetOnPlayerJoined(OnPlayerJoinedCallback cb) { m_OnPlayerJoined = std::move(cb); }
     void SetOnPlayerLeft(OnPlayerLeftCallback cb) { m_OnPlayerLeft = std::move(cb); }
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
+    void SetOnPlayerDeath(OnPlayerDeathCallback cb) { m_OnPlayerDeath = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
+    void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
 
 private:
     void HandlePacket(const std::vector<uint8_t>& data);
@@ -89,7 +99,9 @@ private:
     void HandlePlayerLeft(const PlayerLeftPacket& packet);
     void HandleGameState(const GameStatePacket& packet);
     void HandlePlayerHit(const PlayerHitPacket& packet);
+    void HandlePlayerDeath(const PlayerDeathPacket& packet);
     void HandleBulletEffect(const BulletEffectPacket& packet);
+    void HandlePlayerConfig(const PlayerConfigPacket& packet);
 
     Socket m_Socket;
     LANDiscovery m_Discovery;
@@ -118,7 +130,9 @@ private:
     OnPlayerJoinedCallback m_OnPlayerJoined;
     OnPlayerLeftCallback m_OnPlayerLeft;
     OnPlayerHitCallback m_OnPlayerHit;
+    OnPlayerDeathCallback m_OnPlayerDeath;
     OnBulletEffectCallback m_OnBulletEffect;
+    OnPlayerConfigCallback m_OnPlayerConfig;
 };
 
 } // namespace Network

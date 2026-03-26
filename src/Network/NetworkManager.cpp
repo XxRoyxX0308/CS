@@ -25,7 +25,7 @@ bool NetworkManager::HostGame(uint16_t port, const std::string& gameName, const 
     m_Server = std::make_unique<GameServer>();
     SetupServerCallbacks();
 
-    if (!m_Server->Start(port, gameName)) {
+    if (!m_Server->Start(port, gameName, hostPlayerName)) {
         m_Server.reset();
         return false;
     }
@@ -186,6 +186,24 @@ void NetworkManager::SendBulletEffect(const glm::vec3& pos, const glm::vec3& nor
     }
 }
 
+void NetworkManager::SendPlayerConfig(uint8_t characterType, uint8_t gunType) {
+    if (m_Client) {
+        m_Client->SendPlayerConfig(characterType, gunType);
+    }
+}
+
+void NetworkManager::SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos) {
+    if (m_Client) {
+        m_Client->SendPlayerHit(victimId, damage, hitPos);
+    }
+}
+
+void NetworkManager::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+    if (m_Server) {
+        m_Server->BroadcastPlayerConfig(playerId, characterType, gunType);
+    }
+}
+
 void NetworkManager::StartDiscovery() {
     if (m_Client) {
         m_Client->StartDiscovery();
@@ -251,6 +269,18 @@ void NetworkManager::SetupServerCallbacks() {
             m_OnBulletEffect(pos, normal);
         }
     });
+
+    m_Server->SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+        if (m_OnPlayerConfig) {
+            m_OnPlayerConfig(playerId, characterType, gunType);
+        }
+    });
+
+    m_Server->SetOnPlayerHit([this](uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos) {
+        if (m_OnClientPlayerHit) {
+            m_OnClientPlayerHit(attackerId, victimId, damage, hitPos);
+        }
+    });
 }
 
 void NetworkManager::SetupClientCallbacks() {
@@ -290,9 +320,21 @@ void NetworkManager::SetupClientCallbacks() {
         }
     });
 
+    m_Client->SetOnPlayerDeath([this](uint8_t victimId, uint8_t killerId) {
+        if (m_OnPlayerDeath) {
+            m_OnPlayerDeath(victimId, killerId);
+        }
+    });
+
     m_Client->SetOnBulletEffect([this](const glm::vec3& pos, const glm::vec3& normal) {
         if (m_OnBulletEffect) {
             m_OnBulletEffect(pos, normal);
+        }
+    });
+
+    m_Client->SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+        if (m_OnPlayerConfig) {
+            m_OnPlayerConfig(playerId, characterType, gunType);
         }
     });
 }
