@@ -1,8 +1,8 @@
-#ifndef NETWORK_GAME_CLIENT_HPP
-#define NETWORK_GAME_CLIENT_HPP
+#ifndef CS_NETWORK_CLIENT_GAMECLIENT_HPP
+#define CS_NETWORK_CLIENT_GAMECLIENT_HPP
 
 #include "Network/Socket.hpp"
-#include "Network/NetworkTypes.hpp"
+#include "Network/Types.hpp"
 #include "Network/Client/Interpolation.hpp"
 #include "Network/Discovery/LANDiscovery.hpp"
 #include <functional>
@@ -11,7 +11,7 @@
 
 namespace Network {
 
-// ── Connection State ────────────────────────────────────────────────────────
+// Connection State
 
 enum class ConnectionState {
     Disconnected,
@@ -19,7 +19,7 @@ enum class ConnectionState {
     Connected
 };
 
-// ── Game Client Class ───────────────────────────────────────────────────────
+// Game Client Class
 
 class GameClient {
 public:
@@ -137,4 +137,4 @@ private:
 
 } // namespace Network
 
-#endif // NETWORK_GAME_CLIENT_HPP
+#endif // CS_NETWORK_CLIENT_GAMECLIENT_HPP

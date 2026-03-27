@@ -1,14 +1,14 @@
-#ifndef NETWORK_PACKET_HPP
-#define NETWORK_PACKET_HPP
+#ifndef CS_NETWORK_PACKET_HPP
+#define CS_NETWORK_PACKET_HPP
 
-#include "Network/NetworkTypes.hpp"
+#include "Network/Types.hpp"
 #include <vector>
 #include <cstring>
 #include <optional>
 
 namespace Network {
 
-// ── Packet Serialization Helpers ────────────────────────────────────────────
+// Packet Serialization Helpers
 
 class PacketWriter {
 public:
@@ -101,7 +101,7 @@ private:
     size_t m_Offset;
 };
 
-// ── Packet Building Utilities ───────────────────────────────────────────────
+// Packet Building Utilities
 
 namespace PacketBuilder {
 
@@ -338,7 +338,7 @@ inline std::vector<uint8_t> DiscoveryResponse(const char* gameName,
 
 } // namespace PacketBuilder
 
-// ── Packet Parsing Utilities ────────────────────────────────────────────────
+// Packet Parsing Utilities
 
 namespace PacketParser {
 
@@ -424,4 +424,4 @@ inline std::optional<DiscoveryResponsePacket> ParseDiscoveryResponse(const std::
 
 } // namespace Network
 
-#endif // NETWORK_PACKET_HPP
+#endif // CS_NETWORK_PACKET_HPP

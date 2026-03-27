@@ -1,21 +1,21 @@
 // ============================================================================
-//  App.cpp — CS FPS 遊戲邏輯
+//  App.cpp — CS FPS Game Logic
 // ============================================================================
 //
-//  功能：
-//  ① FPS 攝影機：WASD 走路（鎖定 Y 軸）、空白鍵跳躍、滑鼠鎖定視角
-//  ② 載入 de_dust2 3D 地圖（OBJ + MTL + TGA 材質）
-//  ③ 地圖網格碰撞（Mesh collision）讓腳色站在地面上
-//  ④ 方向光（太陽光）+ ForwardRenderer 渲染
-//  ⑤ TAB 切換 Debug 面板 / 游標鎖定
-//  ⑥ 網路連線 (LAN Listen Server)
+//  Features:
+//  1. FPS Camera: WASD movement (Y-axis locked), spacebar jump, mouse-locked view
+//  2. Load de_dust2 3D map (OBJ + MTL + TGA textures)
+//  3. Map mesh collision to keep character on ground
+//  4. Directional light (sun) + ForwardRenderer rendering
+//  5. TAB toggles Debug panel / cursor lock
+//  6. Network connection (LAN Listen Server)
 // ============================================================================
 
 #include "App.hpp"
 
 #include "Core/Texture.hpp"
-#include "Gun/AACHoneyBadger.hpp"
-#include "Gun/RayCast.hpp"
+#include "Weapon/AACHoneyBadger.hpp"
+#include "Weapon/RayCast.hpp"
 #include "Util/Input.hpp"
 #include "Util/Keycode.hpp"
 #include "Util/Logger.hpp"
@@ -38,7 +38,7 @@ static glm::mat4 BuildMapTransform() {
 }
 
 // ============================================================================
-//  SetupNetworkCallbacks — 設置網路事件回調
+//  SetupNetworkCallbacks — Setup network event callbacks
 // ============================================================================
 void App::SetupNetworkCallbacks() {
     m_Network.SetOnPlayerJoined([this](uint8_t playerId, const std::string& name) {
@@ -47,7 +47,7 @@ void App::SetupNetworkCallbacks() {
         // Create remote player
         auto& remote = m_RemotePlayers[playerId];
         remote.SetPlayerId(playerId);
-        remote.Init(m_Scene, Characters::CharacterType::TERRORIST);
+        remote.Init(m_Scene, Entity::CharacterType::TERRORIST);
     });
 
     m_Network.SetOnPlayerLeft([this](uint8_t playerId) {
@@ -86,8 +86,8 @@ void App::SetupNetworkCallbacks() {
         auto it = m_RemotePlayers.find(playerId);
         if (it != m_RemotePlayers.end()) {
             // Re-initialize with correct character type
-            auto type = (characterType == 0) ? Characters::CharacterType::FBI
-                                              : Characters::CharacterType::TERRORIST;
+            auto type = (characterType == 0) ? Entity::CharacterType::FBI
+                                              : Entity::CharacterType::TERRORIST;
             it->second.Init(m_Scene, type);
         }
     });
@@ -167,7 +167,7 @@ void App::SetupNetworkCallbacks() {
 }
 
 // ============================================================================
-//  SampleLocalInput — 採樣本地輸入狀態
+//  SampleLocalInput — Sample local input state
 // ============================================================================
 Network::InputState App::SampleLocalInput() const {
     Network::InputState input;
@@ -197,38 +197,38 @@ Network::InputState App::SampleLocalInput() const {
 }
 
 // ============================================================================
-//  HandleBulletEffect — 處理彈孔效果
+//  HandleBulletEffect — Handle bullet hole effect
 // ============================================================================
 void App::HandleBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     m_BulletHoles.SpawnHole(pos, normal);
 }
 
 // ============================================================================
-//  MainMenu() — 主選單
+//  MainMenu() — Main Menu
 // ============================================================================
 void App::MainMenu() {
-    // 釋放游標
+    // Release cursor
     if (m_CursorLocked) {
         SDL_SetRelativeMouseMode(SDL_FALSE);
         m_CursorLocked = false;
     }
 
-    // 設置網路回調
+    // Setup network callbacks
     static bool callbacksSetup = false;
     if (!callbacksSetup) {
         SetupNetworkCallbacks();
         callbacksSetup = true;
     }
 
-    // 清除螢幕
+    // Clear screen
     glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // 更新網路（用於 LAN 發現）
+    // Update network (for LAN discovery)
     const float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
     m_Network.Update(dt);
 
-    // 主選單視窗
+    // Main menu window
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(450, 400));
@@ -240,7 +240,7 @@ void App::MainMenu() {
     ImGui::Separator();
     ImGui::Spacing();
 
-    // ── 玩家名稱 ──
+    // ── Player Name ──
     ImGui::Text("Player Name:");
     ImGui::InputText("##PlayerName", m_MenuState.playerName, sizeof(m_MenuState.playerName));
     ImGui::Spacing();
@@ -248,7 +248,7 @@ void App::MainMenu() {
     ImGui::Separator();
 
     // ══════════════════════════════════════════════════════════════════════
-    // 創建遊戲區塊
+    // Create Game Section
     // ══════════════════════════════════════════════════════════════════════
     ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Host a Game");
 
@@ -265,11 +265,11 @@ void App::MainMenu() {
     ImGui::Separator();
 
     // ══════════════════════════════════════════════════════════════════════
-    // 加入遊戲區塊
+    // Join Game Section
     // ══════════════════════════════════════════════════════════════════════
     ImGui::TextColored(ImVec4(0.2f, 0.6f, 1.0f, 1.0f), "Join a Game");
 
-    // 手動 IP 輸入
+    // Manual IP input
     ImGui::Text("IP Address:");
     ImGui::SetNextItemWidth(200);
     ImGui::InputText("##IPAddress", m_MenuState.ipAddress, sizeof(m_MenuState.ipAddress));
@@ -281,7 +281,7 @@ void App::MainMenu() {
         }
     }
 
-    // LAN 伺服器列表
+    // LAN server list
     ImGui::Text("LAN Servers:");
     ImGui::BeginChild("ServerList", ImVec2(0, 80), true);
 
@@ -301,7 +301,7 @@ void App::MainMenu() {
 
     ImGui::EndChild();
 
-    // 探索按鈕
+    // Discovery button
     if (m_Network.IsDiscovering()) {
         if (ImGui::Button("Stop Refresh")) {
             m_Network.StopDiscovery();
@@ -312,7 +312,7 @@ void App::MainMenu() {
         }
     }
 
-    // 連線中狀態
+    // Connecting state
     if (m_MenuState.isConnecting) {
         m_MenuState.connectionTimer += dt;
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Connecting...");
@@ -326,7 +326,7 @@ void App::MainMenu() {
     ImGui::Spacing();
     ImGui::Separator();
 
-    // ── 退出按鈕 ──
+    // ── Quit Button ──
     if (ImGui::Button("Quit", ImVec2(100, 30))) {
         m_CurrentState = State::GAME_END;
     }
@@ -335,10 +335,10 @@ void App::MainMenu() {
 }
 
 // ============================================================================
-//  Lobby() — 大廳（等待玩家）
+//  Lobby() — Lobby (waiting for players)
 // ============================================================================
 void App::Lobby() {
-    // 清除螢幕
+    // Clear screen
     glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -390,29 +390,29 @@ void App::Lobby() {
 }
 
 // ============================================================================
-//  Start() — 場景初始化（僅執行一次）
+//  Start() — Scene initialization (executed once)
 // ============================================================================
 void App::Start() {
     LOG_TRACE("App::Start");
 
-    // ── 1. 攝影機 & 玩家設定 ──────────────────────────────────────────────
+    // ── 1. Camera & Player Setup ──
     auto &camera = m_Scene.GetCamera();
     m_Player.Init(camera);
 
-    // ── 2. 鎖定游標（FPS 模式）──────────────────────────────────────────
+    // ── 2. Lock Cursor (FPS mode) ──
     SDL_SetRelativeMouseMode(SDL_TRUE);
     m_CursorLocked = true;
 
-    // ── 3. 方向光（太陽光）──────────────────────────────────────────────
+    // ── 3. Directional Light (Sun) ──
     Scene::DirectionalLight sun;
     sun.direction = glm::normalize(glm::vec3(-0.5f, -1.0f, -0.3f));
     sun.color     = glm::vec3(1.0f, 0.98f, 0.92f);
     sun.intensity = 1.5f;
     m_Scene.SetDirectionalLight(sun);
 
-    glClearColor(0.53f, 0.81f, 0.92f, 1.0f); // 天空藍色背景
+    glClearColor(0.53f, 0.81f, 0.92f, 1.0f); // Sky blue background
 
-    // ── 4. 載入 de_dust2 地圖 ───────────────────────────────────────────
+    // ── 4. Load de_dust2 Map ──
     const std::string mapPath =
         std::string(ASSETS_DIR) + "/de_dust2-map/source/de_dust2.obj";
     LOG_INFO("Loading map: {}", mapPath);
@@ -429,42 +429,42 @@ void App::Start() {
 
     m_Renderer.SetSceneRadius(80.0f);
 
-    // ── 5. 建立地圖碰撞 ────────────────────────────────────────────────
+    // ── 5. Build Map Collision ──
     glm::mat4 mapTransform = BuildMapTransform();
     m_CollisionMesh.Build(*m_MapModel, mapTransform);
 
-    // ── 6. 設定出生點 ──────────────────────────────────────────────────
+    // ── 6. Set Spawn Point ──
     m_Player.SpawnOnMap(camera, m_CollisionMesh);
 
-    // ── 7. 初始化角色模型 ────────────────────────────────────────────
-    m_Player.InitModel(m_Scene, Characters::CharacterType::FBI, false);
+    // ── 7. Initialize Character Model ──
+    m_Player.InitModel(m_Scene, Entity::CharacterType::FBI, false);
 
-    // ── 8. 裝備武器 ──────────────────────────────────────────────────
-    auto gun = std::make_unique<Gun::AACHoneyBadger>();
+    // ── 8. Equip Weapon ──
+    auto gun = std::make_unique<Weapon::AACHoneyBadger>();
     m_Player.EquipGun(std::move(gun), m_Scene);
 
-    // ── 9. 初始化彈孔效果 ────────────────────────────────────────────
+    // ── 9. Initialize Bullet Hole Effects ──
     m_BulletHoles.Init();
 
-    // ── 10. 發送角色配置給其他玩家 ────────────────────────────────────
+    // ── 10. Send Character Config to Other Players ──
     if (m_Network.IsClient()) {
         auto charType = m_Player.GetCharacterModel().GetCharacterType();
-        uint8_t charTypeId = (charType == Characters::CharacterType::FBI) ? 0 : 1;
+        uint8_t charTypeId = (charType == Entity::CharacterType::FBI) ? 0 : 1;
         m_Network.SendPlayerConfig(charTypeId, 0);  // 0 = AAC Honey Badger
     } else if (m_Network.IsHost()) {
         // Host broadcasts its own config
         auto charType = m_Player.GetCharacterModel().GetCharacterType();
-        uint8_t charTypeId = (charType == Characters::CharacterType::FBI) ? 0 : 1;
+        uint8_t charTypeId = (charType == Entity::CharacterType::FBI) ? 0 : 1;
         m_Network.BroadcastPlayerConfig(0, charTypeId, 0);  // Player 0 = Host
     }
 
-    // ── 狀態轉移 ──
+    // ── State Transition ──
     m_CurrentState = State::GAME_UPDATE;
     LOG_TRACE("App::Start complete");
 }
 
 // ============================================================================
-//  BuildAndBroadcastGameState — 建立並廣播遊戲狀態（Host only）
+//  BuildAndBroadcastGameState — Build and broadcast game state (Host only)
 // ============================================================================
 void App::BuildAndBroadcastGameState() {
     if (!m_Network.IsHost()) return;
@@ -507,7 +507,7 @@ void App::BuildAndBroadcastGameState() {
 }
 
 // ============================================================================
-//  ProcessRemoteInputs — 處理遠端玩家輸入（Host only）
+//  ProcessRemoteInputs — Process remote player inputs (Host only)
 // ============================================================================
 void App::ProcessRemoteInputs(float /*dt*/) {
     auto inputs = m_Network.GetPendingInputs();
@@ -532,7 +532,7 @@ void App::ProcessRemoteInputs(float /*dt*/) {
 }
 
 // ============================================================================
-//  UpdateNetworkHost — Host 模式更新
+//  UpdateNetworkHost — Host mode update
 // ============================================================================
 void App::UpdateNetworkHost(float dt) {
     // Process network events
@@ -551,7 +551,7 @@ void App::UpdateNetworkHost(float dt) {
 }
 
 // ============================================================================
-//  UpdateNetworkClient — Client 模式更新
+//  UpdateNetworkClient — Client mode update
 // ============================================================================
 void App::UpdateNetworkClient(float dt) {
     // Process network events
@@ -572,41 +572,41 @@ void App::UpdateNetworkClient(float dt) {
 }
 
 // ============================================================================
-//  Update() — 每幀執行
+//  Update() — Executed every frame
 // ============================================================================
 void App::Update() {
     const float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
     auto &camera = m_Scene.GetCamera();
 
-    // ── 退出 ──
+    // ── Exit ──
     if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) {
         m_Network.Disconnect();
         m_CurrentState = State::GAME_END;
         return;
     }
 
-    // ── TAB：切換游標鎖定 / Debug 面板 ──
+    // ── TAB: Toggle cursor lock / Debug panel ──
     if (Util::Input::IsKeyDown(Util::Keycode::TAB)) {
         m_CursorLocked = !m_CursorLocked;
         SDL_SetRelativeMouseMode(m_CursorLocked ? SDL_TRUE : SDL_FALSE);
         m_ShowDebugPanel = !m_CursorLocked;
     }
 
-    // ── V：切換角色模型可見性 ──
+    // ── V: Toggle character model visibility ──
     if (Util::Input::IsKeyDown(Util::Keycode::V)) {
         m_Player.ToggleModelVisibility();
     }
 
-    // ── C：切換角色類型（FBI ↔ Terrorist）──
+    // ── C: Switch character type (FBI ↔ Terrorist) ──
     if (Util::Input::IsKeyDown(Util::Keycode::C)) {
         auto currentType = m_Player.GetCharacterModel().GetCharacterType();
-        auto newType = (currentType == Characters::CharacterType::FBI)
-                           ? Characters::CharacterType::TERRORIST
-                           : Characters::CharacterType::FBI;
+        auto newType = (currentType == Entity::CharacterType::FBI)
+                           ? Entity::CharacterType::TERRORIST
+                           : Entity::CharacterType::FBI;
         m_Player.SwitchCharacter(m_Scene, newType);
 
         // Notify other players about character change
-        uint8_t charTypeId = (newType == Characters::CharacterType::FBI) ? 0 : 1;
+        uint8_t charTypeId = (newType == Entity::CharacterType::FBI) ? 0 : 1;
         if (m_Network.IsClient()) {
             m_Network.SendPlayerConfig(charTypeId, 0);
         } else if (m_Network.IsHost()) {
@@ -615,7 +615,7 @@ void App::Update() {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // 網路更新
+    // Network Update
     // ══════════════════════════════════════════════════════════════════════
     if (m_Network.IsHost()) {
         UpdateNetworkHost(dt);
@@ -623,10 +623,10 @@ void App::Update() {
         UpdateNetworkClient(dt);
     }
 
-    // ── 玩家移動 + 物理 ──
+    // ── Player Movement + Physics ──
     m_Player.Update(dt, camera, m_CollisionMesh);
 
-    // ── 檢查子彈命中並生成彈孔 + 玩家傷害檢測 ──
+    // ── Check bullet hit and spawn bullet holes + player damage detection ──
     if (auto *gun = m_Player.GetGun()) {
         const auto &mapHit = gun->GetLastHit();
         static glm::vec3 lastHitPoint(0.0f);
@@ -661,18 +661,18 @@ void App::Update() {
         }
     }
 
-    // ── 檢查玩家死亡並重生 ──
+    // ── Check player death and respawn ──
     CheckAndHandleRespawn();
 
-    // ── 更新彈孔效果 ──
+    // ── Update bullet hole effects ──
     m_BulletHoles.Update(dt);
 
-    // ── 更新遠端玩家 ──
+    // ── Update remote players ──
     for (auto& [playerId, remote] : m_RemotePlayers) {
         // Remote players are updated via network state
     }
 
-    // ── 滑鼠視角（FPS 鎖定模式）──
+    // ── Mouse view (FPS locked mode) ──
     if (m_CursorLocked) {
         int xrel = 0, yrel = 0;
         SDL_GetRelativeMouseState(&xrel, &yrel);
@@ -683,17 +683,17 @@ void App::Update() {
         }
     }
 
-    // ── 渲染 ──
+    // ── Render ──
     m_Renderer.Render(m_Scene);
 
-    // ── 繪製彈孔效果 ──
+    // ── Draw bullet hole effects ──
     {
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 proj = camera.GetProjectionMatrix();
         m_BulletHoles.Draw(camera, view, proj);
     }
 
-    // ── Debug 面板 ──
+    // ── Debug Panel ──
     if (m_ShowDebugPanel) {
         ImGui::Begin("CS Debug");
 
@@ -706,8 +706,8 @@ void App::Update() {
         ImGui::Text("OnGround: %s", m_Player.IsOnGround() ? "true" : "false");
 
         {
-            Collision::Capsule dbgCap = m_Player.MakeCapsule();
-            auto dbgGround = Collision::CapsuleCast::SweepVertical(dbgCap, m_CollisionMesh, -6.0f);
+            Physics::Capsule dbgCap = m_Player.MakeCapsule();
+            auto dbgGround = Physics::CapsuleCast::SweepVertical(dbgCap, m_CollisionMesh, -6.0f);
             ImGui::Text("GroundY: %.2f", dbgGround.has_value() ? dbgGround.value() : -9999.0f);
         }
         ImGui::Text("Triangles: %zu", m_CollisionMesh.GetTriangleCount());
@@ -723,7 +723,7 @@ void App::Update() {
         ImGui::Text("[TAB] Toggle cursor  [ESC] Quit");
         ImGui::Text("[V] Toggle model  [C] Switch character");
 
-        // 網路狀態
+        // Network status
         ImGui::Separator();
         if (m_Network.IsHost()) {
             ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Mode: HOST");
@@ -736,18 +736,18 @@ void App::Update() {
         }
         ImGui::Text("Remote Players: %zu", m_RemotePlayers.size());
 
-        // 角色血量資訊
+        // Character health info
         ImGui::Separator();
         ImGui::Text("Health: %.0f / %.0f", m_Player.GetHealth(), m_Player.GetMaxHealth());
         ImGui::Text("Walking: %s", m_Player.IsWalking() ? "YES" : "no");
         ImGui::Text("Model Visible: %s", m_Player.IsModelVisible() ? "YES" : "no");
         ImGui::Text("Character: %s",
                     m_Player.GetCharacterModel().GetCharacterType() ==
-                            Characters::CharacterType::FBI
+                            Entity::CharacterType::FBI
                         ? "FBI"
                         : "Terrorist");
 
-        // 武器資訊
+        // Weapon info
         if (auto *gun = m_Player.GetGun()) {
             ImGui::Separator();
             ImGui::Text("Ammo: %d / %d", gun->GetCurrentAmmo(), gun->GetMagSize());
@@ -759,7 +759,7 @@ void App::Update() {
             }
         }
 
-        // 彈孔效果
+        // Bullet hole effects
         ImGui::Separator();
         ImGui::Text("Bullet Holes: %zu", m_BulletHoles.GetCount());
 
@@ -768,7 +768,7 @@ void App::Update() {
 }
 
 // ============================================================================
-//  End() — 清理
+//  End() — Cleanup
 // ============================================================================
 void App::End() {
     LOG_TRACE("App::End");
@@ -777,7 +777,7 @@ void App::End() {
 }
 
 // ============================================================================
-//  CheckPlayerHit — 檢測射線是否命中任何玩家（使用角色模型）
+//  CheckPlayerHit — Check if ray hits any player (using character model)
 // ============================================================================
 App::PlayerHitResult App::CheckPlayerHit(const glm::vec3& origin,
                                           const glm::vec3& direction,
@@ -792,7 +792,7 @@ App::PlayerHitResult App::CheckPlayerHit(const glm::vec3& origin,
         auto model = remote.GetCharacterModelPtr();
         if (model) {
             glm::mat4 transform = remote.GetModelWorldTransform();
-            auto hit = Gun::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
+            auto hit = Weapon::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
 
             if (hit.hit && hit.distance < result.distance) {
                 result.hit = true;
@@ -811,7 +811,7 @@ App::PlayerHitResult App::CheckPlayerHit(const glm::vec3& origin,
 }
 
 // ============================================================================
-//  HandlePlayerDamage — 處理玩家傷害
+//  HandlePlayerDamage — Handle player damage
 // ============================================================================
 void App::HandlePlayerDamage(uint8_t victimId, float damage, const glm::vec3& hitPoint) {
     // If we're the host, we process damage and broadcast
@@ -851,40 +851,40 @@ void App::HandlePlayerDamage(uint8_t victimId, float damage, const glm::vec3& hi
 }
 
 // ============================================================================
-//  GetSpawnPoint — 計算重生點位置
+//  GetSpawnPoint — Calculate spawn point position
 // ============================================================================
 glm::vec3 App::GetSpawnPoint() const {
-    // 使用與 Player::SpawnOnMap 相同的邏輯
+    // Use the same logic as Player::SpawnOnMap
     float spawnX = 10.0f;
     float spawnZ = 0.0f;
 
-    // 建立膠囊體從高處向下掃掠以找到地面
-    Collision::Capsule cap;
-    cap.radius = 0.3f;   // 標準角色半徑
-    cap.height = 1.7f - 2.0f * 0.3f;  // 標準角色高度
+    // Create capsule sweeping down from height to find ground
+    Physics::Capsule cap;
+    cap.radius = 0.3f;   // Standard character radius
+    cap.height = 1.7f - 2.0f * 0.3f;  // Standard character height
     if (cap.height < 0.0f) cap.height = 0.0f;
     cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
 
-    auto groundY = Collision::CapsuleCast::SweepVertical(cap, m_CollisionMesh, -200.0f);
+    auto groundY = Physics::CapsuleCast::SweepVertical(cap, m_CollisionMesh, -200.0f);
     if (groundY.has_value()) {
         return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
     }
 
-    // 備用重生點
+    // Fallback spawn point
     spawnX = -5.0f;
     spawnZ = -5.0f;
     cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
-    groundY = Collision::CapsuleCast::SweepVertical(cap, m_CollisionMesh, -200.0f);
+    groundY = Physics::CapsuleCast::SweepVertical(cap, m_CollisionMesh, -200.0f);
     if (groundY.has_value()) {
         return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
     }
 
-    // 最後備用：返回默認位置
+    // Last fallback: return default position
     return glm::vec3(10.0f, 5.0f, 0.0f);
 }
 
 // ============================================================================
-//  CheckAndHandleRespawn — 檢測本地玩家死亡並重生
+//  CheckAndHandleRespawn — Check local player death and respawn
 // ============================================================================
 void App::CheckAndHandleRespawn() {
     if (!m_Player.IsAlive()) {

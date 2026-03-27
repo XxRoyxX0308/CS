@@ -1,8 +1,8 @@
-#ifndef NETWORK_GAME_SERVER_HPP
-#define NETWORK_GAME_SERVER_HPP
+#ifndef CS_NETWORK_SERVER_GAMESERVER_HPP
+#define CS_NETWORK_SERVER_GAMESERVER_HPP
 
 #include "Network/Socket.hpp"
-#include "Network/NetworkTypes.hpp"
+#include "Network/Types.hpp"
 #include "Network/Discovery/LANDiscovery.hpp"
 #include <unordered_map>
 #include <functional>
@@ -12,7 +12,7 @@
 
 namespace Network {
 
-// ── Client Connection State ─────────────────────────────────────────────────
+// Client Connection State
 
 struct ClientConnection {
     uint32_t peerId = 0;
@@ -32,14 +32,14 @@ struct ClientConnection {
     NetPlayerState state{};
 };
 
-// ── Pending Input (for processing) ──────────────────────────────────────────
+// Pending Input (for processing)
 
 struct PendingInput {
     uint8_t playerId;
     InputPacket input;
 };
 
-// ── Game Server Class ───────────────────────────────────────────────────────
+// Game Server Class
 
 class GameServer {
 public:
@@ -137,4 +137,4 @@ private:
 
 } // namespace Network
 
-#endif // NETWORK_GAME_SERVER_HPP
+#endif // CS_NETWORK_SERVER_GAMESERVER_HPP

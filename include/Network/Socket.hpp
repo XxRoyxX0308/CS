@@ -1,5 +1,5 @@
-#ifndef NETWORK_SOCKET_HPP
-#define NETWORK_SOCKET_HPP
+#ifndef CS_NETWORK_SOCKET_HPP
+#define CS_NETWORK_SOCKET_HPP
 
 // Prevent Windows macros from interfering with standard library and other libs
 #ifdef _WIN32
@@ -51,7 +51,7 @@ constexpr uint8_t CHANNEL_COUNT = 2;
 // Forward declarations
 class Socket;
 
-// ── Event Types ─────────────────────────────────────────────────────────────
+// Event Types
 
 enum class SocketEventType {
     None,
@@ -67,7 +67,7 @@ struct SocketEvent {
     uint8_t channel = 0;
 };
 
-// ── Socket Class (ENet Wrapper) ─────────────────────────────────────────────
+// Socket Class (ENet Wrapper)
 
 class Socket {
 public:
@@ -118,4 +118,4 @@ private:
 
 } // namespace Network
 
-#endif // NETWORK_SOCKET_HPP
+#endif // CS_NETWORK_SOCKET_HPP

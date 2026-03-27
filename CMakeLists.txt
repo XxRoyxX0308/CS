@@ -25,17 +25,17 @@ set(CS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CS_SRC_FILES
     ${CS_SRC_DIR}/main.cpp
     ${CS_SRC_DIR}/App.cpp
-    ${CS_SRC_DIR}/Collision/CollisionMesh.cpp
-    ${CS_SRC_DIR}/Collision/CapsuleCast.cpp
-    ${CS_SRC_DIR}/Characters/Character.cpp
-    ${CS_SRC_DIR}/Characters/CharacterModel.cpp
-    ${CS_SRC_DIR}/Characters/Player.cpp
-    ${CS_SRC_DIR}/Characters/RemotePlayer.cpp
-    ${CS_SRC_DIR}/Gun/RayCast.cpp
-    ${CS_SRC_DIR}/Gun/Gun.cpp
-    ${CS_SRC_DIR}/Gun/AACHoneyBadger.cpp
-    ${CS_SRC_DIR}/Gun/SKS.cpp
-    ${CS_SRC_DIR}/Gun/SiliconeGun.cpp
+    ${CS_SRC_DIR}/Physics/CollisionMesh.cpp
+    ${CS_SRC_DIR}/Physics/CapsuleCast.cpp
+    ${CS_SRC_DIR}/Entity/Character.cpp
+    ${CS_SRC_DIR}/Entity/CharacterModel.cpp
+    ${CS_SRC_DIR}/Entity/Player.cpp
+    ${CS_SRC_DIR}/Entity/RemotePlayer.cpp
+    ${CS_SRC_DIR}/Weapon/RayCast.cpp
+    ${CS_SRC_DIR}/Weapon/Weapon.cpp
+    ${CS_SRC_DIR}/Weapon/AssaultRifle.cpp
+    ${CS_SRC_DIR}/Weapon/SniperRifle.cpp
+    ${CS_SRC_DIR}/Weapon/Pistol.cpp
     ${CS_SRC_DIR}/Effects/BulletHole.cpp
     # Network
     ${CS_SRC_DIR}/Network/Socket.cpp
@@ -46,21 +46,23 @@ set(CS_SRC_FILES
 )
 set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/App.hpp
-    ${CS_INCLUDE_DIR}/Collision/CollisionTypes.hpp
-    ${CS_INCLUDE_DIR}/Collision/CollisionMesh.hpp
-    ${CS_INCLUDE_DIR}/Collision/CapsuleCast.hpp
-    ${CS_INCLUDE_DIR}/Characters/Character.hpp
-    ${CS_INCLUDE_DIR}/Characters/CharacterModel.hpp
-    ${CS_INCLUDE_DIR}/Characters/Player.hpp
-    ${CS_INCLUDE_DIR}/Characters/RemotePlayer.hpp
-    ${CS_INCLUDE_DIR}/Gun/RayCast.hpp
-    ${CS_INCLUDE_DIR}/Gun/Gun.hpp
-    ${CS_INCLUDE_DIR}/Gun/AACHoneyBadger.hpp
-    ${CS_INCLUDE_DIR}/Gun/SKS.hpp
-    ${CS_INCLUDE_DIR}/Gun/SiliconeGun.hpp
+    ${CS_INCLUDE_DIR}/Core/Types.hpp
+    ${CS_INCLUDE_DIR}/Core/Constants.hpp
+    ${CS_INCLUDE_DIR}/Physics/CollisionTypes.hpp
+    ${CS_INCLUDE_DIR}/Physics/CollisionMesh.hpp
+    ${CS_INCLUDE_DIR}/Physics/CapsuleCast.hpp
+    ${CS_INCLUDE_DIR}/Entity/Character.hpp
+    ${CS_INCLUDE_DIR}/Entity/CharacterModel.hpp
+    ${CS_INCLUDE_DIR}/Entity/Player.hpp
+    ${CS_INCLUDE_DIR}/Entity/RemotePlayer.hpp
+    ${CS_INCLUDE_DIR}/Weapon/RayCast.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Weapon.hpp
+    ${CS_INCLUDE_DIR}/Weapon/AssaultRifle.hpp
+    ${CS_INCLUDE_DIR}/Weapon/SniperRifle.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Pistol.hpp
     ${CS_INCLUDE_DIR}/Effects/BulletHole.hpp
     # Network
-    ${CS_INCLUDE_DIR}/Network/NetworkTypes.hpp
+    ${CS_INCLUDE_DIR}/Network/Types.hpp
     ${CS_INCLUDE_DIR}/Network/Packet.hpp
     ${CS_INCLUDE_DIR}/Network/Socket.hpp
     ${CS_INCLUDE_DIR}/Network/NetworkManager.hpp

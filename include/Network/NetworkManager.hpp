@@ -1,7 +1,7 @@
-#ifndef NETWORK_MANAGER_HPP
-#define NETWORK_MANAGER_HPP
+#ifndef CS_NETWORK_NETWORKMANAGER_HPP
+#define CS_NETWORK_NETWORKMANAGER_HPP
 
-#include "Network/NetworkTypes.hpp"
+#include "Network/Types.hpp"
 #include "Network/Server/GameServer.hpp"
 #include "Network/Client/GameClient.hpp"
 #include <memory>
@@ -9,7 +9,7 @@
 
 namespace Network {
 
-// ── Network Mode ────────────────────────────────────────────────────────────
+// Network Mode
 
 enum class NetworkMode {
     Offline,
@@ -17,7 +17,7 @@ enum class NetworkMode {
     Client
 };
 
-// ── Network Manager (Facade) ────────────────────────────────────────────────
+// Network Manager (Facade)
 
 class NetworkManager {
 public:
@@ -35,7 +35,7 @@ public:
     NetworkManager();
     ~NetworkManager();
 
-    // ── Mode Control ──
+    // Mode Control
 
     bool HostGame(uint16_t port, const std::string& gameName, const std::string& hostPlayerName = "Host");
     bool JoinGame(const std::string& address, uint16_t port, const std::string& playerName);
@@ -47,16 +47,16 @@ public:
     bool IsOnline() const { return m_Mode != NetworkMode::Offline; }
     bool IsConnected() const;
 
-    // ── Update ──
+    // Update
 
     void Update(float dt);
 
-    // ── Input (Client mode) ──
+    // Input (Client mode)
 
     void SendInput(const InputState& input);
     uint32_t GetInputSequence() const { return m_InputSequence; }
 
-    // ── State Access ──
+    // State Access
 
     // Get local player ID
     uint8_t GetLocalPlayerId() const { return m_LocalPlayerId; }
@@ -79,31 +79,31 @@ public:
     // Get all remote player IDs
     std::vector<uint8_t> GetRemotePlayerIds() const;
 
-    // ── Broadcast (Host mode) ──
+    // Broadcast (Host mode)
 
     void BroadcastGameState(const NetPlayerState* players, uint8_t playerCount);
     void BroadcastPlayerHit(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos);
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
 
-    // ── Send Effects (Client mode) ──
+    // Send Effects (Client mode)
 
     void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
     void SendPlayerConfig(uint8_t characterType, uint8_t gunType);
     void SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos);
 
-    // ── Broadcast (Host mode) ──
+    // Broadcast (Host mode)
 
     void BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType);
 
-    // ── LAN Discovery ──
+    // LAN Discovery
 
     void StartDiscovery();
     void StopDiscovery();
     bool IsDiscovering() const;
     const std::vector<ServerInfo>& GetDiscoveredServers() const;
 
-    // ── Callbacks ──
+    // Callbacks
 
     void SetOnPlayerJoined(OnPlayerJoinedCallback cb) { m_OnPlayerJoined = std::move(cb); }
     void SetOnPlayerLeft(OnPlayerLeftCallback cb) { m_OnPlayerLeft = std::move(cb); }
@@ -115,7 +115,7 @@ public:
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnClientPlayerHit(OnClientPlayerHitCallback cb) { m_OnClientPlayerHit = std::move(cb); }
 
-    // ── Server Info ──
+    // Server Info
 
     uint8_t GetPlayerCount() const;
     const std::string& GetGameName() const;
@@ -148,4 +148,4 @@ private:
 
 } // namespace Network
 
-#endif // NETWORK_MANAGER_HPP
+#endif // CS_NETWORK_NETWORKMANAGER_HPP

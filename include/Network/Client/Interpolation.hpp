@@ -1,7 +1,7 @@
-#ifndef NETWORK_INTERPOLATION_HPP
-#define NETWORK_INTERPOLATION_HPP
+#ifndef CS_NETWORK_CLIENT_INTERPOLATION_HPP
+#define CS_NETWORK_CLIENT_INTERPOLATION_HPP
 
-#include "Network/NetworkTypes.hpp"
+#include "Network/Types.hpp"
 #include <array>
 #include <unordered_map>
 #include <optional>
@@ -10,7 +10,7 @@
 
 namespace Network {
 
-// ── State Snapshot (stores all player states at a point in time) ────────────
+// State Snapshot (stores all player states at a point in time)
 
 struct StateSnapshot {
     uint32_t serverTick = 0;
@@ -18,7 +18,7 @@ struct StateSnapshot {
     std::unordered_map<uint8_t, NetPlayerState> players;
 };
 
-// ── State Buffer (circular buffer for interpolation) ────────────────────────
+// State Buffer (circular buffer for interpolation)
 
 class StateBuffer {
 public:
@@ -50,7 +50,7 @@ private:
                                   const StateSnapshot** after) const;
 };
 
-// ── Interpolation Utilities ─────────────────────────────────────────────────
+// Interpolation Utilities
 
 namespace Interpolation {
 
@@ -90,7 +90,7 @@ inline NetPlayerState Lerp(const NetPlayerState& a, const NetPlayerState& b, flo
 
 } // namespace Interpolation
 
-// ── Implementation ──────────────────────────────────────────────────────────
+// Implementation
 
 inline void StateBuffer::PushSnapshot(const StateSnapshot& snapshot) {
     m_Buffer[m_WriteIndex] = snapshot;
@@ -204,4 +204,4 @@ inline std::vector<uint8_t> StateBuffer::GetTrackedPlayerIds() const {
 
 } // namespace Network
 
-#endif // NETWORK_INTERPOLATION_HPP
+#endif // CS_NETWORK_CLIENT_INTERPOLATION_HPP

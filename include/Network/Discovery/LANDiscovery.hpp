@@ -1,7 +1,7 @@
-#ifndef NETWORK_LAN_DISCOVERY_HPP
-#define NETWORK_LAN_DISCOVERY_HPP
+#ifndef CS_NETWORK_DISCOVERY_LANDISCOVERY_HPP
+#define CS_NETWORK_DISCOVERY_LANDISCOVERY_HPP
 
-#include "Network/NetworkTypes.hpp"
+#include "Network/Types.hpp"
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -68,4 +68,4 @@ private:
 
 } // namespace Network
 
-#endif // NETWORK_LAN_DISCOVERY_HPP
+#endif // CS_NETWORK_DISCOVERY_LANDISCOVERY_HPP
