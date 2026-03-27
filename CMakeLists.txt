@@ -24,7 +24,15 @@ set(CS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set(CS_SRC_FILES
     ${CS_SRC_DIR}/main.cpp
-    ${CS_SRC_DIR}/App.cpp
+    # App Module (Refactored)
+    ${CS_SRC_DIR}/App/App.cpp
+    ${CS_SRC_DIR}/App/StateManager.cpp
+    ${CS_SRC_DIR}/App/InputManager.cpp
+    ${CS_SRC_DIR}/App/UIManager.cpp
+    ${CS_SRC_DIR}/App/CombatManager.cpp
+    ${CS_SRC_DIR}/App/NetworkController.cpp
+    ${CS_SRC_DIR}/App/GameManager.cpp
+    # Physics
     ${CS_SRC_DIR}/Physics/CollisionMesh.cpp
     ${CS_SRC_DIR}/Physics/CapsuleCast.cpp
     ${CS_SRC_DIR}/Entity/Character.cpp
@@ -46,6 +54,15 @@ set(CS_SRC_FILES
 )
 set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/App.hpp
+    # App Module (Refactored)
+    ${CS_INCLUDE_DIR}/App/App.hpp
+    ${CS_INCLUDE_DIR}/App/StateManager.hpp
+    ${CS_INCLUDE_DIR}/App/InputManager.hpp
+    ${CS_INCLUDE_DIR}/App/UIManager.hpp
+    ${CS_INCLUDE_DIR}/App/CombatManager.hpp
+    ${CS_INCLUDE_DIR}/App/NetworkController.hpp
+    ${CS_INCLUDE_DIR}/App/GameManager.hpp
+    # Core
     ${CS_INCLUDE_DIR}/Core/Types.hpp
     ${CS_INCLUDE_DIR}/Core/Constants.hpp
     ${CS_INCLUDE_DIR}/Physics/CollisionTypes.hpp
