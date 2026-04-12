@@ -53,7 +53,6 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/Network/Discovery/LANDiscovery.cpp
 )
 set(CS_INCLUDE_FILES
-    ${CS_INCLUDE_DIR}/App.hpp
     # App Module (Refactored)
     ${CS_INCLUDE_DIR}/App/App.hpp
     ${CS_INCLUDE_DIR}/App/StateManager.hpp

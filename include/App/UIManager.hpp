@@ -79,6 +79,11 @@ public:
                           size_t bulletHoleCount,
                           float dt);
 
+    /**
+     * @brief Render in-game HUD (health/ammo).
+     */
+    void RenderHUD(const Entity::Player& player);
+
     /** @brief Check if debug panel should be shown. */
     bool IsDebugPanelVisible() const { return m_ShowDebugPanel; }
 

@@ -77,7 +77,4 @@ private:
 
 } // namespace App
 
-// Backwards compatibility alias
-using App = App::Application;
-
 #endif // CS_APP_APP_HPP

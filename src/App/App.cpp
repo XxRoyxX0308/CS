@@ -214,6 +214,7 @@ void Application::Update() {
     // ── Render ──
     m_GameManager.Render();
     m_GameManager.DrawEffects();
+    m_UIManager.RenderHUD(player);
 
     // ── Debug Panel ──
     m_UIManager.RenderDebugPanel(

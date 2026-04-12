@@ -176,6 +176,40 @@ void UIManager::RenderLobby(const Network::NetworkManager& network, size_t remot
     ImGui::End();
 }
 
+void UIManager::RenderHUD(const Entity::Player& player) {
+    ImGuiIO& io = ImGui::GetIO();
+    const float margin = 20.0f;
+    const float hudY = io.DisplaySize.y - margin;
+
+    // Bottom-left: Health
+    ImGui::SetNextWindowBgAlpha(0.35f);
+    ImGui::SetNextWindowPos(ImVec2(margin, hudY), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
+    ImGui::Begin("##HUDHealth", nullptr,
+                 ImGuiWindowFlags_NoDecoration |
+                     ImGuiWindowFlags_AlwaysAutoResize |
+                     ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoFocusOnAppearing |
+                     ImGuiWindowFlags_NoNav);
+    ImGui::Text("HP: %.0f / %.0f", player.GetHealth(), player.GetMaxHealth());
+    ImGui::End();
+
+    // Bottom-right: Ammo
+    ImGui::SetNextWindowBgAlpha(0.35f);
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - margin, hudY), ImGuiCond_Always, ImVec2(1.0f, 1.0f));
+    ImGui::Begin("##HUDAmmo", nullptr,
+                 ImGuiWindowFlags_NoDecoration |
+                     ImGuiWindowFlags_AlwaysAutoResize |
+                     ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoFocusOnAppearing |
+                     ImGuiWindowFlags_NoNav);
+    if (const auto* gun = player.GetWeapon()) {
+        ImGui::Text("Ammo: %d / %d", gun->GetCurrentAmmo(), gun->GetMagSize());
+    } else {
+        ImGui::Text("Ammo: -- / --");
+    }
+    ImGui::End();
+}
+
 void UIManager::RenderDebugPanel(const Core3D::Camera& camera,
                                   const Entity::Player& player,
                                   const Physics::CollisionMesh& collisionMesh,

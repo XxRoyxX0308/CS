@@ -2,35 +2,35 @@
 //  main.cpp — CS FPS Game Entry Point
 // ============================================================================
 
-#include "App.hpp"
+#include "App/App.hpp"
 #include "Core/Context.hpp"
 #include "Util/Input.hpp"
 
 int main(int, char **) {
     auto context = Core::Context::GetInstance();
-    App app;
+    App::Application app;
 
     while (!context->GetExit()) {
         context->Setup();
 
         switch (app.GetCurrentState()) {
-        case App::State::MAIN_MENU:
+        case App::GameState::MAIN_MENU:
             app.MainMenu();
             break;
 
-        case App::State::LOBBY:
+        case App::GameState::LOBBY:
             app.Lobby();
             break;
 
-        case App::State::GAME_START:
+        case App::GameState::GAME_START:
             app.Start();
             break;
 
-        case App::State::GAME_UPDATE:
+        case App::GameState::GAME_UPDATE:
             app.Update();
             break;
 
-        case App::State::GAME_END:
+        case App::GameState::GAME_END:
             app.End();
             context->SetExit(true);
             break;
