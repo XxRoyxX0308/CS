@@ -11,6 +11,7 @@
 #include "Network/Server/GameServer.hpp"
 #include "Network/Packet.hpp"
 #include <Util/Logger.hpp>
+#include <algorithm>
 
 namespace Network {
 
@@ -43,6 +44,8 @@ bool GameServer::Start(uint16_t port, const std::string& gameName, const std::st
 
     m_GameName = gameName;
     m_HostName = hostName;
+    m_HostTeamId = 0;
+    m_HostCharacterType = 0;
     m_Port = port;
     m_ServerTick = 0;
     m_IsRunning = true;
@@ -185,6 +188,8 @@ void GameServer::HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& pac
     client.peerId = peerId;
     client.playerId = playerId;
     client.playerName = packet.playerName;
+    client.teamId = ChooseBalancedTeam();
+    client.characterType = client.teamId;  // CT->FBI(0), T->TERRORIST(1)
     client.isConnected = true;
 
     // Initialize player state
@@ -214,6 +219,9 @@ void GameServer::HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& pac
     auto hostNotify = PacketBuilder::PlayerJoined(0, m_HostName.c_str());
     m_Socket.SendToPeer(peerId, hostNotify.data(), hostNotify.size(),
                         CHANNEL_RELIABLE, true);
+    auto hostConfigNotify = PacketBuilder::PlayerConfig(0, m_HostCharacterType, 0);
+    m_Socket.SendToPeer(peerId, hostConfigNotify.data(), hostConfigNotify.size(),
+                        CHANNEL_RELIABLE, true);
 
     // Then notify about other connected clients
     for (const auto& [existingPlayerId, existingClient] : m_Clients) {
@@ -228,6 +236,9 @@ void GameServer::HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& pac
                                 CHANNEL_RELIABLE, true);
         }
     }
+
+    // Notify everyone about the new player's assigned team/character
+    BroadcastPlayerConfig(playerId, client.characterType, client.gunType);
 
     LOG_INFO("Player {} ({}) joined with ID {}", packet.playerName, peerId, playerId);
 
@@ -329,7 +340,23 @@ void GameServer::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& no
 }
 
 void GameServer::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+    if (playerId == 0) {
+        m_HostCharacterType = characterType;
+        m_HostTeamId = (characterType == 0) ? 0 : 1;
+    } else {
+        auto it = m_Clients.find(playerId);
+        if (it != m_Clients.end()) {
+            it->second.characterType = characterType;
+            it->second.teamId = (characterType == 0) ? 0 : 1;
+        }
+    }
+
     auto packet = PacketBuilder::PlayerConfig(playerId, characterType, gunType);
+    m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+}
+
+void GameServer::BroadcastGameStart() {
+    auto packet = PacketBuilder::GameStart();
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
 }
 
@@ -429,6 +456,40 @@ void GameServer::FreePlayerId(uint8_t playerId) {
     if (playerId < MAX_PLAYERS) {
         m_UsedPlayerIds[playerId] = false;
     }
+}
+
+uint8_t GameServer::ChooseBalancedTeam() const {
+    uint8_t ctCount = (m_HostTeamId == 0) ? 1 : 0;
+    uint8_t tCount = (m_HostTeamId == 1) ? 1 : 0;
+
+    for (const auto& [_, client] : m_Clients) {
+        if (client.teamId == 0) {
+            ++ctCount;
+        } else {
+            ++tCount;
+        }
+    }
+    return (ctCount <= tCount) ? 0 : 1;
+}
+
+std::vector<GameServer::LobbyPlayerInfo> GameServer::GetLobbyPlayers() const {
+    std::vector<LobbyPlayerInfo> players;
+    players.push_back(LobbyPlayerInfo{0, m_HostName, m_HostTeamId, m_HostCharacterType, true});
+
+    for (const auto& [playerId, client] : m_Clients) {
+        players.push_back(LobbyPlayerInfo{
+            playerId,
+            client.playerName,
+            client.teamId,
+            client.characterType,
+            false
+        });
+    }
+
+    std::sort(players.begin(), players.end(), [](const LobbyPlayerInfo& a, const LobbyPlayerInfo& b) {
+        return a.playerId < b.playerId;
+    });
+    return players;
 }
 
 } // namespace Network

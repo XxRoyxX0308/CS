@@ -37,6 +37,8 @@ struct UICallbacks {
     std::function<void()> onQuit;
     std::function<void()> onStartDiscovery;
     std::function<void()> onStopDiscovery;
+    std::function<void()> onSelectCT;
+    std::function<void()> onSelectT;
 };
 
 /**
@@ -44,6 +46,13 @@ struct UICallbacks {
  */
 class UIManager {
 public:
+    struct LobbyPlayerRow {
+        std::string name;
+        uint8_t teamId = 0; // 0 = CT, 1 = T
+        bool isLocal = false;
+        bool isHost = false;
+    };
+
     UIManager() = default;
 
     /** @brief Set UI action callbacks. */
@@ -65,7 +74,8 @@ public:
      * @param network Network manager for player info.
      * @param remotePlayerCount Number of remote players.
      */
-    void RenderLobby(const Network::NetworkManager& network, size_t remotePlayerCount);
+    void RenderLobby(const Network::NetworkManager& network,
+                     const std::vector<LobbyPlayerRow>& players);
 
     /**
      * @brief Render Debug Panel.
@@ -79,9 +89,7 @@ public:
                           size_t bulletHoleCount,
                           float dt);
 
-    /**
-     * @brief Render in-game HUD (health/ammo).
-     */
+    /** @brief Render in-game HUD (health/ammo). */
     void RenderHUD(const Entity::Player& player);
 
     /** @brief Check if debug panel should be shown. */

@@ -67,6 +67,7 @@ public:
 
     /** @brief Get character type ID (0 = FBI, 1 = Terrorist). */
     uint8_t GetCharacterTypeId() const;
+    void SetLocalCharacterType(Entity::CharacterType type) { m_LocalCharacterType = type; }
 
 private:
     Scene::SceneGraph m_Scene;
@@ -77,6 +78,7 @@ private:
 
     Physics::CollisionMesh m_CollisionMesh;
     Entity::Player m_Player;
+    Entity::CharacterType m_LocalCharacterType = Entity::CharacterType::FBI;
     Effects::BulletHoleManager m_BulletHoles;
 
     std::unordered_map<uint8_t, Entity::RemotePlayer> m_RemotePlayers;

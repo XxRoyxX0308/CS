@@ -62,7 +62,7 @@ void GameManager::Initialize() {
     m_Player.SpawnOnMap(camera, m_CollisionMesh);
 
     // ── 6. Initialize Character Model ──
-    m_Player.InitModel(m_Scene, Entity::CharacterType::FBI, false);
+    m_Player.InitModel(m_Scene, m_LocalCharacterType, false);
 
     // ── 7. Equip Weapon ──
     auto gun = std::make_unique<Weapon::AssaultRifle>();

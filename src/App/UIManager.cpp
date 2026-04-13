@@ -122,54 +122,82 @@ void UIManager::RenderMainMenu(Network::NetworkManager& network, float dt) {
     ImGui::End();
 }
 
-void UIManager::RenderLobby(const Network::NetworkManager& network, size_t remotePlayerCount) {
+void UIManager::RenderLobby(const Network::NetworkManager& network,
+                            const std::vector<LobbyPlayerRow>& players) {
     // Clear screen
     glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(350, 250));
+    ImGui::SetNextWindowSize(ImVec2(460, 360));
 
     ImGui::Begin("Game Lobby", nullptr,
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
     if (network.IsHost()) {
         ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Hosting: %s", network.GetGameName().c_str());
-        ImGui::Text("Players: %d/%d", network.GetPlayerCount(), Network::MAX_PLAYERS);
-        ImGui::Separator();
+    } else {
+        ImGui::TextColored(ImVec4(0.2f, 0.6f, 1.0f, 1.0f), "Connected to host - waiting in lobby");
+    }
+    ImGui::Text("Players: %d/%d", network.GetPlayerCount(), Network::MAX_PLAYERS);
+    ImGui::Separator();
 
-        ImGui::Text("Players in lobby:");
-        ImGui::BulletText("Host (You)");
+    ImGui::Columns(2, "teams", true);
+    ImGui::TextColored(ImVec4(0.45f, 0.75f, 1.0f, 1.0f), "CT Team");
 
-        // Show remote players count
-        for (size_t i = 0; i < remotePlayerCount; ++i) {
-            ImGui::BulletText("Player %zu", i + 1);
+    ImGui::NextColumn();
+    ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.4f, 1.0f), "T Team");
+
+    ImGui::NextColumn();
+    for (const auto& p : players) {
+        if (p.teamId != 0) continue;
+        ImGui::Text("%s%s%s",
+                    p.name.c_str(),
+                    p.isLocal ? " (You)" : "",
+                    p.isHost ? " [Host]" : "");
+    }
+
+    ImGui::NextColumn();
+    for (const auto& p : players) {
+        if (p.teamId != 1) continue;
+        ImGui::Text("%s%s%s",
+                    p.name.c_str(),
+                    p.isLocal ? " (You)" : "",
+                    p.isHost ? " [Host]" : "");
+    }
+    ImGui::Columns(1);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    if (ImGui::Button("Join CT", ImVec2(120, 36))) {
+        if (m_Callbacks.onSelectCT) {
+            m_Callbacks.onSelectCT();
         }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Join T", ImVec2(120, 36))) {
+        if (m_Callbacks.onSelectT) {
+            m_Callbacks.onSelectT();
+        }
+    }
+    ImGui::Spacing();
 
-        ImGui::Spacing();
-        ImGui::Separator();
-
+    if (network.IsHost()) {
         if (ImGui::Button("Start Game", ImVec2(150, 40))) {
             if (m_Callbacks.onStartGame) {
                 m_Callbacks.onStartGame();
             }
         }
-
         ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(100, 40))) {
-            if (m_Callbacks.onCancel) {
-                m_Callbacks.onCancel();
-            }
-        }
     } else {
-        // Client mode
-        ImGui::Text("Waiting for connection...");
+        ImGui::Text("Waiting for host to start the game...");
+    }
 
-        if (ImGui::Button("Cancel", ImVec2(100, 40))) {
-            if (m_Callbacks.onCancel) {
-                m_Callbacks.onCancel();
-            }
+    if (ImGui::Button("Cancel", ImVec2(100, 40))) {
+        if (m_Callbacks.onCancel) {
+            m_Callbacks.onCancel();
         }
     }
 

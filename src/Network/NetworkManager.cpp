@@ -32,6 +32,8 @@ bool NetworkManager::HostGame(uint16_t port, const std::string& gameName, const 
 
     m_Mode = NetworkMode::Host;
     m_LocalPlayerId = 0;  // Host is always player 0
+    m_LocalCharacterType = 0;
+    m_LocalPlayerName = hostPlayerName;
 
     LOG_INFO("Hosting game: {} on port {} as {}", gameName, port, hostPlayerName);
     return true;
@@ -50,6 +52,8 @@ bool NetworkManager::JoinGame(const std::string& address, uint16_t port, const s
 
     m_Mode = NetworkMode::Client;
     m_LocalPlayerId = 0xFF;  // Will be assigned by server
+    m_LocalCharacterType = 0;
+    m_LocalPlayerName = playerName;
 
     LOG_INFO("Joining game at {}:{} as {}", address, port, playerName);
     return true;
@@ -68,6 +72,9 @@ void NetworkManager::Disconnect() {
 
     m_Mode = NetworkMode::Offline;
     m_LocalPlayerId = 0;
+    m_LocalCharacterType = 0;
+    m_LocalPlayerName.clear();
+    m_ClientLobbyPlayers.clear();
     m_InputSequence = 0;
 }
 
@@ -180,6 +187,12 @@ void NetworkManager::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3
     }
 }
 
+void NetworkManager::BroadcastGameStart() {
+    if (m_Server) {
+        m_Server->BroadcastGameStart();
+    }
+}
+
 void NetworkManager::SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     if (m_Client) {
         m_Client->SendBulletEffect(pos, normal);
@@ -188,6 +201,7 @@ void NetworkManager::SendBulletEffect(const glm::vec3& pos, const glm::vec3& nor
 
 void NetworkManager::SendPlayerConfig(uint8_t characterType, uint8_t gunType) {
     if (m_Client) {
+        m_LocalCharacterType = characterType;
         m_Client->SendPlayerConfig(characterType, gunType);
     }
 }
@@ -200,6 +214,9 @@ void NetworkManager::SendPlayerHit(uint8_t victimId, float damage, const glm::ve
 
 void NetworkManager::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType) {
     if (m_Server) {
+        if (playerId == 0) {
+            m_LocalCharacterType = characterType;
+        }
         m_Server->BroadcastPlayerConfig(playerId, characterType, gunType);
     }
 }
@@ -238,6 +255,9 @@ uint8_t NetworkManager::GetPlayerCount() const {
     if (m_Server) {
         return m_Server->GetClientCount() + 1;  // +1 for host
     }
+    if (m_Client) {
+        return static_cast<uint8_t>(m_ClientLobbyPlayers.size());
+    }
     return 1;
 }
 
@@ -247,6 +267,29 @@ const std::string& NetworkManager::GetGameName() const {
         return m_Server->GetGameName();
     }
     return empty;
+}
+
+std::vector<NetworkManager::LobbyPlayerInfo> NetworkManager::GetLobbyPlayers() const {
+    std::vector<LobbyPlayerInfo> players;
+    if (m_Server) {
+        const auto serverPlayers = m_Server->GetLobbyPlayers();
+        players.reserve(serverPlayers.size());
+        for (const auto& p : serverPlayers) {
+            players.push_back(LobbyPlayerInfo{
+                p.playerId, p.name, p.teamId, p.characterType, p.isHost, p.playerId == m_LocalPlayerId
+            });
+        }
+        return players;
+    }
+
+    if (m_Client) {
+        players.reserve(m_ClientLobbyPlayers.size());
+        for (const auto& [_, p] : m_ClientLobbyPlayers) {
+            players.push_back(p);
+        }
+        return players;
+    }
+    return players;
 }
 
 void NetworkManager::SetupServerCallbacks() {
@@ -271,6 +314,9 @@ void NetworkManager::SetupServerCallbacks() {
     });
 
     m_Server->SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+        if (playerId == 0) {
+            m_LocalCharacterType = characterType;
+        }
         if (m_OnPlayerConfig) {
             m_OnPlayerConfig(playerId, characterType, gunType);
         }
@@ -288,6 +334,9 @@ void NetworkManager::SetupClientCallbacks() {
 
     m_Client->SetOnConnected([this](uint8_t playerId) {
         m_LocalPlayerId = playerId;
+        m_ClientLobbyPlayers[playerId].playerId = playerId;
+        m_ClientLobbyPlayers[playerId].isLocal = true;
+        m_ClientLobbyPlayers[playerId].name = m_LocalPlayerName;
         if (m_OnConnected) {
             m_OnConnected(playerId);
         }
@@ -296,18 +345,25 @@ void NetworkManager::SetupClientCallbacks() {
     m_Client->SetOnDisconnected([this]() {
         m_Mode = NetworkMode::Offline;
         m_LocalPlayerId = 0xFF;
+        m_ClientLobbyPlayers.clear();
         if (m_OnDisconnected) {
             m_OnDisconnected();
         }
     });
 
     m_Client->SetOnPlayerJoined([this](uint8_t playerId, const std::string& name) {
+        auto& p = m_ClientLobbyPlayers[playerId];
+        p.playerId = playerId;
+        p.name = name;
+        p.isHost = (playerId == 0);
+        p.isLocal = (playerId == m_LocalPlayerId);
         if (m_OnPlayerJoined) {
             m_OnPlayerJoined(playerId, name);
         }
     });
 
     m_Client->SetOnPlayerLeft([this](uint8_t playerId) {
+        m_ClientLobbyPlayers.erase(playerId);
         if (m_OnPlayerLeft) {
             m_OnPlayerLeft(playerId);
         }
@@ -333,8 +389,26 @@ void NetworkManager::SetupClientCallbacks() {
     });
 
     m_Client->SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+        auto& p = m_ClientLobbyPlayers[playerId];
+        p.playerId = playerId;
+        if (p.name.empty() && playerId == m_LocalPlayerId) {
+            p.name = m_LocalPlayerName;
+        }
+        p.teamId = (characterType == 0) ? 0 : 1;
+        p.characterType = characterType;
+        p.isHost = (playerId == 0);
+        p.isLocal = (playerId == m_LocalPlayerId);
+        if (playerId == m_LocalPlayerId) {
+            m_LocalCharacterType = characterType;
+        }
         if (m_OnPlayerConfig) {
             m_OnPlayerConfig(playerId, characterType, gunType);
+        }
+    });
+
+    m_Client->SetOnGameStart([this]() {
+        if (m_OnGameStart) {
+            m_OnGameStart();
         }
     });
 }

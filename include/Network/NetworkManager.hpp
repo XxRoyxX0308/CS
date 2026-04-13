@@ -6,6 +6,7 @@
 #include "Network/Client/GameClient.hpp"
 #include <memory>
 #include <functional>
+#include <unordered_map>
 
 namespace Network {
 
@@ -21,6 +22,15 @@ enum class NetworkMode {
 
 class NetworkManager {
 public:
+    struct LobbyPlayerInfo {
+        uint8_t playerId = 0;
+        std::string name;
+        uint8_t teamId = 0;       // 0 = CT, 1 = T
+        uint8_t characterType = 0;
+        bool isHost = false;
+        bool isLocal = false;
+    };
+
     // Callbacks
     using OnPlayerJoinedCallback = std::function<void(uint8_t playerId, const std::string& name)>;
     using OnPlayerLeftCallback = std::function<void(uint8_t playerId)>;
@@ -31,6 +41,7 @@ public:
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnClientPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
+    using OnGameStartCallback = std::function<void()>;
 
     NetworkManager();
     ~NetworkManager();
@@ -85,6 +96,7 @@ public:
     void BroadcastPlayerHit(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos);
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+    void BroadcastGameStart();
 
     // Send Effects (Client mode)
 
@@ -114,11 +126,14 @@ public:
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnClientPlayerHit(OnClientPlayerHitCallback cb) { m_OnClientPlayerHit = std::move(cb); }
+    void SetOnGameStart(OnGameStartCallback cb) { m_OnGameStart = std::move(cb); }
 
     // Server Info
 
     uint8_t GetPlayerCount() const;
     const std::string& GetGameName() const;
+    std::vector<LobbyPlayerInfo> GetLobbyPlayers() const;
+    uint8_t GetLocalCharacterType() const { return m_LocalCharacterType; }
 
 private:
     void SetupServerCallbacks();
@@ -126,7 +141,10 @@ private:
 
     NetworkMode m_Mode = NetworkMode::Offline;
     uint8_t m_LocalPlayerId = 0;
+    uint8_t m_LocalCharacterType = 0;
     uint32_t m_InputSequence = 0;
+    std::string m_LocalPlayerName;
+    std::unordered_map<uint8_t, LobbyPlayerInfo> m_ClientLobbyPlayers;
 
     std::unique_ptr<GameServer> m_Server;
     std::unique_ptr<GameClient> m_Client;
@@ -144,6 +162,7 @@ private:
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnClientPlayerHitCallback m_OnClientPlayerHit;
+    OnGameStartCallback m_OnGameStart;
 };
 
 } // namespace Network

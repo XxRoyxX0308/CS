@@ -32,6 +32,7 @@ public:
     using OnPlayerDeathCallback = std::function<void(uint8_t victimId, uint8_t killerId)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
+    using OnGameStartCallback = std::function<void()>;
 
     GameClient();
     ~GameClient();
@@ -90,6 +91,7 @@ public:
     void SetOnPlayerDeath(OnPlayerDeathCallback cb) { m_OnPlayerDeath = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
+    void SetOnGameStart(OnGameStartCallback cb) { m_OnGameStart = std::move(cb); }
 
 private:
     void HandlePacket(const std::vector<uint8_t>& data);
@@ -102,6 +104,7 @@ private:
     void HandlePlayerDeath(const PlayerDeathPacket& packet);
     void HandleBulletEffect(const BulletEffectPacket& packet);
     void HandlePlayerConfig(const PlayerConfigPacket& packet);
+    void HandleGameStart(const GameStartPacket& packet);
 
     Socket m_Socket;
     LANDiscovery m_Discovery;
@@ -133,6 +136,7 @@ private:
     OnPlayerDeathCallback m_OnPlayerDeath;
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
+    OnGameStartCallback m_OnGameStart;
 };
 
 } // namespace Network

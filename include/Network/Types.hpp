@@ -20,7 +20,7 @@ namespace Network {
 // Constants
 constexpr uint16_t DEFAULT_PORT = 27015;
 constexpr uint16_t DISCOVERY_PORT = 5555;
-constexpr uint8_t MAX_PLAYERS = 8;
+constexpr uint8_t MAX_PLAYERS = 10;
 constexpr float STATE_BROADCAST_RATE = 20.0f;  // Hz
 constexpr float INTERP_DELAY = 0.1f;           // 100ms interpolation delay
 constexpr size_t STATE_BUFFER_SIZE = 32;       // ~1 second at 30Hz
@@ -65,6 +65,7 @@ enum class PacketType : uint8_t {
 
     // State (Server -> Client)
     S2C_GAME_STATE     = 0x30,
+    S2C_GAME_START     = 0x35,
     S2C_PLAYER_HIT     = 0x31,
     S2C_PLAYER_DEATH   = 0x32,
     S2C_BULLET_EFFECT  = 0x33,
@@ -107,6 +108,10 @@ struct PlayerJoinedPacket {
 struct PlayerLeftPacket {
     PacketHeader header;
     uint8_t playerId;
+};
+
+struct GameStartPacket {
+    PacketHeader header;
 };
 
 // LAN Discovery Packets

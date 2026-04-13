@@ -32,7 +32,7 @@ void NetworkController::SetupCallbacks(
 
     network.SetOnConnected([&stateManager](uint8_t playerId) {
         LOG_INFO("Connected to server as player {}", playerId);
-        stateManager.SetState(GameState::GAME_START);
+        stateManager.SetState(GameState::LOBBY);
     });
 
     network.SetOnDisconnected([&stateManager, &remotePlayers]() {
@@ -56,6 +56,11 @@ void NetworkController::SetupCallbacks(
                                               : Entity::CharacterType::TERRORIST;
             it->second.Init(scene, type);
         }
+    });
+
+    network.SetOnGameStart([&stateManager]() {
+        LOG_INFO("Host started game");
+        stateManager.SetState(GameState::GAME_START);
     });
 
     // Host receives hit reports from clients

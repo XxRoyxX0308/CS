@@ -39,6 +39,9 @@ void Application::SetupUICallbacks() {
     };
 
     callbacks.onStartGame = [this]() {
+        if (m_Network.IsHost()) {
+            m_Network.BroadcastGameStart();
+        }
         m_StateManager.SetState(GameState::GAME_START);
     };
 
@@ -57,6 +60,24 @@ void Application::SetupUICallbacks() {
 
     callbacks.onStopDiscovery = [this]() {
         m_Network.StopDiscovery();
+    };
+
+    callbacks.onSelectCT = [this]() {
+        if (m_StateManager.IsGameActive()) return;
+        if (m_Network.IsClient()) {
+            m_NetworkController.SendConfig(m_Network, 0, 0);
+        } else if (m_Network.IsHost()) {
+            m_NetworkController.BroadcastConfig(m_Network, 0, 0, 0);
+        }
+    };
+
+    callbacks.onSelectT = [this]() {
+        if (m_StateManager.IsGameActive()) return;
+        if (m_Network.IsClient()) {
+            m_NetworkController.SendConfig(m_Network, 1, 0);
+        } else if (m_Network.IsHost()) {
+            m_NetworkController.BroadcastConfig(m_Network, 0, 1, 0);
+        }
     };
 
     m_UIManager.SetCallbacks(std::move(callbacks));
@@ -115,7 +136,16 @@ void Application::Lobby() {
     const float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
     m_Network.Update(dt);
 
-    m_UIManager.RenderLobby(m_Network, m_GameManager.GetRemotePlayers().size());
+    std::vector<UIManager::LobbyPlayerRow> rows;
+    const auto lobbyPlayers = m_Network.GetLobbyPlayers();
+    rows.reserve(lobbyPlayers.size());
+    for (const auto& p : lobbyPlayers) {
+        rows.push_back(UIManager::LobbyPlayerRow{
+            p.name, p.teamId, p.isLocal, p.isHost
+        });
+    }
+
+    m_UIManager.RenderLobby(m_Network, rows);
 }
 
 // ============================================================================
@@ -125,6 +155,11 @@ void Application::Start() {
     LOG_TRACE("Application::Start");
 
     // Initialize game
+    m_GameManager.SetLocalCharacterType(
+        (m_Network.GetLocalCharacterType() == 0)
+            ? Entity::CharacterType::FBI
+            : Entity::CharacterType::TERRORIST
+    );
     m_GameManager.Initialize();
 
     // Lock cursor for FPS mode
@@ -241,6 +276,11 @@ void Application::End() {
 //  HandleCharacterSwitch — Switch character and notify network
 // ============================================================================
 void Application::HandleCharacterSwitch() {
+    // Team selection is limited to lobby via UI buttons.
+    if (m_StateManager.IsGameActive()) {
+        return;
+    }
+
     auto& player = m_GameManager.GetPlayer();
     auto currentType = player.GetCharacterModel().GetCharacterType();
     auto newType = (currentType == Entity::CharacterType::FBI)
@@ -302,7 +342,7 @@ void Application::HandleBulletHit() {
 //  SendCharacterConfig — Send character config to network
 // ============================================================================
 void Application::SendCharacterConfig() {
-    uint8_t charTypeId = m_GameManager.GetCharacterTypeId();
+    uint8_t charTypeId = m_Network.GetLocalCharacterType();
 
     if (m_Network.IsClient()) {
         m_NetworkController.SendConfig(m_Network, charTypeId, 0);

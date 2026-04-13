@@ -164,6 +164,16 @@ inline std::vector<uint8_t> PlayerLeft(uint8_t playerId) {
     );
 }
 
+inline std::vector<uint8_t> GameStart() {
+    GameStartPacket packet{};
+    packet.header.type = static_cast<uint8_t>(PacketType::S2C_GAME_START);
+
+    return std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t*>(&packet) + sizeof(packet)
+    );
+}
+
 inline std::vector<uint8_t> Input(uint32_t sequence, const InputState& input) {
     InputPacket packet{};
     packet.header.type = static_cast<uint8_t>(PacketType::C2S_INPUT);
@@ -352,6 +362,13 @@ inline std::optional<JoinRequestPacket> ParseJoinRequest(const std::vector<uint8
 inline std::optional<JoinAcceptedPacket> ParseJoinAccepted(const std::vector<uint8_t>& data) {
     if (data.size() < sizeof(JoinAcceptedPacket)) return std::nullopt;
     JoinAcceptedPacket packet;
+    std::memcpy(&packet, data.data(), sizeof(packet));
+    return packet;
+}
+
+inline std::optional<GameStartPacket> ParseGameStart(const std::vector<uint8_t>& data) {
+    if (data.size() < sizeof(GameStartPacket)) return std::nullopt;
+    GameStartPacket packet;
     std::memcpy(&packet, data.data(), sizeof(packet));
     return packet;
 }

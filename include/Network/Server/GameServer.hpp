@@ -18,6 +18,7 @@ struct ClientConnection {
     uint32_t peerId = 0;
     uint8_t playerId = 0;
     std::string playerName;
+    uint8_t teamId = 0;  // 0 = CT, 1 = T
     bool isConnected = false;
 
     // Character/gun configuration
@@ -43,6 +44,14 @@ struct PendingInput {
 
 class GameServer {
 public:
+    struct LobbyPlayerInfo {
+        uint8_t playerId = 0;
+        std::string name;
+        uint8_t teamId = 0;       // 0 = CT, 1 = T
+        uint8_t characterType = 0;
+        bool isHost = false;
+    };
+
     using OnPlayerJoinedCallback = std::function<void(uint8_t playerId, const std::string& name)>;
     using OnPlayerLeftCallback = std::function<void(uint8_t playerId)>;
     using OnInputReceivedCallback = std::function<void(uint8_t playerId, const InputPacket& input)>;
@@ -69,6 +78,7 @@ public:
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
     void BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType);
+    void BroadcastGameStart();
 
     // Get pending inputs from clients (for host to process)
     std::vector<PendingInput> GetPendingInputs();
@@ -76,6 +86,7 @@ public:
     // Get client info
     const std::unordered_map<uint8_t, ClientConnection>& GetClients() const { return m_Clients; }
     uint8_t GetClientCount() const { return static_cast<uint8_t>(m_Clients.size()); }
+    std::vector<LobbyPlayerInfo> GetLobbyPlayers() const;
 
     // Get last acknowledged input sequence for a client
     uint32_t GetLastAckedInput(uint8_t playerId) const;
@@ -104,6 +115,7 @@ private:
 
     uint8_t AllocatePlayerId();
     void FreePlayerId(uint8_t playerId);
+    uint8_t ChooseBalancedTeam() const;
 
     Socket m_Socket;
     LANDiscovery m_Discovery;
@@ -111,6 +123,8 @@ private:
     bool m_IsRunning = false;
     std::string m_GameName;
     std::string m_HostName;  // Host player name (player 0)
+    uint8_t m_HostTeamId = 0;
+    uint8_t m_HostCharacterType = 0;
     uint16_t m_Port = DEFAULT_PORT;
     uint32_t m_ServerTick = 0;
 

@@ -188,6 +188,12 @@ void GameClient::HandlePacket(const std::vector<uint8_t>& data) {
             break;
         }
 
+        case PacketType::S2C_GAME_START: {
+            auto packet = PacketParser::ParseGameStart(data);
+            if (packet) HandleGameStart(*packet);
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -280,6 +286,12 @@ void GameClient::HandlePlayerConfig(const PlayerConfigPacket& packet) {
 
     if (m_OnPlayerConfig) {
         m_OnPlayerConfig(packet.playerId, packet.characterType, packet.gunType);
+    }
+}
+
+void GameClient::HandleGameStart(const GameStartPacket& /*packet*/) {
+    if (m_OnGameStart) {
+        m_OnGameStart();
     }
 }
 
