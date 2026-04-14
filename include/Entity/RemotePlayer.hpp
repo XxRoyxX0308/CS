@@ -69,6 +69,7 @@ public:
     const glm::vec3 &GetPosition() const { return m_Position; }
     float GetYaw() const { return m_Yaw; }
     float GetPitch() const { return m_Pitch; }
+    CharacterType GetCharacterType() const { return m_Model.GetCharacterType(); }
     float GetHealth() const { return m_Health; }
     void SetHealth(float health) { m_Health = health; m_IsAlive = health > 0.0f; }
     bool IsAlive() const { return m_IsAlive; }

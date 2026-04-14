@@ -1,8 +1,28 @@
 #include "App/CombatManager.hpp"
 #include "Physics/CapsuleCast.hpp"
 #include "Util/Logger.hpp"
+#include <random>
 
 namespace App {
+
+namespace {
+struct SpawnRect {
+    float minX;
+    float maxX;
+    float minZ;
+    float maxZ;
+    float probeY;
+};
+
+constexpr SpawnRect CT_SPAWN{2.5f, 9.4f, -49.8f, -46.8f, -0.6f};
+constexpr SpawnRect T_SPAWN{-17.0f, -11.0f, 13.6f, 17.0f, 4.6f};
+
+float RandInRange(float a, float b) {
+    static thread_local std::mt19937 rng{std::random_device{}()};
+    std::uniform_real_distribution<float> dist(a, b);
+    return dist(rng);
+}
+} // namespace
 
 PlayerHitResult CombatManager::CheckPlayerHit(
     const glm::vec3& origin,
@@ -71,7 +91,8 @@ void CombatManager::CheckLocalRespawn(Entity::Player& player,
                                        Core3D::Camera& camera,
                                        const Physics::CollisionMesh& collisionMesh) {
     if (!player.IsAlive()) {
-        player.Respawn(camera, collisionMesh);
+        const auto type = player.GetCharacterModel().GetCharacterType();
+        player.Respawn(camera, collisionMesh, GetSpawnPoint(collisionMesh, type));
         LOG_INFO("Player respawned");
     }
 }
@@ -82,7 +103,7 @@ void CombatManager::CheckRemoteRespawns(
 
     for (auto& [playerId, remote] : remotePlayers) {
         if (!remote.IsAlive()) {
-            glm::vec3 spawnPos = GetSpawnPoint(collisionMesh);
+            glm::vec3 spawnPos = GetSpawnPoint(collisionMesh, remote.GetCharacterType());
             remote.Respawn(spawnPos);
             LOG_INFO("Remote player {} respawned at ({}, {}, {})",
                      playerId, spawnPos.x, spawnPos.y, spawnPos.z);
@@ -90,31 +111,28 @@ void CombatManager::CheckRemoteRespawns(
     }
 }
 
-glm::vec3 CombatManager::GetSpawnPoint(const Physics::CollisionMesh& collisionMesh) const {
-    float spawnX = 10.0f;
-    float spawnZ = 0.0f;
+glm::vec3 CombatManager::GetSpawnPoint(const Physics::CollisionMesh& collisionMesh,
+                                       Entity::CharacterType characterType) const {
+    const SpawnRect area = (characterType == Entity::CharacterType::FBI) ? CT_SPAWN : T_SPAWN;
 
     Physics::Capsule cap;
     cap.radius = 0.3f;
     cap.height = 1.7f - 2.0f * 0.3f;
     if (cap.height < 0.0f) cap.height = 0.0f;
-    cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
 
-    auto groundY = Physics::CapsuleCast::SweepVertical(cap, collisionMesh, -200.0f);
-    if (groundY.has_value()) {
-        return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
+    for (int i = 0; i < 12; ++i) {
+        const float spawnX = RandInRange(area.minX, area.maxX);
+        const float spawnZ = RandInRange(area.minZ, area.maxZ);
+        cap.base = glm::vec3(spawnX, area.probeY, spawnZ);
+
+        auto groundY = Physics::CapsuleCast::SweepVertical(cap, collisionMesh, -120.0f);
+        if (groundY.has_value()) {
+            return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
+        }
     }
 
-    // Fallback
-    spawnX = -5.0f;
-    spawnZ = -5.0f;
-    cap.base = glm::vec3(spawnX, 100.0f, spawnZ);
-    groundY = Physics::CapsuleCast::SweepVertical(cap, collisionMesh, -200.0f);
-    if (groundY.has_value()) {
-        return glm::vec3(spawnX, groundY.value() + 1.7f, spawnZ);
-    }
-
-    return glm::vec3(10.0f, 5.0f, 0.0f);
+    // If no ground hit, use area center as deterministic fallback.
+    return glm::vec3((area.minX + area.maxX) * 0.5f, area.probeY + 1.7f, (area.minZ + area.maxZ) * 0.5f);
 }
 
 } // namespace App

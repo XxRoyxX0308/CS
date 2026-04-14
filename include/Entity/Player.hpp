@@ -51,8 +51,11 @@ public:
      * @brief Respawn the player (reset health and return to spawn).
      * @param camera The camera to update.
      * @param mesh The collision mesh for ground detection.
+     * @param spawnPosition Team spawn position.
      */
-    void Respawn(Core3D::Camera &camera, const Physics::CollisionMesh &mesh);
+    void Respawn(Core3D::Camera &camera,
+                 const Physics::CollisionMesh &mesh,
+                 const glm::vec3& spawnPosition);
 
     /**
      * @brief Per-frame update: input, movement, physics, camera, weapon.

@@ -1,4 +1,5 @@
 #include "App/GameManager.hpp"
+#include "App/CombatManager.hpp"
 #include "Weapon/AssaultRifle.hpp"
 #include "Scene/Light.hpp"
 #include "Util/Logger.hpp"
@@ -58,11 +59,13 @@ void GameManager::Initialize() {
     glm::mat4 mapTransform = BuildMapTransform();
     m_CollisionMesh.Build(*m_MapModel, mapTransform);
 
-    // ── 5. Set Spawn Point ──
-    m_Player.SpawnOnMap(camera, m_CollisionMesh);
-
-    // ── 6. Initialize Character Model ──
+    // ── 5. Initialize Character Model ──
     m_Player.InitModel(m_Scene, m_LocalCharacterType, false);
+
+    // ── 6. Set Team Spawn Point ──
+    CombatManager combatManager;
+    const glm::vec3 spawnPos = combatManager.GetSpawnPoint(m_CollisionMesh, m_LocalCharacterType);
+    m_Player.Respawn(camera, m_CollisionMesh, spawnPos);
 
     // ── 7. Equip Weapon ──
     auto gun = std::make_unique<Weapon::AssaultRifle>();

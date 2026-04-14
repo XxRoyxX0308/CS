@@ -77,9 +77,11 @@ public:
     /**
      * @brief Calculate a spawn point on the map.
      * @param collisionMesh Collision mesh for ground detection.
+     * @param characterType Character type to choose team spawn area.
      * @return Spawn position.
      */
-    glm::vec3 GetSpawnPoint(const Physics::CollisionMesh& collisionMesh) const;
+    glm::vec3 GetSpawnPoint(const Physics::CollisionMesh& collisionMesh,
+                            Entity::CharacterType characterType) const;
 };
 
 } // namespace App
