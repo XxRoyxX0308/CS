@@ -74,11 +74,16 @@ public:
     void SetHealth(float health) { m_Health = health; m_IsAlive = health > 0.0f; }
     bool IsAlive() const { return m_IsAlive; }
 
+    int GetMoney() const { return m_Money; }
+    void SetMoney(int money) { m_Money = money; }
+    void SpendMoney(int amount) { m_Money -= amount; }
+
     // ── Model Control ─────────────────────────────────────────────────────
 
     void SetVisible(bool visible);
     void SetCharacterType(CharacterType type);
-
+    /** @brief Change the third-person gun model using a GLTF path. */
+    void SetGunModel(const std::string &modelPath, const glm::vec3 &scale);
     // ── Collision ─────────────────────────────────────────────────────────
 
     /** @brief Create capsule for hit detection. */
@@ -123,6 +128,7 @@ private:
     float m_Health = 100.0f;
     bool m_IsAlive = true;
     bool m_IsWalking = false;
+    int m_Money = 5000;
 
     // ── Character Model ───────────────────────────────────────────────────
     CharacterModel m_Model;
@@ -131,6 +137,7 @@ private:
     // ── Gun Model (third-person view) ─────────────────────────────────────
     std::shared_ptr<Core3D::Model> m_GunModel;
     std::shared_ptr<Scene::SceneNode> m_GunNode;
+    glm::vec3 m_GunScale = glm::vec3(0.020f);
     Scene::SceneGraph *m_Scene = nullptr;
 
     /** @brief Update gun position to match character. */

@@ -78,4 +78,8 @@ bool InputManager::IsSwitchCharacterPressed() const {
     return Util::Input::IsKeyDown(Util::Keycode::C);
 }
 
+bool InputManager::IsBuyMenuPressed() const {
+    return Util::Input::IsKeyDown(Util::Keycode::B);
+}
+
 } // namespace App

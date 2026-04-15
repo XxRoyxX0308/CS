@@ -8,6 +8,7 @@
 // ============================================================================
 
 #include "App/App.hpp"
+#include "Weapon/WeaponDefs.hpp"
 #include "Util/Time.hpp"
 #include "Util/Logger.hpp"
 
@@ -78,6 +79,35 @@ void Application::SetupUICallbacks() {
         } else if (m_Network.IsHost()) {
             m_NetworkController.BroadcastConfig(m_Network, 0, 1, 0);
         }
+    };
+
+    callbacks.onBuyWeapon = [this](int weaponIndex) {
+        const auto& registry = Weapon::GetWeaponRegistry();
+        if (weaponIndex < 0 || weaponIndex >= static_cast<int>(registry.size())) return;
+
+        const auto& info = registry[weaponIndex];
+        auto& player = m_GameManager.GetPlayer();
+
+        if (player.GetMoney() < info.price) return;
+
+        auto weapon = info.factory();
+        if (!weapon) return;
+
+        player.SpendMoney(info.price);
+        player.EquipWeapon(std::move(weapon), m_GameManager.GetScene());
+
+        // Broadcast weapon change to other players
+        uint8_t charTypeId = m_GameManager.GetCharacterTypeId();
+        uint8_t gunTypeId = static_cast<uint8_t>(weaponIndex);
+        if (m_Network.IsClient()) {
+            m_NetworkController.SendConfig(m_Network, charTypeId, gunTypeId);
+        } else if (m_Network.IsHost()) {
+            m_NetworkController.BroadcastConfig(m_Network, 0, charTypeId, gunTypeId);
+        }
+
+        // Close buy menu after purchase
+        m_UIManager.SetBuyMenuVisible(false);
+        m_InputManager.LockCursor();
     };
 
     m_UIManager.SetCallbacks(std::move(callbacks));
@@ -200,6 +230,16 @@ void Application::Update() {
         player.ToggleModelVisibility();
     }
 
+    // ── B: Toggle buy menu ──
+    if (m_InputManager.IsBuyMenuPressed()) {
+        m_UIManager.ToggleBuyMenu();
+        if (m_UIManager.IsBuyMenuVisible()) {
+            m_InputManager.UnlockCursor();
+        } else {
+            m_InputManager.LockCursor();
+        }
+    }
+
     // ── C: Switch character type ──
     if (m_InputManager.IsSwitchCharacterPressed()) {
         HandleCharacterSwitch();
@@ -250,6 +290,9 @@ void Application::Update() {
     m_GameManager.Render();
     m_GameManager.DrawEffects();
     m_UIManager.RenderHUD(player);
+
+    // ── Buy Menu ──
+    m_UIManager.RenderBuyMenu(player.GetMoney());
 
     // ── Debug Panel ──
     m_UIManager.RenderDebugPanel(

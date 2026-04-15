@@ -1,4 +1,5 @@
 #include "App/UIManager.hpp"
+#include "Weapon/WeaponDefs.hpp"
 #include "Physics/CapsuleCast.hpp"
 
 #include <GL/glew.h>
@@ -235,6 +236,128 @@ void UIManager::RenderHUD(const Entity::Player& player) {
     } else {
         ImGui::Text("Ammo: -- / --");
     }
+    ImGui::End();
+}
+
+// ============================================================================
+//  RenderBuyMenu — Weapon purchase overlay
+// ============================================================================
+void UIManager::RenderBuyMenu(int playerMoney) {
+    if (!m_ShowBuyMenu) return;
+
+    const auto& registry = Weapon::GetWeaponRegistry();
+    const auto& categories = Weapon::GetAllCategories();
+
+    // ── Window setup: centered, fixed size ──
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(750, 480));
+    ImGui::SetNextWindowBgAlpha(0.92f);
+
+    ImGui::Begin("Buy Menu", nullptr,
+                 ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoCollapse |
+                     ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoNav);
+
+    // ── Player money display (top-right of window) ──
+    {
+        char moneyText[32];
+        snprintf(moneyText, sizeof(moneyText), "$%d", playerMoney);
+        float textWidth = ImGui::CalcTextSize(moneyText).x;
+        float windowWidth = ImGui::GetWindowSize().x;
+        ImGui::SameLine(windowWidth - textWidth - 20.0f);
+        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "%s", moneyText);
+    }
+
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // ── Category columns ──
+    const int numCols = static_cast<int>(categories.size());
+    ImGui::Columns(numCols, "WeaponCategories", true);
+
+    // Set column widths evenly
+    float colWidth = 750.0f / static_cast<float>(numCols);
+    for (int i = 0; i < numCols; ++i) {
+        ImGui::SetColumnWidth(i, colWidth);
+    }
+
+    // ── Column headers ──
+    for (int c = 0; c < numCols; ++c) {
+        const char* catName = Weapon::GetCategoryName(categories[c]);
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "%s", catName);
+        ImGui::Separator();
+
+        // ── Weapons in this category ──
+        int weaponIdx = 0;
+        for (size_t w = 0; w < registry.size(); ++w) {
+            if (registry[w].category != categories[c]) continue;
+
+            const auto& weapon = registry[w];
+            bool canAfford = (playerMoney >= weapon.price);
+
+            // Color-coded border
+            ImVec4 borderColor = canAfford
+                ? ImVec4(0.1f, 0.9f, 0.4f, 1.0f)   // bright green
+                : ImVec4(0.45f, 0.45f, 0.45f, 1.0f); // grey
+
+            ImVec4 bgColor = canAfford
+                ? ImVec4(0.1f, 0.3f, 0.15f, 0.8f)   // dark green bg
+                : ImVec4(0.2f, 0.2f, 0.2f, 0.6f);    // dark grey bg
+
+            ImVec4 textColor = canAfford
+                ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f)     // white
+                : ImVec4(0.6f, 0.6f, 0.6f, 1.0f);     // dim grey
+
+            // Draw weapon entry as a styled button
+            ImGui::PushID(static_cast<int>(w));
+
+            ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                canAfford ? ImVec4(0.15f, 0.45f, 0.25f, 0.9f) : bgColor);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+                canAfford ? ImVec4(0.2f, 0.6f, 0.3f, 1.0f) : bgColor);
+            ImGui::PushStyleColor(ImGuiCol_Border, borderColor);
+            ImGui::PushStyleColor(ImGuiCol_Text, textColor);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.5f, 0.5f));
+
+            // Button label: name + price
+            char label[128];
+            snprintf(label, sizeof(label), "%s\n$%d", weapon.name.c_str(), weapon.price);
+
+            float btnWidth = colWidth - 20.0f;
+            if (ImGui::Button(label, ImVec2(btnWidth, 50.0f))) {
+                if (canAfford && m_Callbacks.onBuyWeapon) {
+                    m_Callbacks.onBuyWeapon(static_cast<int>(w));
+                }
+            }
+
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor(5);
+            ImGui::PopID();
+
+            ImGui::Spacing();
+            ++weaponIdx;
+        }
+
+        if (weaponIdx == 0) {
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 0.7f), "(empty)");
+        }
+
+        if (c < numCols - 1) {
+            ImGui::NextColumn();
+        }
+    }
+
+    ImGui::Columns(1);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Press [B] to close");
+
     ImGui::End();
 }
 

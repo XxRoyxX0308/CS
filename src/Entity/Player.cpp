@@ -99,6 +99,10 @@ void Player::Respawn(Core3D::Camera &camera,
 // ============================================================================
 void Player::EquipWeapon(std::unique_ptr<Weapon::Weapon> weapon,
                          Scene::SceneGraph &scene) {
+    // Remove old weapon model from scene
+    if (m_Weapon) {
+        m_Weapon->Cleanup(scene);
+    }
     m_Weapon = std::move(weapon);
     m_Weapon->Init(scene);
 }

@@ -41,9 +41,18 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/Entity/RemotePlayer.cpp
     ${CS_SRC_DIR}/Weapon/RayCast.cpp
     ${CS_SRC_DIR}/Weapon/Weapon.cpp
-    ${CS_SRC_DIR}/Weapon/AssaultRifle.cpp
-    ${CS_SRC_DIR}/Weapon/SniperRifle.cpp
-    ${CS_SRC_DIR}/Weapon/Pistol.cpp
+    ${CS_SRC_DIR}/Weapon/Blades/CombatKnife.cpp
+    ${CS_SRC_DIR}/Weapon/Blades/VictorinoxKnife.cpp
+    ${CS_SRC_DIR}/Weapon/Pistols/M1895.cpp
+    ${CS_SRC_DIR}/Weapon/Pistols/SigScorpion.cpp
+    ${CS_SRC_DIR}/Weapon/Assaults/AXL47.cpp
+    ${CS_SRC_DIR}/Weapon/Assaults/HoneyBadger.cpp
+    ${CS_SRC_DIR}/Weapon/SMGs/MP5K.cpp
+    ${CS_SRC_DIR}/Weapon/SMGs/UZI.cpp
+    ${CS_SRC_DIR}/Weapon/Snipers/Axis2.cpp
+    ${CS_SRC_DIR}/Weapon/Snipers/AR30.cpp
+    ${CS_SRC_DIR}/Weapon/Shotguns/MP153.cpp
+    ${CS_SRC_DIR}/Weapon/Shotguns/DoubleDeuce.cpp
     ${CS_SRC_DIR}/Effects/BulletHole.cpp
     # Network
     ${CS_SRC_DIR}/Network/Socket.cpp
@@ -73,9 +82,19 @@ set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/Entity/RemotePlayer.hpp
     ${CS_INCLUDE_DIR}/Weapon/RayCast.hpp
     ${CS_INCLUDE_DIR}/Weapon/Weapon.hpp
-    ${CS_INCLUDE_DIR}/Weapon/AssaultRifle.hpp
-    ${CS_INCLUDE_DIR}/Weapon/SniperRifle.hpp
-    ${CS_INCLUDE_DIR}/Weapon/Pistol.hpp
+    ${CS_INCLUDE_DIR}/Weapon/WeaponDefs.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Blades/CombatKnife.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Blades/VictorinoxKnife.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Pistols/M1895.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Pistols/SigScorpion.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Assaults/AXL47.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Assaults/HoneyBadger.hpp
+    ${CS_INCLUDE_DIR}/Weapon/SMGs/MP5K.hpp
+    ${CS_INCLUDE_DIR}/Weapon/SMGs/UZI.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Snipers/Axis2.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Snipers/AR30.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Shotguns/MP153.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Shotguns/DoubleDeuce.hpp
     ${CS_INCLUDE_DIR}/Effects/BulletHole.hpp
     # Network
     ${CS_INCLUDE_DIR}/Network/Types.hpp

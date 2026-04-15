@@ -54,6 +54,9 @@ public:
     /** @brief Check if C was pressed (character switch). */
     bool IsSwitchCharacterPressed() const;
 
+    /** @brief Check if B was pressed (buy menu toggle). */
+    bool IsBuyMenuPressed() const;
+
 private:
     bool m_CursorLocked = false;
 };

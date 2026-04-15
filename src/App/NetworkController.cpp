@@ -1,5 +1,6 @@
 #include "App/NetworkController.hpp"
 #include "App/StateManager.hpp"
+#include "Weapon/WeaponDefs.hpp"
 #include "Util/Logger.hpp"
 
 namespace App {
@@ -47,14 +48,21 @@ void NetworkController::SetupCallbacks(
         }
     });
 
-    network.SetOnPlayerConfig([&scene, &remotePlayers](uint8_t playerId, uint8_t characterType, uint8_t /*gunType*/) {
-        LOG_INFO("Player {} changed to character type {}", playerId, characterType);
+    network.SetOnPlayerConfig([&scene, &remotePlayers](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
+        LOG_INFO("Player {} changed to character type {}, gun type {}", playerId, characterType, gunType);
 
         auto it = remotePlayers.find(playerId);
         if (it != remotePlayers.end()) {
             auto type = (characterType == 0) ? Entity::CharacterType::FBI
                                               : Entity::CharacterType::TERRORIST;
             it->second.Init(scene, type);
+
+            // Update gun model if gunType is valid
+            const auto& registry = Weapon::GetWeaponRegistry();
+            if (gunType < static_cast<uint8_t>(registry.size())) {
+                const auto& info = registry[gunType];
+                it->second.SetGunModel(info.modelPath, info.modelScale);
+            }
         }
     });
 

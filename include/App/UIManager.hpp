@@ -39,6 +39,7 @@ struct UICallbacks {
     std::function<void()> onStopDiscovery;
     std::function<void()> onSelectCT;
     std::function<void()> onSelectT;
+    std::function<void(int weaponIndex)> onBuyWeapon;
 };
 
 /**
@@ -92,6 +93,18 @@ public:
     /** @brief Render in-game HUD (health/ammo). */
     void RenderHUD(const Entity::Player& player);
 
+    /** @brief Render weapon buy menu overlay. */
+    void RenderBuyMenu(int playerMoney);
+
+    /** @brief Check if buy menu is shown. */
+    bool IsBuyMenuVisible() const { return m_ShowBuyMenu; }
+
+    /** @brief Toggle buy menu visibility. */
+    void ToggleBuyMenu() { m_ShowBuyMenu = !m_ShowBuyMenu; }
+
+    /** @brief Set buy menu visibility. */
+    void SetBuyMenuVisible(bool visible) { m_ShowBuyMenu = visible; }
+
     /** @brief Check if debug panel should be shown. */
     bool IsDebugPanelVisible() const { return m_ShowDebugPanel; }
 
@@ -105,6 +118,7 @@ private:
     MenuState m_MenuState;
     UICallbacks m_Callbacks;
     bool m_ShowDebugPanel = false;
+    bool m_ShowBuyMenu = false;
 };
 
 } // namespace App

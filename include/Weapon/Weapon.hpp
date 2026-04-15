@@ -37,6 +37,9 @@ public:
     /** @brief Load the weapon model and attach its node to the scene. */
     void Init(Scene::SceneGraph &scene);
 
+    /** @brief Remove the weapon node from the scene. */
+    void Cleanup(Scene::SceneGraph &scene);
+
     /** @brief Per-frame update: cooldowns, reload timer, reload animation, recoil recovery. */
     void Update(float dt, Core3D::Camera &camera);
 
@@ -54,6 +57,9 @@ public:
     int  GetMagSize()     const { return m_MagSize; }
     bool IsReloading()    const { return m_IsReloading; }
     float GetDamage()     const { return m_Damage; }
+    int  GetPrice()       const { return m_Price; }
+    const std::string& GetModelPath() const { return m_ModelPath; }
+    const glm::vec3& GetWeaponScale() const { return m_WeaponScale; }
 
     /** @brief Get the last fire ray hit result (for debug/effects). */
     const RayHitResult &GetLastHit() const { return m_LastHit; }
@@ -81,6 +87,7 @@ protected:
     float m_ReloadTime      = 2.0f;    // seconds to reload
     float m_BulletRange     = 200.0f;  // max hitscan range (meters)
     float m_Damage          = 25.0f;   // damage per hit
+    int   m_Price           = 0;       // buy menu price
 
     // ── Runtime state ──
     int   m_CurrentAmmo   = 0;

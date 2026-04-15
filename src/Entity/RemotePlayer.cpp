@@ -7,8 +7,8 @@
 
 namespace Entity {
 
-// Gun model configuration for third-person view
-static const std::string GUN_MODEL_PATH = std::string(ASSETS_DIR) + "/guns/aac_honey_badger/scene.gltf";
+// Gun model configuration for third-person view (default)
+static const std::string GUN_MODEL_PATH = std::string(ASSETS_DIR) + "/weapons/Assaults/honey_badger/scene.gltf";
 static constexpr glm::vec3 GUN_SCALE = glm::vec3(0.020f);
 // Offset from character center (right, up, forward in character's local space)
 static constexpr glm::vec3 GUN_OFFSET = glm::vec3(0.4f, -0.45f, -0.2f);
@@ -22,7 +22,7 @@ void RemotePlayer::Init(Scene::SceneGraph &scene, CharacterType type) {
     m_GunModel = std::make_shared<Core3D::Model>(GUN_MODEL_PATH, false);
     m_GunNode = std::make_shared<Scene::SceneNode>();
     m_GunNode->SetDrawable(m_GunModel);
-    m_GunNode->SetScale(GUN_SCALE);
+    m_GunNode->SetScale(m_GunScale);
     m_GunNode->SetVisible(true);
     scene.GetRoot()->AddChild(m_GunNode);
 }
@@ -125,6 +125,26 @@ void RemotePlayer::SetVisible(bool visible) {
 void RemotePlayer::SetCharacterType(CharacterType type) {
     // This would require re-initialization of the model
     // For now, just note the type change
+}
+
+void RemotePlayer::SetGunModel(const std::string &modelPath, const glm::vec3 &scale) {
+    if (!m_Scene) return;
+
+    // Remove old gun node
+    if (m_GunNode) {
+        m_Scene->GetRoot()->RemoveChild(m_GunNode);
+        m_GunNode.reset();
+        m_GunModel.reset();
+    }
+
+    // Create new gun model
+    m_GunModel = std::make_shared<Core3D::Model>(modelPath, false);
+    m_GunNode = std::make_shared<Scene::SceneNode>();
+    m_GunNode->SetDrawable(m_GunModel);
+    m_GunScale = scale;
+    m_GunNode->SetScale(m_GunScale);
+    m_GunNode->SetVisible(true);
+    m_Scene->GetRoot()->AddChild(m_GunNode);
 }
 
 Physics::Capsule RemotePlayer::MakeCapsule() const {

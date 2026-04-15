@@ -92,6 +92,12 @@ public:
     /** @brief Reset health to maximum. */
     void ResetHealth() { m_Health = m_MaxHealth; }
 
+    // ── Economy ─────────────────────────────────────────────────────────
+
+    int GetMoney() const { return m_Money; }
+    void SetMoney(int money) { m_Money = money; }
+    void SpendMoney(int amount) { m_Money -= amount; }
+
 protected:
     glm::vec3 m_Position = glm::vec3(0.0f);
 
@@ -107,6 +113,9 @@ protected:
     // ── Health ──
     float m_Health = 100.0f;        ///< Current health
     float m_MaxHealth = 100.0f;     ///< Maximum health
+
+    // ── Economy ──
+    int m_Money = 50000;             ///< Current money for buy menu
 };
 
 } // namespace Entity

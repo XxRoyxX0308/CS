@@ -31,6 +31,17 @@ void Weapon::Init(Scene::SceneGraph &scene) {
 }
 
 // ============================================================================
+//  Cleanup — remove weapon node from scene
+// ============================================================================
+void Weapon::Cleanup(Scene::SceneGraph &scene) {
+    if (m_Node) {
+        scene.GetRoot()->RemoveChild(m_Node);
+        m_Node.reset();
+    }
+    m_Model.reset();
+}
+
+// ============================================================================
 //  Update — cooldowns, reload, recoil recovery
 // ============================================================================
 void Weapon::Update(float dt, Core3D::Camera &camera) {

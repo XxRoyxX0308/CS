@@ -1,0 +1,11 @@
+Model Information:
+* title:	Gerber Combat knife Low-Poly
+* source:	https://sketchfab.com/3d-models/gerber-combat-knife-low-poly-f8991297774e415c976cc8d476ca21e0
+* author:	Lucas Soler (https://sketchfab.com/lucassoler)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Gerber Combat knife Low-Poly" (https://sketchfab.com/3d-models/gerber-combat-knife-low-poly-f8991297774e415c976cc8d476ca21e0) by Lucas Soler (https://sketchfab.com/lucassoler) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
