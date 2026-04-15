@@ -1,6 +1,6 @@
 #include "App/GameManager.hpp"
 #include "App/CombatManager.hpp"
-#include "Weapon/Assaults/HoneyBadger.hpp"
+#include "Weapon/Pistols/M1895.hpp"
 #include "Scene/Light.hpp"
 #include "Util/Logger.hpp"
 
@@ -68,7 +68,7 @@ void GameManager::Initialize() {
     m_Player.Respawn(camera, m_CollisionMesh, spawnPos);
 
     // ── 7. Equip Weapon ──
-    auto gun = std::make_unique<Weapon::HoneyBadger>();
+    auto gun = std::make_unique<Weapon::M1895>();
     m_Player.EquipWeapon(std::move(gun), m_Scene);
 
     // ── 8. Initialize Bullet Hole Effects ──

@@ -98,16 +98,16 @@ void Weapon::Fire(Core3D::Camera &camera, const Physics::CollisionMesh &mesh) {
     m_CurrentAmmo--;
     m_FireCooldown = 1.0f / m_FireRate;
 
-    // Recoil: kick camera pitch up
-    camera.SetPitch(camera.GetPitch() + m_RecoilStrength);
-    camera.UpdateVectors();
-    m_CurrentRecoil = m_RecoilStrength;
-
-    // Raycast
+    // Raycast first (using current camera direction, before recoil is applied)
     m_LastHit = RayCast::Cast(camera.GetPosition(),
                               camera.GetFront(),
                               mesh,
                               m_BulletRange);
+
+    // Then apply recoil kick
+    camera.SetPitch(camera.GetPitch() + m_RecoilStrength);
+    camera.UpdateVectors();
+    m_CurrentRecoil = m_RecoilStrength;
 
     if (m_LastHit.hit) {
         LOG_DEBUG("Hit at ({:.1f}, {:.1f}, {:.1f}) dist={:.1f}",

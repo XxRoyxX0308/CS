@@ -8,12 +8,19 @@
 namespace Entity {
 
 // Gun model configuration for third-person view (default)
-static const std::string GUN_MODEL_PATH = std::string(ASSETS_DIR) + "/weapons/Assaults/honey_badger/scene.gltf";
-static constexpr glm::vec3 GUN_SCALE = glm::vec3(0.020f);
+static const std::string GUN_MODEL_PATH = std::string(ASSETS_DIR) + "/weapons/Pistols/m1895/scene.gltf";
+static constexpr glm::vec3 GUN_SCALE = glm::vec3(0.12f);
 // Offset from character center (right, up, forward in character's local space)
 static constexpr glm::vec3 GUN_OFFSET = glm::vec3(0.4f, -0.45f, -0.2f);
 
 void RemotePlayer::Init(Scene::SceneGraph &scene, CharacterType type) {
+    // Remove existing gun node before reinitializing
+    if (m_GunNode && m_Scene) {
+        m_Scene->GetRoot()->RemoveChild(m_GunNode);
+        m_GunNode.reset();
+        m_GunModel.reset();
+    }
+
     m_Scene = &scene;
     m_Model.Init(scene, type, true);
     m_ModelInitialized = true;

@@ -78,7 +78,7 @@ void Player::Respawn(Core3D::Camera &camera,
                      const Physics::CollisionMesh &mesh,
                      const glm::vec3& spawnPosition) {
     m_Position = spawnPosition;
-    m_Position.y = m_Position.y + m_Radius + m_SkinWidth;
+    m_Position.y = m_Position.y + m_SkinWidth;
     ResetHealth();
     m_VelocityY = 0.0f;
     m_OnGround = false;
