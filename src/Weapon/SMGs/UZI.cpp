@@ -7,8 +7,8 @@ void UZI::Configure() {
     m_WeaponScale    = glm::vec3(0.2f);
     m_WeaponOffset   = glm::vec3(0.22f, -0.20f, 0.45f);
 
-    m_FireRate       = 15.0f;   // ~780 RPM
-    m_RecoilStrength = 1.2f;
+    m_FireRate       = 16.0f;   // ~780 RPM
+    m_RecoilStrength = 1.6f;
     m_RecoilRecovery = 9.0f;
     m_MagSize        = 25;
     m_ReloadTime     = 1.6f;

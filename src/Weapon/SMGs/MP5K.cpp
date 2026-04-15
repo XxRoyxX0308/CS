@@ -7,8 +7,8 @@ void MP5K::Configure() {
     m_WeaponScale    = glm::vec3(0.09f);
     m_WeaponOffset   = glm::vec3(0.22f, -0.24f, 0.48f);
 
-    m_FireRate       = 14.0f;   // ~900 RPM
-    m_RecoilStrength = 1.1f;
+    m_FireRate       = 15.0f;   // ~900 RPM
+    m_RecoilStrength = 1.5f;
     m_RecoilRecovery = 10.0f;
     m_MagSize        = 30;
     m_ReloadTime     = 1.5f;

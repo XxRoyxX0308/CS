@@ -88,15 +88,19 @@ void Input::Update() {
     s_Io = ImGui::GetIO();
 
     while (SDL_PollEvent(&s_Event) != 0) {
-        if (s_Io.WantCaptureMouse) {
-            ImGui_ImplSDL2_ProcessEvent(&s_Event);
-            continue;
-        }
+        // Always forward events to ImGui
+        ImGui_ImplSDL2_ProcessEvent(&s_Event);
+
+        // Keyboard events always update game state (prevents stuck keys)
         if (s_Event.type == SDL_KEYDOWN || s_Event.type == SDL_KEYUP) {
             UpdateKeyState(&s_Event);
-        } else if (s_Event.type == SDL_MOUSEBUTTONDOWN ||
+        }
+        // Mouse button events only update game state when ImGui doesn't want the mouse
+        else if (s_Event.type == SDL_MOUSEBUTTONDOWN ||
                    s_Event.type == SDL_MOUSEBUTTONUP) {
-            UpdateKeyState(&s_Event);
+            if (!s_Io.WantCaptureMouse) {
+                UpdateKeyState(&s_Event);
+            }
         }
 
         s_Scroll = s_Event.type == SDL_MOUSEWHEEL || s_Scroll;

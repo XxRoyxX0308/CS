@@ -101,7 +101,7 @@ void Weapon::Fire(Core3D::Camera &camera, const Physics::CollisionMesh &mesh) {
     // Recoil: kick camera pitch up
     camera.SetPitch(camera.GetPitch() + m_RecoilStrength);
     camera.UpdateVectors();
-    m_CurrentRecoil += m_RecoilStrength;
+    m_CurrentRecoil = m_RecoilStrength;
 
     // Raycast
     m_LastHit = RayCast::Cast(camera.GetPosition(),

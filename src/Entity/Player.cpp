@@ -78,19 +78,10 @@ void Player::Respawn(Core3D::Camera &camera,
                      const Physics::CollisionMesh &mesh,
                      const glm::vec3& spawnPosition) {
     m_Position = spawnPosition;
-    // Keep player on valid ground if spawn Y is slightly off.
-    Physics::Capsule cap;
-    cap.radius = m_Radius;
-    cap.height = m_Height - 2.0f * m_Radius;
-    if (cap.height < 0.0f) cap.height = 0.0f;
-    cap.base = glm::vec3(m_Position.x, m_Position.y - m_Height + m_Radius + 2.0f, m_Position.z);
-    auto groundY = Physics::CapsuleCast::SweepVertical(cap, mesh, -20.0f);
-    if (groundY.has_value()) {
-        m_Position.y = groundY.value() + m_Height;
-    }
+    m_Position.y = m_Position.y + m_Radius + m_SkinWidth;
     ResetHealth();
     m_VelocityY = 0.0f;
-    m_OnGround = true;
+    m_OnGround = false;
     camera.SetPosition(m_Position + glm::vec3(0.0f, m_CameraYOffset, 0.0f));
 }
 
