@@ -39,7 +39,8 @@ void InputManager::ProcessMouseLook(Core3D::Camera& camera) {
 Network::InputState InputManager::SampleInput(const Core3D::Camera& camera,
                                                const glm::vec3& position,
                                                bool isWalking,
-                                               bool isOnGround) const {
+                                               bool isOnGround,
+                                               bool isCrouching) const {
     Network::InputState input;
     input.keys = 0;
 
@@ -56,8 +57,9 @@ Network::InputState InputManager::SampleInput(const Core3D::Camera& camera,
     input.position = position;
 
     input.flags = 0;
-    if (isWalking) input.flags |= Network::FLAG_IS_WALKING;
-    if (isOnGround) input.flags |= Network::FLAG_ON_GROUND;
+    if (isWalking)   input.flags |= Network::FLAG_IS_WALKING;
+    if (isOnGround)  input.flags |= Network::FLAG_ON_GROUND;
+    if (isCrouching) input.flags |= Network::FLAG_IS_CROUCHING;
 
     return input;
 }

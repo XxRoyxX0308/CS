@@ -208,10 +208,11 @@ void NetworkController::BuildAndBroadcastGameState(
     hostState.currentAmmo = player.GetWeapon() ? player.GetWeapon()->GetCurrentAmmo() : 0;
 
     hostState.flags = 0;
-    if (player.IsOnGround()) hostState.flags |= Network::FLAG_ON_GROUND;
+    if (player.IsOnGround())  hostState.flags |= Network::FLAG_ON_GROUND;
     if (player.GetWeapon() && player.GetWeapon()->IsReloading()) hostState.flags |= Network::FLAG_IS_RELOADING;
     hostState.flags |= Network::FLAG_IS_ALIVE;
-    if (player.IsWalking()) hostState.flags |= Network::FLAG_IS_WALKING;
+    if (player.IsWalking())   hostState.flags |= Network::FLAG_IS_WALKING;
+    if (player.IsCrouching()) hostState.flags |= Network::FLAG_IS_CROUCHING;
 
     states.push_back(hostState);
 
@@ -244,12 +245,14 @@ void NetworkController::ProcessRemoteInputs(
         const auto& input = pending.input;
 
         glm::vec3 position(input.posX, input.posY, input.posZ);
-        bool isWalking = (input.flags & Network::FLAG_IS_WALKING) != 0;
+        bool isWalking   = (input.flags & Network::FLAG_IS_WALKING) != 0;
+        bool isCrouching = (input.flags & Network::FLAG_IS_CROUCHING) != 0;
 
         remote.SetPosition(position);
         remote.SetYaw(input.yaw);
         remote.SetPitch(input.pitch);
         remote.SetWalking(isWalking);
+        remote.SetCrouching(isCrouching);
     }
 }
 

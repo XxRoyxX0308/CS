@@ -98,6 +98,9 @@ private:
     std::unique_ptr<Weapon::Weapon> m_Weapon;
     CharacterModel m_CharacterModel;
     bool m_IsWalking = false;
+
+    float m_NormalSpeed = 5.0f;  ///< Normal movement speed
+    float m_CrouchSpeed = 3.0f;  ///< Crouching movement speed
 };
 
 } // namespace Entity

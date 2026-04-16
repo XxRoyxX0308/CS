@@ -44,13 +44,15 @@ void RemotePlayer::UpdateFromNetworkState(const Network::NetPlayerState &state, 
     m_Health = static_cast<float>(state.health);
     m_IsAlive = state.IsAlive();
     m_IsWalking = state.IsWalking();
+    m_IsCrouching = state.IsCrouching();
 
     // Smooth interpolation toward target
     float t = 1.0f - std::pow(1.0f - SMOOTH_FACTOR, dt * 60.0f);
 
     m_Position = glm::mix(m_Position, m_TargetPosition, t);
+    float crouchSink = m_IsCrouching ? (STAND_HEIGHT - CROUCH_HEIGHT) : 0.0f;
     glm::vec3 feetPos = m_Position;
-    feetPos.y -= m_Height;
+    feetPos.y -= m_Height + crouchSink;
 
     // Angle interpolation (handle wraparound)
     float yawDiff = std::fmod(m_TargetYaw - m_Yaw + 540.0f, 360.0f) - 180.0f;
@@ -76,8 +78,9 @@ void RemotePlayer::Update(float dt) {
     float t = 1.0f - std::pow(1.0f - SMOOTH_FACTOR, dt * 60.0f);
 
     m_Position = glm::mix(m_Position, m_TargetPosition, t);
+    float crouchSink = m_IsCrouching ? (STAND_HEIGHT - CROUCH_HEIGHT) : 0.0f;
     glm::vec3 feetPos = m_Position;
-    feetPos.y -= m_Height;
+    feetPos.y -= m_Height + crouchSink;
 
     // Angle interpolation (handle wraparound)
     float yawDiff = std::fmod(m_TargetYaw - m_Yaw + 540.0f, 360.0f) - 180.0f;
@@ -103,10 +106,11 @@ void RemotePlayer::UpdateGunTransform() {
     glm::vec3 right(glm::cos(yawRad), 0.0f, glm::sin(yawRad));
     glm::vec3 up(0.0f, 1.0f, 0.0f);
 
-    // Gun position relative to character
+    // Gun position relative to character (also lowered when crouching)
+    float crouchSink = m_IsCrouching ? (STAND_HEIGHT - CROUCH_HEIGHT) : 0.0f;
     glm::vec3 gunPos = m_Position
                      + right * GUN_OFFSET.x
-                     + up * GUN_OFFSET.y
+                     + up * (GUN_OFFSET.y - crouchSink)
                      + forward * GUN_OFFSET.z;
 
     m_GunNode->SetPosition(gunPos);

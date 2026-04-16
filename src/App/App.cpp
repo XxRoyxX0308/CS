@@ -256,7 +256,7 @@ void Application::Update() {
     } else if (m_Network.IsClient()) {
         auto inputState = m_InputManager.SampleInput(
             camera, player.GetPosition(),
-            player.IsWalking(), player.IsOnGround()
+            player.IsWalking(), player.IsOnGround(), player.IsCrouching()
         );
         m_NetworkController.UpdateClient(
             dt, m_Network, inputState,

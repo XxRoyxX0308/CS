@@ -16,7 +16,7 @@ void Player::Init(Core3D::Camera &camera) {
     camera.SetPosition(glm::vec3(0.0f, m_Height + m_CameraYOffset, 0.0f));
     camera.SetYaw(-90.0f);
     camera.SetPitch(0.0f);
-    camera.SetMovementSpeed(5.0f);
+    camera.SetMovementSpeed(m_NormalSpeed);
     camera.SetMouseSensitivity(0.1f);
     camera.UpdateVectors();
 
@@ -103,6 +103,30 @@ void Player::EquipWeapon(std::unique_ptr<Weapon::Weapon> weapon,
 // ============================================================================
 void Player::Update(float dt, Core3D::Camera &camera,
                     const Physics::CollisionMesh &mesh) {
+    // ── Crouch (hold SHIFT) ──
+    bool shiftPressed = Util::Input::IsKeyPressed(Util::Keycode::LSHIFT) ||
+                        Util::Input::IsKeyPressed(Util::Keycode::RSHIFT);
+    if (shiftPressed && !m_IsCrouching) {
+        float feetY = m_Position.y - m_Height;
+        m_Height = m_CrouchHeight;
+        m_Position.y = feetY + m_CrouchHeight;
+        m_IsCrouching = true;
+        camera.SetMovementSpeed(m_CrouchSpeed);
+    } else if (!shiftPressed && m_IsCrouching) {
+        // Check for ceiling before standing up
+        float heightDiff = m_StandHeight - m_CrouchHeight;
+        Physics::Capsule cap = MakeCapsule();
+        auto ceilingHit = Physics::CapsuleCast::SweepVertical(cap, mesh, heightDiff);
+        if (!ceilingHit.has_value()) {
+            float feetY = m_Position.y - m_Height;
+            m_Height = m_StandHeight;
+            m_Position.y = feetY + m_StandHeight;
+            m_IsCrouching = false;
+            camera.SetMovementSpeed(m_NormalSpeed);
+        }
+        // else: ceiling too low, stay crouched
+    }
+
     // ── WASD horizontal movement ──
     camera.SetPosition(m_Position);
 
@@ -141,9 +165,11 @@ void Player::Update(float dt, Core3D::Camera &camera,
     camera.SetPosition(m_Position + glm::vec3(0.0f, m_CameraYOffset, 0.0f));
 
     // ── Update character model ──
-    // Position is eye height, model needs feet position
+    // When crouching, sink the model into the ground by the height difference
+    // so the full-height model appears to crouch (clipping through the floor).
+    float crouchSink = m_IsCrouching ? (m_StandHeight - m_CrouchHeight) : 0.0f;
     glm::vec3 feetPos = m_Position;
-    feetPos.y -= m_Height;
+    feetPos.y -= m_Height + crouchSink;
     m_CharacterModel.Update(dt, feetPos, camera.GetYaw(), m_IsWalking);
 
     // ── Weapon system ──

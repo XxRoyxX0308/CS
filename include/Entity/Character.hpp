@@ -50,7 +50,8 @@ public:
     float GetVelocityY() const { return m_VelocityY; }
     void SetVelocityY(float v) { m_VelocityY = v; }
 
-    bool IsOnGround() const { return m_OnGround; }
+    bool IsOnGround()    const { return m_OnGround; }
+    bool IsCrouching()   const { return m_IsCrouching; }
 
     /** @brief Make the character jump if on ground. */
     void Jump();
@@ -101,10 +102,13 @@ public:
 protected:
     glm::vec3 m_Position = glm::vec3(0.0f);
 
-    float m_Height = 1.7f;          ///< Eye height in meters
+    float m_StandHeight  = 1.5f;     ///< Standing eye height in meters
+    float m_CrouchHeight = 1.3f;     ///< Crouching eye height in meters
+    float m_Height = 1.7f;          ///< Current eye height (changes with crouch)
     float m_CameraYOffset = -0.1f;  ///< Camera Y offset from position
     float m_Radius = 0.5f;          ///< Collision radius in meters
-    float m_SkinWidth = 0.005f;     ///< Collision skin thickness
+    bool  m_IsCrouching = false;    ///< Whether currently crouching
+    float m_SkinWidth = 0.002f;     ///< Collision skin thickness
     float m_Gravity = 9.8f;         ///< Gravity acceleration
     float m_VelocityY = 0.0f;       ///< Vertical velocity
     float m_JumpSpeed = 5.0f;       ///< Jump initial velocity

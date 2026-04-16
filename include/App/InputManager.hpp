@@ -40,7 +40,8 @@ public:
     Network::InputState SampleInput(const Core3D::Camera& camera,
                                     const glm::vec3& position,
                                     bool isWalking,
-                                    bool isOnGround) const;
+                                    bool isOnGround,
+                                    bool isCrouching) const;
 
     /** @brief Check if exit was requested (ESC or window close). */
     bool IsExitRequested() const;

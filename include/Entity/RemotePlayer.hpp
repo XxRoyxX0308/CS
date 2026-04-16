@@ -60,6 +60,8 @@ public:
     void SetYaw(float yaw) { m_TargetYaw = yaw; }
     void SetPitch(float pitch) { m_TargetPitch = pitch; }
     void SetWalking(bool walking) { m_IsWalking = walking; }
+    void SetCrouching(bool crouching) { m_IsCrouching = crouching; }
+    bool IsCrouching() const { return m_IsCrouching; }
 
     // ── Getters ───────────────────────────────────────────────────────────
 
@@ -128,6 +130,7 @@ private:
     float m_Health = 100.0f;
     bool m_IsAlive = true;
     bool m_IsWalking = false;
+    bool m_IsCrouching = false;
     int m_Money = 5000;
 
     // ── Character Model ───────────────────────────────────────────────────
@@ -147,6 +150,8 @@ private:
     static constexpr float SMOOTH_FACTOR = 0.2f;
     static constexpr float HEIGHT = 1.7f;
     static constexpr float RADIUS = 0.3f;
+    static constexpr float STAND_HEIGHT = 1.7f;
+    static constexpr float CROUCH_HEIGHT = 0.9f;
 };
 
 } // namespace Entity

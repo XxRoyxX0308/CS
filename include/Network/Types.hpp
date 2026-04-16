@@ -35,10 +35,11 @@ constexpr uint8_t INPUT_FIRE   = 0x20;
 constexpr uint8_t INPUT_RELOAD = 0x40;
 
 // Player flags
-constexpr uint8_t FLAG_ON_GROUND   = 0x01;
+constexpr uint8_t FLAG_ON_GROUND    = 0x01;
 constexpr uint8_t FLAG_IS_RELOADING = 0x02;
-constexpr uint8_t FLAG_IS_ALIVE    = 0x04;
-constexpr uint8_t FLAG_IS_WALKING  = 0x08;
+constexpr uint8_t FLAG_IS_ALIVE     = 0x04;
+constexpr uint8_t FLAG_IS_WALKING   = 0x08;
+constexpr uint8_t FLAG_IS_CROUCHING = 0x10;
 
 // Magic bytes for LAN discovery
 constexpr uint8_t DISCOVERY_MAGIC[4] = {'C', 'S', 'F', 'P'};
@@ -163,10 +164,11 @@ struct NetPlayerState {
         posX = pos.x; posY = pos.y; posZ = pos.z;
     }
 
-    bool IsOnGround() const { return flags & FLAG_ON_GROUND; }
-    bool IsReloading() const { return flags & FLAG_IS_RELOADING; }
-    bool IsAlive() const { return flags & FLAG_IS_ALIVE; }
-    bool IsWalking() const { return flags & FLAG_IS_WALKING; }
+    bool IsOnGround()  const { return (flags & FLAG_ON_GROUND) != 0; }
+    bool IsReloading() const { return (flags & FLAG_IS_RELOADING) != 0; }
+    bool IsAlive()     const { return (flags & FLAG_IS_ALIVE) != 0; }
+    bool IsWalking()   const { return (flags & FLAG_IS_WALKING) != 0; }
+    bool IsCrouching() const { return (flags & FLAG_IS_CROUCHING) != 0; }
 };
 
 // Game State Packet
@@ -227,14 +229,15 @@ struct InputState {
     glm::vec3 position{0.0f};
     uint8_t flags = 0;
 
-    bool HasW() const { return keys & INPUT_W; }
-    bool HasS() const { return keys & INPUT_S; }
-    bool HasA() const { return keys & INPUT_A; }
-    bool HasD() const { return keys & INPUT_D; }
-    bool HasJump() const { return keys & INPUT_JUMP; }
-    bool HasFire() const { return keys & INPUT_FIRE; }
-    bool HasReload() const { return keys & INPUT_RELOAD; }
-    bool IsWalking() const { return flags & FLAG_IS_WALKING; }
+    bool HasW()      const { return (keys & INPUT_W) != 0; }
+    bool HasS()      const { return (keys & INPUT_S) != 0; }
+    bool HasA()      const { return (keys & INPUT_A) != 0; }
+    bool HasD()      const { return (keys & INPUT_D) != 0; }
+    bool HasJump()   const { return (keys & INPUT_JUMP) != 0; }
+    bool HasFire()   const { return (keys & INPUT_FIRE) != 0; }
+    bool HasReload() const { return (keys & INPUT_RELOAD) != 0; }
+    bool IsWalking()   const { return (flags & FLAG_IS_WALKING) != 0; }
+    bool IsCrouching() const { return (flags & FLAG_IS_CROUCHING) != 0; }
 };
 
 // Input Record (for prediction history)
