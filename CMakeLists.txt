@@ -41,12 +41,12 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/Entity/RemotePlayer.cpp
     ${CS_SRC_DIR}/Weapon/RayCast.cpp
     ${CS_SRC_DIR}/Weapon/Weapon.cpp
-    ${CS_SRC_DIR}/Weapon/Blades/CombatKnife.cpp
-    ${CS_SRC_DIR}/Weapon/Blades/VictorinoxKnife.cpp
+    ${CS_SRC_DIR}/Weapon/Knives/CombatKnife.cpp
+    ${CS_SRC_DIR}/Weapon/Knives/VictorinoxKnife.cpp
     ${CS_SRC_DIR}/Weapon/Pistols/M1895.cpp
     ${CS_SRC_DIR}/Weapon/Pistols/SigScorpion.cpp
-    ${CS_SRC_DIR}/Weapon/Assaults/AXL47.cpp
-    ${CS_SRC_DIR}/Weapon/Assaults/HoneyBadger.cpp
+    ${CS_SRC_DIR}/Weapon/Rifles/AXL47.cpp
+    ${CS_SRC_DIR}/Weapon/Rifles/HoneyBadger.cpp
     ${CS_SRC_DIR}/Weapon/SMGs/MP5K.cpp
     ${CS_SRC_DIR}/Weapon/SMGs/UZI.cpp
     ${CS_SRC_DIR}/Weapon/Snipers/Axis2.cpp
@@ -83,12 +83,12 @@ set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/Weapon/RayCast.hpp
     ${CS_INCLUDE_DIR}/Weapon/Weapon.hpp
     ${CS_INCLUDE_DIR}/Weapon/WeaponDefs.hpp
-    ${CS_INCLUDE_DIR}/Weapon/Blades/CombatKnife.hpp
-    ${CS_INCLUDE_DIR}/Weapon/Blades/VictorinoxKnife.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Knives/CombatKnife.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Knives/VictorinoxKnife.hpp
     ${CS_INCLUDE_DIR}/Weapon/Pistols/M1895.hpp
     ${CS_INCLUDE_DIR}/Weapon/Pistols/SigScorpion.hpp
-    ${CS_INCLUDE_DIR}/Weapon/Assaults/AXL47.hpp
-    ${CS_INCLUDE_DIR}/Weapon/Assaults/HoneyBadger.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Rifles/AXL47.hpp
+    ${CS_INCLUDE_DIR}/Weapon/Rifles/HoneyBadger.hpp
     ${CS_INCLUDE_DIR}/Weapon/SMGs/MP5K.hpp
     ${CS_INCLUDE_DIR}/Weapon/SMGs/UZI.hpp
     ${CS_INCLUDE_DIR}/Weapon/Snipers/Axis2.hpp

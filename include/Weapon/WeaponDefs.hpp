@@ -3,15 +3,15 @@
 
 #include "Weapon/Weapon.hpp"
 
-// ── Blades ──
-#include "Weapon/Blades/CombatKnife.hpp"
-#include "Weapon/Blades/VictorinoxKnife.hpp"
+// ── Knives ──
+#include "Weapon/Knives/CombatKnife.hpp"
+#include "Weapon/Knives/VictorinoxKnife.hpp"
 // ── Pistols ──
 #include "Weapon/Pistols/M1895.hpp"
 #include "Weapon/Pistols/SigScorpion.hpp"
 // ── Assault Rifles ──
-#include "Weapon/Assaults/AXL47.hpp"
-#include "Weapon/Assaults/HoneyBadger.hpp"
+#include "Weapon/Rifles/AXL47.hpp"
+#include "Weapon/Rifles/HoneyBadger.hpp"
 // ── SMGs ──
 #include "Weapon/SMGs/MP5K.hpp"
 #include "Weapon/SMGs/UZI.hpp"
@@ -69,58 +69,46 @@ inline const char* GetCategoryName(WeaponCategory cat) {
 }
 
 /**
+ * @brief Build a WeaponInfo by reading modelPath and modelScale directly
+ *        from the weapon's Configure(), ensuring a single source of truth.
+ */
+template <typename T>
+inline WeaponInfo MakeWeaponInfo(std::string name, WeaponCategory category, int price) {
+    T tmp;
+    tmp.ApplyConfig();
+    return WeaponInfo{
+        std::move(name),
+        category,
+        price,
+        tmp.GetModelPath(),
+        tmp.GetWeaponScale(),
+        []() { return std::make_unique<T>(); }
+    };
+}
+
+/**
  * @brief Get the full list of purchasable weapons.
  */
 inline const std::vector<WeaponInfo>& GetWeaponRegistry() {
-    static const std::string base = std::string(ASSETS_DIR) + "/weapons/";
     static const std::vector<WeaponInfo> registry = {
-        // ── Blades ──
-        { "Combat Knife",      WeaponCategory::Knife,   200,
-          base + "Blades/combat_knife/scene.gltf",                glm::vec3(0.15f),
-          []() { return std::make_unique<CombatKnife>(); } },
-        { "Victorinox Knife",  WeaponCategory::Knife,   0,
-          base + "Blades/victorinox_multitool_knife/scene.gltf",  glm::vec3(0.12f),
-          []() { return std::make_unique<VictorinoxKnife>(); } },
-
+        // ── Knives ──
+        MakeWeaponInfo<CombatKnife>    ("Combat Knife",    WeaponCategory::Knife,   200),
+        MakeWeaponInfo<VictorinoxKnife>("Victorinox Knife",WeaponCategory::Knife,     0),
         // ── Pistols ──
-        { "M1895 Revolver",    WeaponCategory::Pistol,  500,
-          base + "Pistols/m1895/scene.gltf",                      glm::vec3(0.12f),
-          []() { return std::make_unique<M1895>(); } },
-        { "SIG Scorpion",      WeaponCategory::Pistol,  700,
-          base + "Pistols/sig_scorpion/scene.gltf",               glm::vec3(0.12f),
-          []() { return std::make_unique<SigScorpion>(); } },
-
+        MakeWeaponInfo<M1895>          ("M1895 Revolver",  WeaponCategory::Pistol,  500),
+        MakeWeaponInfo<SigScorpion>    ("SIG Scorpion",    WeaponCategory::Pistol,  700),
         // ── Assault Rifles ──
-        { "AXL-47",            WeaponCategory::Rifle,   2500,
-          base + "Assaults/axl-47/scene.gltf",                    glm::vec3(0.025f),
-          []() { return std::make_unique<AXL47>(); } },
-        { "Honey Badger",      WeaponCategory::Rifle,   2700,
-          base + "Assaults/honey_badger/scene.gltf",              glm::vec3(0.025f),
-          []() { return std::make_unique<HoneyBadger>(); } },
-
+        MakeWeaponInfo<AXL47>          ("AXL-47",          WeaponCategory::Rifle,  2500),
+        MakeWeaponInfo<HoneyBadger>    ("Honey Badger",    WeaponCategory::Rifle,  2700),
         // ── SMGs ──
-        { "MP5K",              WeaponCategory::SMG,     1500,
-          base + "SMGs/mp5k/scene.gltf",                          glm::vec3(0.08f),
-          []() { return std::make_unique<MP5K>(); } },
-        { "UZI",              WeaponCategory::SMG,     1700,
-          base + "SMGs/uzi/scene.gltf",                          glm::vec3(0.08f),
-          []() { return std::make_unique<UZI>(); } },
-
+        MakeWeaponInfo<MP5K>           ("MP5K",            WeaponCategory::SMG,    1500),
+        MakeWeaponInfo<UZI>            ("UZI",             WeaponCategory::SMG,    1700),
         // ── Snipers ──
-        { "Axis-2",            WeaponCategory::Sniper,  4750,
-          base + "Snipers/axis_2/scene.gltf",                     glm::vec3(0.15f),
-          []() { return std::make_unique<Axis2>(); } },
-        { "AR30",            WeaponCategory::Sniper,  5000,
-          base + "Snipers/ar30/scene.gltf",                     glm::vec3(0.15f),
-          []() { return std::make_unique<AR30>(); } },
-
+        MakeWeaponInfo<Axis2>          ("Axis-2",          WeaponCategory::Sniper, 4750),
+        MakeWeaponInfo<AR30>           ("AR30",            WeaponCategory::Sniper, 5000),
         // ── Shotguns ──
-        { "MP-153",            WeaponCategory::Shotgun, 1800,
-          base + "Shotguns/mp153/scene.gltf",                     glm::vec3(0.10f),
-          []() { return std::make_unique<MP153>(); } },
-        { "Double Deuce",      WeaponCategory::Shotgun, 1200,
-          base + "Shotguns/stolzer__son_double_deuce/scene.gltf", glm::vec3(0.10f),
-          []() { return std::make_unique<DoubleDeuce>(); } },
+        MakeWeaponInfo<MP153>          ("MP-153",          WeaponCategory::Shotgun,1800),
+        MakeWeaponInfo<DoubleDeuce>    ("Double Deuce",    WeaponCategory::Shotgun,1200),
     };
     return registry;
 }

@@ -1,5 +1,5 @@
-#ifndef CS_WEAPON_ASSAULTS_AXL47_HPP
-#define CS_WEAPON_ASSAULTS_AXL47_HPP
+#ifndef CS_WEAPON_RIFLES_AXL47_HPP
+#define CS_WEAPON_RIFLES_AXL47_HPP
 
 #include "Weapon/Weapon.hpp"
 
@@ -12,4 +12,4 @@ protected:
 
 } // namespace Weapon
 
-#endif // CS_WEAPON_ASSAULTS_AXL47_HPP
+#endif // CS_WEAPON_RIFLES_AXL47_HPP

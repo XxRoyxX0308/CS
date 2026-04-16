@@ -1,9 +1,9 @@
-#include "Weapon/Blades/VictorinoxKnife.hpp"
+#include "Weapon/Knives/VictorinoxKnife.hpp"
 
 namespace Weapon {
 
 void VictorinoxKnife::Configure() {
-    m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Blades/victorinox_multitool_knife/scene.gltf";
+    m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Knives/victorinox_multitool_knife/scene.gltf";
     m_WeaponScale    = glm::vec3(0.002f);
     m_WeaponOffset   = glm::vec3(0.2f, -0.2f, 0.4f);
 

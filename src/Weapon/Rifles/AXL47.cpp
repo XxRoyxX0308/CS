@@ -1,9 +1,9 @@
-#include "Weapon/Assaults/AXL47.hpp"
+#include "Weapon/Rifles/AXL47.hpp"
 
 namespace Weapon {
 
 void AXL47::Configure() {
-    m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Assaults/axl-47/scene.gltf";
+    m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Rifles/axl-47/scene.gltf";
     m_WeaponScale    = glm::vec3(0.25f);
     m_WeaponOffset   = glm::vec3(0.23f, -0.20f, 0.5f);
 

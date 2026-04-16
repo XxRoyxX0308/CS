@@ -1,9 +1,9 @@
-#include "Weapon/Assaults/HoneyBadger.hpp"
+#include "Weapon/Rifles/HoneyBadger.hpp"
 
 namespace Weapon {
 
 void HoneyBadger::Configure() {
-    m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Assaults/honey_badger/scene.gltf";
+    m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Rifles/honey_badger/scene.gltf";
     m_WeaponScale    = glm::vec3(0.025f);
     m_WeaponOffset   = glm::vec3(0.23f, -0.25f, 0.5f);
 

@@ -64,6 +64,12 @@ public:
     /** @brief Get the last fire ray hit result (for debug/effects). */
     const RayHitResult &GetLastHit() const { return m_LastHit; }
 
+    /**
+     * @brief Public wrapper that calls Configure() and returns this weapon.
+     * Used by WeaponDefs to read modelPath/modelScale without a SceneGraph.
+     */
+    void ApplyConfig() { Configure(); }
+
 protected:
     /**
      * @brief Set weapon-specific configuration.

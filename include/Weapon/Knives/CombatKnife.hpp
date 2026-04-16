@@ -1,5 +1,5 @@
-#ifndef CS_WEAPON_BLADES_COMBATKNIFE_HPP
-#define CS_WEAPON_BLADES_COMBATKNIFE_HPP
+#ifndef CS_WEAPON_KNIVES_COMBATKNIFE_HPP
+#define CS_WEAPON_KNIVES_COMBATKNIFE_HPP
 
 #include "Weapon/Weapon.hpp"
 
@@ -12,4 +12,4 @@ protected:
 
 } // namespace Weapon
 
-#endif // CS_WEAPON_BLADES_COMBATKNIFE_HPP
+#endif // CS_WEAPON_KNIVES_COMBATKNIFE_HPP

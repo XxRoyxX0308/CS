@@ -1,9 +1,9 @@
-#include "Weapon/Blades/CombatKnife.hpp"
+#include "Weapon/Knives/CombatKnife.hpp"
 
 namespace Weapon {
 
 void CombatKnife::Configure() {
-    m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Blades/combat_knife/scene.gltf";
+    m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Knives/combat_knife/scene.gltf";
     m_WeaponScale    = glm::vec3(0.05f);
     m_WeaponOffset   = glm::vec3(0.2f, -0.2f, 0.4f);
 
