@@ -15,12 +15,12 @@ void UIManager::RenderMainMenu(Network::NetworkManager& network, float dt) {
     // Main menu window
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(450, 440));
+    ImGui::SetNextWindowSize(ImVec2(450, 450));
 
     ImGui::Begin("Counter-Strike LAN", nullptr,
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
-    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "CS:GO Style FPS - LAN Multiplayer");
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "CS Style FPS - LAN Multiplayer");
     ImGui::Separator();
     ImGui::Spacing();
 

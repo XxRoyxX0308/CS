@@ -104,7 +104,7 @@ protected:
 
     float m_StandHeight  = 1.5f;     ///< Standing eye height in meters
     float m_CrouchHeight = 1.3f;     ///< Crouching eye height in meters
-    float m_Height = 1.7f;          ///< Current eye height (changes with crouch)
+    float m_Height = 1.5f;          ///< Current eye height (changes with crouch)
     float m_CameraYOffset = -0.1f;  ///< Camera Y offset from position
     float m_Radius = 0.5f;          ///< Collision radius in meters
     bool  m_IsCrouching = false;    ///< Whether currently crouching

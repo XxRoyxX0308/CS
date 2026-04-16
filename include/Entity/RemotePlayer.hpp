@@ -148,10 +148,10 @@ private:
 
     // ── Constants ─────────────────────────────────────────────────────────
     static constexpr float SMOOTH_FACTOR = 0.2f;
-    static constexpr float HEIGHT = 1.7f;
-    static constexpr float RADIUS = 0.3f;
-    static constexpr float STAND_HEIGHT = 1.7f;
-    static constexpr float CROUCH_HEIGHT = 0.9f;
+    static constexpr float HEIGHT = 1.5f;
+    static constexpr float RADIUS = 0.5f;
+    static constexpr float STAND_HEIGHT = 1.5f;
+    static constexpr float CROUCH_HEIGHT = 1.3f;
 };
 
 } // namespace Entity

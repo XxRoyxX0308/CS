@@ -107,7 +107,7 @@ private:
     bool m_IsWalking = false;
 
     // ── Model Configuration ───────────────────────────────────────────────
-    static constexpr float MODEL_SCALE = 0.022f;    ///< GLTF models are large
+    static constexpr float MODEL_SCALE = 0.020f;    ///< GLTF models are large
     static constexpr float MODEL_Y_OFFSET = 0.0f;   ///< Y offset from feet
 };
 
