@@ -386,11 +386,12 @@ void Application::HandleBulletHit() {
 // ============================================================================
 void Application::SendCharacterConfig() {
     uint8_t charTypeId = m_Network.GetLocalCharacterType();
+    uint8_t gunTypeId  = m_GameManager.GetWeaponTypeId();
 
     if (m_Network.IsClient()) {
-        m_NetworkController.SendConfig(m_Network, charTypeId, 0);
+        m_NetworkController.SendConfig(m_Network, charTypeId, gunTypeId);
     } else if (m_Network.IsHost()) {
-        m_NetworkController.BroadcastConfig(m_Network, 0, charTypeId, 0);
+        m_NetworkController.BroadcastConfig(m_Network, 0, charTypeId, gunTypeId);
     }
 }
 

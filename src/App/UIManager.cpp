@@ -15,7 +15,7 @@ void UIManager::RenderMainMenu(Network::NetworkManager& network, float dt) {
     // Main menu window
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(450, 400));
+    ImGui::SetNextWindowSize(ImVec2(450, 440));
 
     ImGui::Begin("Counter-Strike LAN", nullptr,
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
@@ -39,7 +39,7 @@ void UIManager::RenderMainMenu(Network::NetworkManager& network, float dt) {
     ImGui::Text("Server Name:");
     ImGui::InputText("##ServerName", m_MenuState.serverName, sizeof(m_MenuState.serverName));
 
-    if (ImGui::Button("Create Game", ImVec2(200, 40))) {
+    if (ImGui::Button("Create Game", ImVec2(435, 40))) {
         if (m_Callbacks.onCreateGame) {
             m_Callbacks.onCreateGame(m_MenuState.serverName, m_MenuState.playerName);
         }
@@ -114,6 +114,7 @@ void UIManager::RenderMainMenu(Network::NetworkManager& network, float dt) {
     ImGui::Separator();
 
     // ── Quit Button ──
+    ImGui::SetCursorPosX((ImGui::GetWindowSize().x - 100.0f) * 0.5f);
     if (ImGui::Button("Quit", ImVec2(100, 30))) {
         if (m_Callbacks.onQuit) {
             m_Callbacks.onQuit();
@@ -144,61 +145,100 @@ void UIManager::RenderLobby(const Network::NetworkManager& network,
     ImGui::Text("Players: %d/%d", network.GetPlayerCount(), Network::MAX_PLAYERS);
     ImGui::Separator();
 
-    ImGui::Columns(2, "teams", true);
-    ImGui::TextColored(ImVec4(0.45f, 0.75f, 1.0f, 1.0f), "CT Team");
+    if (ImGui::BeginTable("teams", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchSame)) {
+        ImGui::TableSetupColumn("CT Team");
+        ImGui::TableSetupColumn("T Team");
 
-    ImGui::NextColumn();
-    ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.4f, 1.0f), "T Team");
+        // Colored header row (centered)
+        ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+        ImGui::TableSetColumnIndex(0);
+        {
+            float avail = ImGui::GetContentRegionAvail().x;
+            float tw = ImGui::CalcTextSize("CT Team").x;
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw) * 0.5f);
+            ImGui::TextColored(ImVec4(0.45f, 0.75f, 1.0f, 1.0f), "CT Team");
+        }
+        ImGui::TableSetColumnIndex(1);
+        {
+            float avail = ImGui::GetContentRegionAvail().x;
+            float tw = ImGui::CalcTextSize("T Team").x;
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw) * 0.5f);
+            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.4f, 1.0f), "T Team");
+        }
 
-    ImGui::NextColumn();
-    for (const auto& p : players) {
-        if (p.teamId != 0) continue;
-        ImGui::Text("%s%s%s",
-                    p.name.c_str(),
-                    p.isLocal ? " (You)" : "",
-                    p.isHost ? " [Host]" : "");
+        // Player rows (centered)
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        for (const auto& p : players) {
+            if (p.teamId != 0) continue;
+            char buf[128];
+            snprintf(buf, sizeof(buf), "%s%s%s",
+                     p.name.c_str(),
+                     p.isLocal ? " (You)" : "",
+                     p.isHost ? " [Host]" : "");
+            float tw = ImGui::CalcTextSize(buf).x;
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+                                  (ImGui::GetContentRegionAvail().x - tw) * 0.5f);
+            ImGui::TextUnformatted(buf);
+        }
+        ImGui::TableSetColumnIndex(1);
+        for (const auto& p : players) {
+            if (p.teamId != 1) continue;
+            char buf[128];
+            snprintf(buf, sizeof(buf), "%s%s%s",
+                     p.name.c_str(),
+                     p.isLocal ? " (You)" : "",
+                     p.isHost ? " [Host]" : "");
+            float tw = ImGui::CalcTextSize(buf).x;
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+                                  (ImGui::GetContentRegionAvail().x - tw) * 0.5f);
+            ImGui::TextUnformatted(buf);
+        }
+        ImGui::EndTable();
     }
-
-    ImGui::NextColumn();
-    for (const auto& p : players) {
-        if (p.teamId != 1) continue;
-        ImGui::Text("%s%s%s",
-                    p.name.c_str(),
-                    p.isLocal ? " (You)" : "",
-                    p.isHost ? " [Host]" : "");
-    }
-    ImGui::Columns(1);
 
     ImGui::Spacing();
     ImGui::Separator();
 
-    if (ImGui::Button("Join CT", ImVec2(120, 36))) {
-        if (m_Callbacks.onSelectCT) {
-            m_Callbacks.onSelectCT();
+    // ── Team selection buttons (centered) ──
+    {
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        const float totalW  = 120.0f + spacing + 120.0f;
+        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - totalW) * 0.5f);
+        if (ImGui::Button("Join CT", ImVec2(120, 36))) {
+            if (m_Callbacks.onSelectCT) m_Callbacks.onSelectCT();
         }
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Join T", ImVec2(120, 36))) {
-        if (m_Callbacks.onSelectT) {
-            m_Callbacks.onSelectT();
+        ImGui::SameLine();
+        if (ImGui::Button("Join T", ImVec2(120, 36))) {
+            if (m_Callbacks.onSelectT) m_Callbacks.onSelectT();
         }
     }
     ImGui::Spacing();
 
     if (network.IsHost()) {
+        // ── Host: Start Game + Cancel (centered) ──
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        const float totalW  = 150.0f + spacing + 100.0f;
+        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - totalW) * 0.5f);
         if (ImGui::Button("Start Game", ImVec2(150, 40))) {
-            if (m_Callbacks.onStartGame) {
-                m_Callbacks.onStartGame();
-            }
+            if (m_Callbacks.onStartGame) m_Callbacks.onStartGame();
         }
         ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(100, 40))) {
+            if (m_Callbacks.onCancel) m_Callbacks.onCancel();
+        }
     } else {
-        ImGui::Text("Waiting for host to start the game...");
-    }
-
-    if (ImGui::Button("Cancel", ImVec2(100, 40))) {
-        if (m_Callbacks.onCancel) {
-            m_Callbacks.onCancel();
+        // ── Client: status text + Cancel (centered) ──
+        {
+            const char* waitMsg = "Waiting for host to start the game...";
+            float tw = ImGui::CalcTextSize(waitMsg).x;
+            ImGui::SetCursorPosX((ImGui::GetWindowSize().x - tw) * 0.5f);
+            ImGui::TextUnformatted(waitMsg);
+        }
+        ImGui::Spacing();
+        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - 100.0f) * 0.5f);
+        if (ImGui::Button("Cancel", ImVec2(100, 40))) {
+            if (m_Callbacks.onCancel) m_Callbacks.onCancel();
         }
     }
 
@@ -252,7 +292,7 @@ void UIManager::RenderBuyMenu(int playerMoney) {
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(750, 480));
+    ImGui::SetNextWindowSize(ImVec2(800, 480));
     ImGui::SetNextWindowBgAlpha(0.92f);
 
     ImGui::Begin("Buy Menu", nullptr,
@@ -274,89 +314,122 @@ void UIManager::RenderBuyMenu(int playerMoney) {
     ImGui::Separator();
     ImGui::Spacing();
 
-    // ── Category columns ──
+    // ── Category table ──
     const int numCols = static_cast<int>(categories.size());
-    ImGui::Columns(numCols, "WeaponCategories", true);
+    const float colWidth = 740.0f / static_cast<float>(numCols);
 
-    // Set column widths evenly
-    float colWidth = 750.0f / static_cast<float>(numCols);
-    for (int i = 0; i < numCols; ++i) {
-        ImGui::SetColumnWidth(i, colWidth);
-    }
+    if (ImGui::BeginTable("WeaponCategories", numCols,
+                          ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingFixedFit)) {
+        for (int i = 0; i < numCols; ++i) {
+            ImGui::TableSetupColumn(Weapon::GetCategoryName(categories[i]),
+                                    ImGuiTableColumnFlags_WidthFixed, colWidth);
+        }
 
-    // ── Column headers ──
-    for (int c = 0; c < numCols; ++c) {
-        const char* catName = Weapon::GetCategoryName(categories[c]);
-        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "%s", catName);
-        ImGui::Separator();
+        // ── Column headers (colored, centered) ──
+        ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+        for (int c = 0; c < numCols; ++c) {
+            ImGui::TableSetColumnIndex(c);
+            const char* catName = Weapon::GetCategoryName(categories[c]);
+            float avail = ImGui::GetContentRegionAvail().x;
+            float tw    = ImGui::CalcTextSize(catName).x;
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw) * 0.5f);
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "%s", catName);
+        }
 
-        // ── Weapons in this category ──
-        int weaponIdx = 0;
-        for (size_t w = 0; w < registry.size(); ++w) {
-            if (registry[w].category != categories[c]) continue;
+        // ── Weapon content row ──
+        ImGui::TableNextRow();
+        for (int c = 0; c < numCols; ++c) {
+            ImGui::TableSetColumnIndex(c);
+            ImGui::Separator();
 
-            const auto& weapon = registry[w];
-            bool canAfford = (playerMoney >= weapon.price);
+            int weaponIdx = 0;
+            for (size_t w = 0; w < registry.size(); ++w) {
+                if (registry[w].category != categories[c]) continue;
 
-            // Color-coded border
-            ImVec4 borderColor = canAfford
-                ? ImVec4(0.1f, 0.9f, 0.4f, 1.0f)   // bright green
-                : ImVec4(0.45f, 0.45f, 0.45f, 1.0f); // grey
+                const auto& weapon = registry[w];
+                bool canAfford = (playerMoney >= weapon.price);
 
-            ImVec4 bgColor = canAfford
-                ? ImVec4(0.1f, 0.3f, 0.15f, 0.8f)   // dark green bg
-                : ImVec4(0.2f, 0.2f, 0.2f, 0.6f);    // dark grey bg
+                // Color-coded border
+                ImVec4 borderColor = canAfford
+                    ? ImVec4(0.1f, 0.9f, 0.4f, 1.0f)   // bright green
+                    : ImVec4(0.45f, 0.45f, 0.45f, 1.0f); // grey
 
-            ImVec4 textColor = canAfford
-                ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f)     // white
-                : ImVec4(0.6f, 0.6f, 0.6f, 1.0f);     // dim grey
+                ImVec4 bgColor = canAfford
+                    ? ImVec4(0.1f, 0.3f, 0.15f, 0.8f)   // dark green bg
+                    : ImVec4(0.2f, 0.2f, 0.2f, 0.6f);    // dark grey bg
 
-            // Draw weapon entry as a styled button
-            ImGui::PushID(static_cast<int>(w));
+                ImVec4 textColor = canAfford
+                    ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f)     // white
+                    : ImVec4(0.6f, 0.6f, 0.6f, 1.0f);     // dim grey
 
-            ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                canAfford ? ImVec4(0.15f, 0.45f, 0.25f, 0.9f) : bgColor);
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                canAfford ? ImVec4(0.2f, 0.6f, 0.3f, 1.0f) : bgColor);
-            ImGui::PushStyleColor(ImGuiCol_Border, borderColor);
-            ImGui::PushStyleColor(ImGuiCol_Text, textColor);
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.5f, 0.5f));
+                // Draw weapon entry: InvisibleButton + DrawList for per-line centering
+                ImGui::PushID(static_cast<int>(w));
 
-            // Button label: name + price
-            char label[128];
-            snprintf(label, sizeof(label), "%s\n$%d", weapon.name.c_str(), weapon.price);
+                const float   btnWidth = ImGui::GetContentRegionAvail().x;
+                const ImVec2  btnSize(btnWidth, 50.0f);
+                const ImVec2  btnPos = ImGui::GetCursorScreenPos();
 
-            float btnWidth = colWidth - 20.0f;
-            if (ImGui::Button(label, ImVec2(btnWidth, 50.0f))) {
-                if (canAfford && m_Callbacks.onBuyWeapon) {
+                ImGui::InvisibleButton("##weapon", btnSize);
+                const bool clicked = ImGui::IsItemClicked();
+                const bool hovered = ImGui::IsItemHovered();
+                const bool active  = ImGui::IsItemActive();
+
+                // Background & border
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                const ImVec2 btnEnd(btnPos.x + btnSize.x, btnPos.y + btnSize.y);
+                ImVec4 actualBg = (active  && canAfford) ? ImVec4(0.2f,  0.6f,  0.3f,  1.0f)
+                                : (hovered && canAfford) ? ImVec4(0.15f, 0.45f, 0.25f, 0.9f)
+                                : bgColor;
+                dl->AddRectFilled(btnPos, btnEnd,
+                                  ImGui::ColorConvertFloat4ToU32(actualBg), 4.0f);
+                dl->AddRect(btnPos, btnEnd,
+                            ImGui::ColorConvertFloat4ToU32(borderColor), 4.0f, 0, 2.0f);
+
+                // Weapon name — independently centered on upper half
+                {
+                    ImVec2 sz = ImGui::CalcTextSize(weapon.name.c_str());
+                    ImVec2 pos(btnPos.x + (btnSize.x - sz.x) * 0.5f,
+                               btnPos.y + btnSize.y * 0.25f - sz.y * 0.5f);
+                    dl->AddText(pos, ImGui::ColorConvertFloat4ToU32(textColor),
+                                weapon.name.c_str());
+                }
+
+                // Price — independently centered on lower half
+                {
+                    char priceStr[32];
+                    snprintf(priceStr, sizeof(priceStr), "$%d", weapon.price);
+                    ImVec2 sz = ImGui::CalcTextSize(priceStr);
+                    ImVec2 pos(btnPos.x + (btnSize.x - sz.x) * 0.5f,
+                               btnPos.y + btnSize.y * 0.75f - sz.y * 0.5f);
+                    dl->AddText(pos, ImGui::ColorConvertFloat4ToU32(textColor), priceStr);
+                }
+
+                if (clicked && canAfford && m_Callbacks.onBuyWeapon) {
                     m_Callbacks.onBuyWeapon(static_cast<int>(w));
                 }
+
+                ImGui::PopID();
+
+                ImGui::Spacing();
+                ++weaponIdx;
             }
 
-            ImGui::PopStyleVar(2);
-            ImGui::PopStyleColor(5);
-            ImGui::PopID();
-
-            ImGui::Spacing();
-            ++weaponIdx;
+            if (weaponIdx == 0) {
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 0.7f), "(empty)");
+            }
         }
 
-        if (weaponIdx == 0) {
-            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 0.7f), "(empty)");
-        }
-
-        if (c < numCols - 1) {
-            ImGui::NextColumn();
-        }
+        ImGui::EndTable();
     }
-
-    ImGui::Columns(1);
 
     ImGui::Spacing();
     ImGui::Separator();
-    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Press [B] to close");
+    {
+        const char* hint = "Press [B] to close";
+        float tw = ImGui::CalcTextSize(hint).x;
+        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - tw) * 0.5f);
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", hint);
+    }
 
     ImGui::End();
 }

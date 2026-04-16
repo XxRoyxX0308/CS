@@ -67,6 +67,8 @@ public:
 
     /** @brief Get character type ID (0 = FBI, 1 = Terrorist). */
     uint8_t GetCharacterTypeId() const;
+    /** @brief Get the registry index of the currently equipped weapon. */
+    uint8_t GetWeaponTypeId() const;
     void SetLocalCharacterType(Entity::CharacterType type) { m_LocalCharacterType = type; }
 
 private:

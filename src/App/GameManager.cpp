@@ -1,6 +1,7 @@
 #include "App/GameManager.hpp"
 #include "App/CombatManager.hpp"
 #include "Weapon/Pistols/M1895.hpp"
+#include "Weapon/WeaponDefs.hpp"
 #include "Scene/Light.hpp"
 #include "Util/Logger.hpp"
 
@@ -113,6 +114,20 @@ void GameManager::SwitchPlayerCharacter(Entity::CharacterType type) {
 uint8_t GameManager::GetCharacterTypeId() const {
     auto charType = m_Player.GetCharacterModel().GetCharacterType();
     return (charType == Entity::CharacterType::FBI) ? 0 : 1;
+}
+
+uint8_t GameManager::GetWeaponTypeId() const {
+    const auto* gun = m_Player.GetWeapon();
+    if (!gun) return 0;
+
+    const auto& registry = Weapon::GetWeaponRegistry();
+    const std::string& modelPath = gun->GetModelPath();
+    for (size_t i = 0; i < registry.size(); ++i) {
+        if (registry[i].modelPath == modelPath) {
+            return static_cast<uint8_t>(i);
+        }
+    }
+    return 0;
 }
 
 } // namespace App
