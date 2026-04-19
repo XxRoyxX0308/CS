@@ -66,14 +66,8 @@ public:
     /** @brief Get the last fire ray hit result (for debug/effects). */
     const RayHitResult &GetLastHit() const { return m_LastHit; }
 
-    /** @brief Max hitscan range for this weapon. */
-    float GetBulletRange() const { return m_BulletRange; }
-
-    /** @brief True if the weapon fired since the last ClearJustFired() call. */
-    bool GetJustFired() const { return m_JustFired; }
-
-    /** @brief Reset the just-fired flag after it has been consumed. */
-    void ClearJustFired() { m_JustFired = false; }
+    /** @brief Get the actual direction the last bullet traveled (spread-applied, pre-recoil). */
+    const glm::vec3 &GetLastFireDir() const { return m_LastFireDir; }
 
     /** @brief Get the weapon spread system (for UI visualization). */
     const WeaponSpread &GetSpread() const { return m_Spread; }
@@ -118,7 +112,6 @@ protected:
     bool  m_IsReloading   = false;
     float m_ReloadTimer   = 0.0f;
     float m_CurrentRecoil = 0.0f;      // accumulated recoil to recover
-    bool  m_JustFired     = false;     // set each time Fire() discharges a round
 
     // ── Rendering ──
     std::shared_ptr<Core3D::Model>    m_Model;
@@ -126,6 +119,7 @@ protected:
 
     // ── Last hit result ──
     RayHitResult m_LastHit;
+    glm::vec3    m_LastFireDir = glm::vec3(0.0f, 0.0f, 1.0f);
 
     // ── Spread system ──
     WeaponSpread m_Spread;

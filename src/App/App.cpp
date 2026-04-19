@@ -349,36 +349,35 @@ void Application::HandleBulletHit() {
     auto* gun = player.GetWeapon();
     if (!gun) return;
 
-    if (!gun->GetJustFired()) return;
-    gun->ClearJustFired();
-
     const auto& mapHit = gun->GetLastHit();
-    auto& camera = m_GameManager.GetCamera();
+    static glm::vec3 lastHitPoint(0.0f);
 
-    // Always check for player hits using the weapon's full range, independent
-    // of whether the ray hit map geometry (fixes enemies in open areas and the
-    // floor-clip range cap when bullet spread caused a nearby floor hit).
-    auto playerHit = m_CombatManager.CheckPlayerHit(
-        camera.GetPosition(),
-        camera.GetFront(),
-        gun->GetBulletRange(),
-        m_GameManager.GetRemotePlayers()
-    );
+    if (mapHit.hit && mapHit.point != lastHitPoint) {
+        lastHitPoint = mapHit.point;
 
-    if (playerHit.hit && (!mapHit.hit || playerHit.distance < mapHit.distance)) {
-        // Hit a player (and they were not behind a wall)
-        m_CombatManager.HandleDamage(
-            playerHit.playerId, gun->GetDamage(), playerHit.point,
-            m_Network, m_GameManager.GetRemotePlayers()
+        auto& camera = m_GameManager.GetCamera();
+        auto playerHit = m_CombatManager.CheckPlayerHit(
+            camera.GetPosition(),
+            gun->GetLastFireDir(),
+            mapHit.distance,
+            m_GameManager.GetRemotePlayers()
         );
-    } else if (mapHit.hit) {
-        // Hit the map
-        m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
 
-        if (m_Network.IsHost()) {
-            m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
-        } else if (m_Network.IsClient()) {
-            m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
+        if (playerHit.hit && playerHit.distance < mapHit.distance) {
+            // Hit a player
+            m_CombatManager.HandleDamage(
+                playerHit.playerId, gun->GetDamage(), playerHit.point,
+                m_Network, m_GameManager.GetRemotePlayers()
+            );
+        } else {
+            // Hit the map
+            m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
+
+            if (m_Network.IsHost()) {
+                m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
+            } else if (m_Network.IsClient()) {
+                m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
+            }
         }
     }
 }
