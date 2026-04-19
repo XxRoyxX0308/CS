@@ -103,6 +103,7 @@ void Weapon::Fire(Core3D::Camera &camera, const Physics::CollisionMesh &mesh) {
 
     m_CurrentAmmo--;
     m_FireCooldown = 1.0f / m_FireRate;
+    m_JustFired    = true;
 
     // Apply spread to the fire direction, then notify spread system
     glm::vec3 spreadDir = m_Spread.ApplySpread(camera.GetFront());
