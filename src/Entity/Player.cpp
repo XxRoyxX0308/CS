@@ -155,7 +155,12 @@ void Player::Update(float dt, Core3D::Camera &camera,
 
     // ── Jump ──
     if (Util::Input::IsKeyDown(Util::Keycode::SPACE)) {
+        bool wasOnGround = m_OnGround;
         Jump();
+        // Notify weapon spread of jump event
+        if (wasOnGround && !m_OnGround && m_Weapon) {
+            m_Weapon->GetSpread().OnJump();
+        }
     }
 
     // ── Gravity and ground collision ──
@@ -184,8 +189,8 @@ void Player::Update(float dt, Core3D::Camera &camera,
             m_Weapon->StartReload();
         }
 
-        // Update weapon state (cooldown, reload animation, recoil recovery)
-        m_Weapon->Update(dt, camera);
+        // Update weapon state (cooldown, reload animation, recoil recovery, spread)
+        m_Weapon->Update(dt, camera, m_IsWalking, m_IsCrouching, m_OnGround);
 
         // Sync weapon position to camera
         m_Weapon->SyncToCamera(camera);

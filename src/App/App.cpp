@@ -290,6 +290,7 @@ void Application::Update() {
     m_GameManager.Render();
     m_GameManager.DrawEffects();
     m_UIManager.RenderHUD(player);
+    m_UIManager.RenderCrosshair(player);
 
     // ── Buy Menu ──
     m_UIManager.RenderBuyMenu(player.GetMoney());

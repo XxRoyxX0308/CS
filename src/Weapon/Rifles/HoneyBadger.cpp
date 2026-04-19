@@ -15,6 +15,9 @@ void HoneyBadger::Configure() {
     m_BulletRange    = 200.0f;
     m_Damage         = 35.0f;
     m_Price          = 2700;
+
+    // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult
+    m_Spread.Configure(0.2f, 4.5f, 3.5f, 0.4f, 3.5f, 5.0f, 3.0f);
 }
 
 } // namespace Weapon

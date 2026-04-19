@@ -9,6 +9,7 @@
 #include "Scene/SceneNode.hpp"
 #include "Physics/CollisionMesh.hpp"
 #include "Weapon/RayCast.hpp"
+#include "Weapon/WeaponSpread.hpp"
 
 #include <memory>
 #include <string>
@@ -40,8 +41,9 @@ public:
     /** @brief Remove the weapon node from the scene. */
     void Cleanup(Scene::SceneGraph &scene);
 
-    /** @brief Per-frame update: cooldowns, reload timer, reload animation, recoil recovery. */
-    void Update(float dt, Core3D::Camera &camera);
+    /** @brief Per-frame update: cooldowns, reload timer, reload animation, recoil recovery, spread. */
+    void Update(float dt, Core3D::Camera &camera,
+               bool isMoving, bool isCrouching, bool isOnGround);
 
     /** @brief Fire the weapon: consume ammo, apply recoil, raycast for hit. */
     void Fire(Core3D::Camera &camera, const Physics::CollisionMesh &mesh);
@@ -63,6 +65,12 @@ public:
 
     /** @brief Get the last fire ray hit result (for debug/effects). */
     const RayHitResult &GetLastHit() const { return m_LastHit; }
+
+    /** @brief Get the weapon spread system (for UI visualization). */
+    const WeaponSpread &GetSpread() const { return m_Spread; }
+
+    /** @brief Mutable access to spread (e.g. for jump notification). */
+    WeaponSpread &GetSpread() { return m_Spread; }
 
     /**
      * @brief Public wrapper that calls Configure() and returns this weapon.
@@ -108,6 +116,9 @@ protected:
 
     // ── Last hit result ──
     RayHitResult m_LastHit;
+
+    // ── Spread system ──
+    WeaponSpread m_Spread;
 
     // ── Reload animation base rotation (set in SyncToCamera) ──
     float m_ReloadAnimAngle = 0.0f;    // current tilt angle in degrees

@@ -15,6 +15,9 @@ void CombatKnife::Configure() {
     m_BulletRange    = 2.0f;    // melee range
     m_Damage         = 55.0f;
     m_Price          = 200;
+
+    // Knives have no spread
+    m_Spread.Configure(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 } // namespace Weapon

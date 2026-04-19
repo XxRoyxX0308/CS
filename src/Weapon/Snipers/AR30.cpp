@@ -15,6 +15,9 @@ void AR30::Configure() {
     m_BulletRange    = 350.0f;
     m_Damage         = 100.0f;
     m_Price          = 5000;
+
+    // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult
+    m_Spread.Configure(0.05f, 7.0f, 6.0f, 3.0f, 6.0f, 3.8f, 5.0f);
 }
 
 } // namespace Weapon

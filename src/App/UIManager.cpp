@@ -3,7 +3,10 @@
 #include "Physics/CapsuleCast.hpp"
 
 #include <GL/glew.h>
+#include <glm/trigonometric.hpp>
+#include <cmath>
 #include <cstdio>
+#include <algorithm>
 
 namespace App {
 
@@ -277,6 +280,71 @@ void UIManager::RenderHUD(const Entity::Player& player) {
         ImGui::Text("Ammo: -- / --");
     }
     ImGui::End();
+}
+
+// ============================================================================
+//  RenderCrosshair — Static crosshair + dynamic spread circle
+// ============================================================================
+void UIManager::RenderCrosshair(const Entity::Player& player) {
+    ImGuiIO& io = ImGui::GetIO();
+    ImDrawList* drawList = ImGui::GetForegroundDrawList();
+
+    float cx = io.DisplaySize.x * 0.5f;
+    float cy = io.DisplaySize.y * 0.5f;
+
+    // ── Static crosshair (4 lines with center gap) ──
+    const float gap  = 4.0f;
+    const float len  = 10.0f;
+    const float thick = 2.0f;
+    const ImU32 crosshairColor = IM_COL32(0, 255, 60, 220);
+
+    // Top
+    drawList->AddLine(ImVec2(cx, cy - gap - len), ImVec2(cx, cy - gap),
+                      crosshairColor, thick);
+    // Bottom
+    drawList->AddLine(ImVec2(cx, cy + gap), ImVec2(cx, cy + gap + len),
+                      crosshairColor, thick);
+    // Left
+    drawList->AddLine(ImVec2(cx - gap - len, cy), ImVec2(cx - gap, cy),
+                      crosshairColor, thick);
+    // Right
+    drawList->AddLine(ImVec2(cx + gap, cy), ImVec2(cx + gap + len, cy),
+                      crosshairColor, thick);
+
+    // Center dot
+    drawList->AddCircleFilled(ImVec2(cx, cy), 1.5f, crosshairColor);
+
+    // ── Dynamic spread circle ──
+    const auto* weapon = player.GetWeapon();
+    if (!weapon) return;
+
+    float spreadDeg = weapon->GetSpread().GetCurrentSpread();
+    if (spreadDeg <= 0.0f) return;
+
+    // Convert spread angle (degrees) to screen-space radius.
+    // Approximate: radius_px = tan(spreadDeg) * (screenHeight / 2) / tan(fov/2)
+    // Using a typical vertical FOV of ~45 degrees (matching most FPS cameras).
+    const float fovDeg = 45.0f;
+    float halfScreenH = io.DisplaySize.y * 0.5f;
+    float fovTanHalf  = std::tan(glm::radians(fovDeg * 0.5f));
+    float spreadRad   = std::tan(glm::radians(spreadDeg));
+    float radius      = (spreadRad / fovTanHalf) * halfScreenH;
+
+    // Clamp radius to reasonable bounds
+    const float minRadius = 6.0f;
+    const float maxRadius = halfScreenH * 0.8f;
+    radius = std::clamp(radius, minRadius, maxRadius);
+
+    // Circle color: transitions from green (min spread) to red (max spread)
+    float minS = weapon->GetSpread().GetMinSpread();
+    float maxS = weapon->GetSpread().GetMaxSpread();
+    float t = (maxS > minS) ? (spreadDeg - minS) / (maxS - minS) : 0.0f;
+    t = std::clamp(t, 0.0f, 1.0f);
+    int r = static_cast<int>(60  + t * 195);  // 60 → 255
+    int g = static_cast<int>(255 - t * 195);  // 255 → 60
+    ImU32 circleColor = IM_COL32(r, g, 40, 160);
+
+    drawList->AddCircle(ImVec2(cx, cy), radius, circleColor, 48, 1.5f);
 }
 
 // ============================================================================

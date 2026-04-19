@@ -15,6 +15,9 @@ void MP153::Configure() {
     m_BulletRange    = 40.0f;
     m_Damage         = 80.0f;
     m_Price          = 1800;
+
+    // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult
+    m_Spread.Configure(2.0f, 6.0f, 2.5f, 1.0f, 3.0f, 4.0f, 2.0f);
 }
 
 } // namespace Weapon

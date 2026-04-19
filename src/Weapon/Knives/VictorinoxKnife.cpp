@@ -15,6 +15,9 @@ void VictorinoxKnife::Configure() {
     m_BulletRange    = 2.0f;
     m_Damage         = 40.0f;
     m_Price          = 0;       // free starter knife
+
+    // Knives have no spread
+    m_Spread.Configure(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 } // namespace Weapon

@@ -15,6 +15,9 @@ void M1895::Configure() {
     m_BulletRange    = 80.0f;
     m_Damage         = 40.0f;
     m_Price          = 500;
+
+    // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult
+    m_Spread.Configure(0.4f, 4.5f, 3.0f, 0.8f, 3.0f, 5.0f, 2.5f);
 }
 
 } // namespace Weapon

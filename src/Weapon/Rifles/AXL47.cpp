@@ -15,6 +15,9 @@ void AXL47::Configure() {
     m_BulletRange    = 200.0f;
     m_Damage         = 38.0f;
     m_Price          = 2500;
+
+    // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult
+    m_Spread.Configure(0.2f, 5.0f, 4.0f, 0.5f, 4.0f, 4.0f, 3.0f);
 }
 
 } // namespace Weapon

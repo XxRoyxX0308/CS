@@ -20,6 +20,8 @@ void Weapon::Init(Scene::SceneGraph &scene) {
     m_ReloadTimer = 0.0f;
     m_CurrentRecoil = 0.0f;
 
+    m_Spread.Reset();
+
     m_Model = std::make_shared<Core3D::Model>(m_ModelPath, false);
     m_Node  = std::make_shared<Scene::SceneNode>();
     m_Node->SetDrawable(m_Model);
@@ -44,11 +46,15 @@ void Weapon::Cleanup(Scene::SceneGraph &scene) {
 // ============================================================================
 //  Update — cooldowns, reload, recoil recovery
 // ============================================================================
-void Weapon::Update(float dt, Core3D::Camera &camera) {
+void Weapon::Update(float dt, Core3D::Camera &camera,
+                    bool isMoving, bool isCrouching, bool isOnGround) {
     // ── Fire cooldown ──
     if (m_FireCooldown > 0.0f) {
         m_FireCooldown -= dt;
     }
+
+    // ── Spread recovery / growth ──
+    m_Spread.Update(dt, isMoving, isCrouching, isOnGround);
 
     // ── Reload timer ──
     if (m_IsReloading) {
@@ -98,9 +104,13 @@ void Weapon::Fire(Core3D::Camera &camera, const Physics::CollisionMesh &mesh) {
     m_CurrentAmmo--;
     m_FireCooldown = 1.0f / m_FireRate;
 
-    // Raycast first (using current camera direction, before recoil is applied)
+    // Apply spread to the fire direction, then notify spread system
+    glm::vec3 spreadDir = m_Spread.ApplySpread(camera.GetFront());
+    m_Spread.OnFire();
+
+    // Raycast using spread-deviated direction
     m_LastHit = RayCast::Cast(camera.GetPosition(),
-                              camera.GetFront(),
+                              spreadDir,
                               mesh,
                               m_BulletRange);
 

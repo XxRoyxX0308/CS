@@ -15,6 +15,9 @@ void DoubleDeuce::Configure() {
     m_BulletRange    = 30.0f;
     m_Damage         = 100.0f;
     m_Price          = 1200;
+
+    // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult
+    m_Spread.Configure(2.5f, 7.0f, 3.0f, 1.2f, 3.5f, 3.5f, 2.0f);
 }
 
 } // namespace Weapon

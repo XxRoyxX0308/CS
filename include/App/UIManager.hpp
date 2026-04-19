@@ -93,6 +93,9 @@ public:
     /** @brief Render in-game HUD (health/ammo). */
     void RenderHUD(const Entity::Player& player);
 
+    /** @brief Render crosshair with dynamic spread circle. */
+    void RenderCrosshair(const Entity::Player& player);
+
     /** @brief Render weapon buy menu overlay. */
     void RenderBuyMenu(int playerMoney);
 

@@ -41,6 +41,7 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/Entity/RemotePlayer.cpp
     ${CS_SRC_DIR}/Weapon/RayCast.cpp
     ${CS_SRC_DIR}/Weapon/Weapon.cpp
+    ${CS_SRC_DIR}/Weapon/WeaponSpread.cpp
     ${CS_SRC_DIR}/Weapon/Knives/CombatKnife.cpp
     ${CS_SRC_DIR}/Weapon/Knives/VictorinoxKnife.cpp
     ${CS_SRC_DIR}/Weapon/Pistols/M1895.cpp
@@ -83,6 +84,7 @@ set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/Weapon/RayCast.hpp
     ${CS_INCLUDE_DIR}/Weapon/Weapon.hpp
     ${CS_INCLUDE_DIR}/Weapon/WeaponDefs.hpp
+    ${CS_INCLUDE_DIR}/Weapon/WeaponSpread.hpp
     ${CS_INCLUDE_DIR}/Weapon/Knives/CombatKnife.hpp
     ${CS_INCLUDE_DIR}/Weapon/Knives/VictorinoxKnife.hpp
     ${CS_INCLUDE_DIR}/Weapon/Pistols/M1895.hpp

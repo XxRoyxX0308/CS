@@ -15,6 +15,9 @@ void Axis2::Configure() {
     m_BulletRange    = 300.0f;
     m_Damage         = 90.0f;
     m_Price          = 4750;
+
+    // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult
+    m_Spread.Configure(0.05f, 7.0f, 5.0f, 2.5f, 5.0f, 4.0f, 5.0f);
 }
 
 } // namespace Weapon
