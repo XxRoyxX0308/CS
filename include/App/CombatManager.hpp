@@ -3,11 +3,13 @@
 
 #include "Entity/Player.hpp"
 #include "Entity/RemotePlayer.hpp"
+#include "Entity/BotPlayer.hpp"
 #include "Network/NetworkManager.hpp"
 #include "Physics/CollisionMesh.hpp"
 #include "Weapon/RayCast.hpp"
 
 #include <unordered_map>
+#include <vector>
 
 namespace App {
 
@@ -73,6 +75,29 @@ public:
      */
     void CheckRemoteRespawns(std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
                              const Physics::CollisionMesh& collisionMesh);
+
+    /**
+     * @brief Check if a fired ray hits any bot.
+     * @return Hit result with bot index stored in playerId field.
+     */
+    PlayerHitResult CheckBotHit(
+        const glm::vec3& origin,
+        const glm::vec3& direction,
+        float maxDist,
+        const std::vector<Entity::BotPlayer>& bots) const;
+
+    /**
+     * @brief Apply damage to a bot.
+     */
+    void HandleBotDamage(size_t botIndex,
+                         float damage,
+                         std::vector<Entity::BotPlayer>& bots);
+
+    /**
+     * @brief Respawn dead bots at team spawn points.
+     */
+    void CheckBotRespawns(std::vector<Entity::BotPlayer>& bots,
+                          const Physics::CollisionMesh& collisionMesh);
 
     /**
      * @brief Calculate a spawn point on the map.

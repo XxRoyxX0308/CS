@@ -135,4 +135,59 @@ glm::vec3 CombatManager::GetSpawnPoint(const Physics::CollisionMesh& collisionMe
     return glm::vec3((area.minX + area.maxX) * 0.5f, area.probeY + 1.7f, (area.minZ + area.maxZ) * 0.5f);
 }
 
+PlayerHitResult CombatManager::CheckBotHit(
+    const glm::vec3& origin,
+    const glm::vec3& direction,
+    float maxDist,
+    const std::vector<Entity::BotPlayer>& bots) const {
+
+    PlayerHitResult result;
+
+    for (size_t i = 0; i < bots.size(); ++i) {
+        const auto& bot = bots[i];
+        if (!bot.IsAlive()) continue;
+
+        auto model = bot.GetCharacterModelPtr();
+        if (model) {
+            glm::mat4 transform = bot.GetModelWorldTransform();
+            auto hit = Weapon::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
+
+            if (hit.hit && hit.distance < result.distance) {
+                result.hit = true;
+                result.playerId = static_cast<uint8_t>(i); // Store bot index
+                result.distance = hit.distance;
+                result.point = hit.point;
+            }
+        }
+    }
+
+    return result;
+}
+
+void CombatManager::HandleBotDamage(size_t botIndex,
+                                     float damage,
+                                     std::vector<Entity::BotPlayer>& bots) {
+    if (botIndex >= bots.size()) return;
+
+    auto& bot = bots[botIndex];
+    bool stillAlive = bot.TakeDamage(damage);
+
+    LOG_INFO("Bot '{}' hit for {} damage, health now: {:.0f}",
+             bot.GetName(), damage, bot.GetHealth());
+
+    if (!stillAlive) {
+        LOG_INFO("Bot '{}' was killed!", bot.GetName());
+    }
+}
+
+void CombatManager::CheckBotRespawns(std::vector<Entity::BotPlayer>& bots,
+                                      const Physics::CollisionMesh& collisionMesh) {
+    for (auto& bot : bots) {
+        if (!bot.IsAlive()) {
+            glm::vec3 spawnPos = GetSpawnPoint(collisionMesh, bot.GetCharacterType());
+            bot.Respawn(spawnPos);
+        }
+    }
+}
+
 } // namespace App

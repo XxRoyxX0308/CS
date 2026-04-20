@@ -17,7 +17,7 @@ void UZI::Configure() {
     m_Price          = 1700;
 
     // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult
-    m_Spread.Configure(0.9f, 6.5f, 3.5f, 0.35f, 3.5f, 6.5f, 2.0f);
+    m_Spread.Configure(0.9f, 6.5f, 3.5f, 0.5f, 3.5f, 5.5f, 2.0f);
 }
 
 } // namespace Weapon

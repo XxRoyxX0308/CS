@@ -40,6 +40,10 @@ struct UICallbacks {
     std::function<void()> onSelectCT;
     std::function<void()> onSelectT;
     std::function<void(int weaponIndex)> onBuyWeapon;
+    std::function<void()> onAddBotCT;
+    std::function<void()> onRemoveBotCT;
+    std::function<void()> onAddBotT;
+    std::function<void()> onRemoveBotT;
 };
 
 /**
@@ -52,6 +56,7 @@ public:
         uint8_t teamId = 0; // 0 = CT, 1 = T
         bool isLocal = false;
         bool isHost = false;
+        bool isBot = false;
     };
 
     UIManager() = default;
@@ -117,11 +122,18 @@ public:
     /** @brief Set debug panel visibility. */
     void SetDebugPanelVisible(bool visible) { m_ShowDebugPanel = visible; }
 
+    int GetCTBotCount() const { return m_CTBotCount; }
+    int GetTBotCount() const { return m_TBotCount; }
+    void SetCTBotCount(int count) { m_CTBotCount = count; }
+    void SetTBotCount(int count) { m_TBotCount = count; }
+
 private:
     MenuState m_MenuState;
     UICallbacks m_Callbacks;
     bool m_ShowDebugPanel = false;
     bool m_ShowBuyMenu = false;
+    int m_CTBotCount = 0;
+    int m_TBotCount = 0;
 };
 
 } // namespace App

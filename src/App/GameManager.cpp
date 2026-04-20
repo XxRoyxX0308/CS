@@ -60,6 +60,9 @@ void GameManager::Initialize() {
     glm::mat4 mapTransform = BuildMapTransform();
     m_CollisionMesh.Build(*m_MapModel, mapTransform);
 
+    // ── 4b. Build Navigation Mesh ──
+    m_NavMesh.Build(m_CollisionMesh);
+
     // ── 5. Initialize Character Model ──
     m_Player.InitModel(m_Scene, m_LocalCharacterType, false);
 
@@ -128,6 +131,55 @@ uint8_t GameManager::GetWeaponTypeId() const {
         }
     }
     return 0;
+}
+
+void GameManager::InitializeBots(int ctBotCount, int tBotCount) {
+    CleanupBots();
+
+    CombatManager combatManager;
+    uint8_t botId = 0;
+
+    for (int i = 0; i < ctBotCount; ++i) {
+        Entity::BotPlayer bot;
+        std::string name = "CT Bot " + std::to_string(i + 1);
+        bot.Init(m_Scene, Entity::CharacterType::FBI, botId++, name);
+
+        glm::vec3 spawnPos = combatManager.GetSpawnPoint(
+            m_CollisionMesh, Entity::CharacterType::FBI);
+        bot.Respawn(spawnPos);
+
+        m_BotPlayers.push_back(std::move(bot));
+    }
+
+    for (int i = 0; i < tBotCount; ++i) {
+        Entity::BotPlayer bot;
+        std::string name = "T Bot " + std::to_string(i + 1);
+        bot.Init(m_Scene, Entity::CharacterType::TERRORIST, botId++, name);
+
+        glm::vec3 spawnPos = combatManager.GetSpawnPoint(
+            m_CollisionMesh, Entity::CharacterType::TERRORIST);
+        bot.Respawn(spawnPos);
+
+        m_BotPlayers.push_back(std::move(bot));
+    }
+
+    LOG_INFO("Initialized {} bots ({} CT, {} T)",
+             m_BotPlayers.size(), ctBotCount, tBotCount);
+}
+
+void GameManager::UpdateBots(float dt) {
+    glm::vec3 playerPos = m_Player.GetPosition();
+
+    for (auto& bot : m_BotPlayers) {
+        bot.Update(dt, m_CollisionMesh, m_NavMesh, playerPos);
+    }
+}
+
+void GameManager::CleanupBots() {
+    for (auto& bot : m_BotPlayers) {
+        bot.Cleanup(m_Scene);
+    }
+    m_BotPlayers.clear();
 }
 
 } // namespace App

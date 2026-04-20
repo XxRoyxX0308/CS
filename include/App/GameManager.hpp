@@ -6,11 +6,14 @@
 #include "Physics/CollisionMesh.hpp"
 #include "Entity/Player.hpp"
 #include "Entity/RemotePlayer.hpp"
+#include "Entity/BotPlayer.hpp"
 #include "Effects/BulletHole.hpp"
+#include "Navigation/NavMesh.hpp"
 #include "Core3D/Model.hpp"
 
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 namespace App {
 
@@ -71,6 +74,14 @@ public:
     uint8_t GetWeaponTypeId() const;
     void SetLocalCharacterType(Entity::CharacterType type) { m_LocalCharacterType = type; }
 
+    // ── Bot management ──
+    void InitializeBots(int ctBotCount, int tBotCount);
+    void UpdateBots(float dt);
+    void CleanupBots();
+    std::vector<Entity::BotPlayer>& GetBotPlayers() { return m_BotPlayers; }
+    const std::vector<Entity::BotPlayer>& GetBotPlayers() const { return m_BotPlayers; }
+    const Navigation::NavMesh& GetNavMesh() const { return m_NavMesh; }
+
 private:
     Scene::SceneGraph m_Scene;
     Render::ForwardRenderer m_Renderer;
@@ -84,6 +95,8 @@ private:
     Effects::BulletHoleManager m_BulletHoles;
 
     std::unordered_map<uint8_t, Entity::RemotePlayer> m_RemotePlayers;
+    std::vector<Entity::BotPlayer> m_BotPlayers;
+    Navigation::NavMesh m_NavMesh;
 };
 
 } // namespace App

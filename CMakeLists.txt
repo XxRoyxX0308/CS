@@ -39,6 +39,10 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/Entity/CharacterModel.cpp
     ${CS_SRC_DIR}/Entity/Player.cpp
     ${CS_SRC_DIR}/Entity/RemotePlayer.cpp
+    ${CS_SRC_DIR}/Entity/BotPlayer.cpp
+    # Navigation
+    ${CS_SRC_DIR}/Navigation/PathFinder.cpp
+    ${CS_SRC_DIR}/Navigation/NavMesh.cpp
     ${CS_SRC_DIR}/Weapon/RayCast.cpp
     ${CS_SRC_DIR}/Weapon/Weapon.cpp
     ${CS_SRC_DIR}/Weapon/WeaponSpread.cpp
@@ -81,6 +85,10 @@ set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/Entity/CharacterModel.hpp
     ${CS_INCLUDE_DIR}/Entity/Player.hpp
     ${CS_INCLUDE_DIR}/Entity/RemotePlayer.hpp
+    ${CS_INCLUDE_DIR}/Entity/BotPlayer.hpp
+    # Navigation
+    ${CS_INCLUDE_DIR}/Navigation/PathFinder.hpp
+    ${CS_INCLUDE_DIR}/Navigation/NavMesh.hpp
     ${CS_INCLUDE_DIR}/Weapon/RayCast.hpp
     ${CS_INCLUDE_DIR}/Weapon/Weapon.hpp
     ${CS_INCLUDE_DIR}/Weapon/WeaponDefs.hpp

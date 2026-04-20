@@ -67,6 +67,10 @@ private:
     // ── Initialization Flag ──
     bool m_CallbacksInitialized = false;
 
+    // ── Bot configuration ──
+    int m_CTBotCount = 0;
+    int m_TBotCount = 0;
+
     // ── Helper Methods ──
     void SetupUICallbacks();
     void SetupNetworkCallbacks();

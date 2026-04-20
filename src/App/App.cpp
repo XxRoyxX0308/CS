@@ -110,6 +110,32 @@ void Application::SetupUICallbacks() {
         m_InputManager.LockCursor();
     };
 
+    // ── Bot management callbacks ──
+    callbacks.onAddBotCT = [this]() {
+        if (m_CTBotCount < 4) {
+            ++m_CTBotCount;
+            m_UIManager.SetCTBotCount(m_CTBotCount);
+        }
+    };
+    callbacks.onRemoveBotCT = [this]() {
+        if (m_CTBotCount > 0) {
+            --m_CTBotCount;
+            m_UIManager.SetCTBotCount(m_CTBotCount);
+        }
+    };
+    callbacks.onAddBotT = [this]() {
+        if (m_TBotCount < 4) {
+            ++m_TBotCount;
+            m_UIManager.SetTBotCount(m_TBotCount);
+        }
+    };
+    callbacks.onRemoveBotT = [this]() {
+        if (m_TBotCount > 0) {
+            --m_TBotCount;
+            m_UIManager.SetTBotCount(m_TBotCount);
+        }
+    };
+
     m_UIManager.SetCallbacks(std::move(callbacks));
 }
 
@@ -168,10 +194,22 @@ void Application::Lobby() {
 
     std::vector<UIManager::LobbyPlayerRow> rows;
     const auto lobbyPlayers = m_Network.GetLobbyPlayers();
-    rows.reserve(lobbyPlayers.size());
+    rows.reserve(lobbyPlayers.size() + m_CTBotCount + m_TBotCount);
     for (const auto& p : lobbyPlayers) {
         rows.push_back(UIManager::LobbyPlayerRow{
             p.name, p.teamId, p.isLocal, p.isHost
+        });
+    }
+
+    // Append bot entries
+    for (int i = 0; i < m_CTBotCount; ++i) {
+        rows.push_back(UIManager::LobbyPlayerRow{
+            "Bot CT " + std::to_string(i + 1), 0, false, false, true
+        });
+    }
+    for (int i = 0; i < m_TBotCount; ++i) {
+        rows.push_back(UIManager::LobbyPlayerRow{
+            "Bot T " + std::to_string(i + 1), 1, false, false, true
         });
     }
 
@@ -192,6 +230,8 @@ void Application::Start() {
     );
     m_GameManager.Initialize();
 
+    // Initialize bots
+    m_GameManager.InitializeBots(m_CTBotCount, m_TBotCount);
     // Lock cursor for FPS mode
     m_InputManager.LockCursor();
 
@@ -267,6 +307,9 @@ void Application::Update() {
     // ── Player Movement + Physics ──
     m_GameManager.UpdatePlayer(dt);
 
+    // ── Update bots ──
+    m_GameManager.UpdateBots(dt);
+
     // ── Check bullet hit and spawn bullet holes ──
     HandleBulletHit();
 
@@ -276,6 +319,10 @@ void Application::Update() {
     if (m_Network.IsHost()) {
         m_CombatManager.CheckRemoteRespawns(
             m_GameManager.GetRemotePlayers(),
+            m_GameManager.GetCollisionMesh()
+        );
+        m_CombatManager.CheckBotRespawns(
+            m_GameManager.GetBotPlayers(),
             m_GameManager.GetCollisionMesh()
         );
     }
@@ -313,6 +360,7 @@ void Application::Update() {
 void Application::End() {
     LOG_TRACE("Application::End");
     m_Network.Disconnect();
+    m_GameManager.CleanupBots();
     m_GameManager.Cleanup();
 }
 
@@ -364,19 +412,50 @@ void Application::HandleBulletHit() {
         );
 
         if (playerHit.hit && playerHit.distance < mapHit.distance) {
-            // Hit a player
-            m_CombatManager.HandleDamage(
-                playerHit.playerId, gun->GetDamage(), playerHit.point,
-                m_Network, m_GameManager.GetRemotePlayers()
+            // Check bot hit too
+            auto botHit = m_CombatManager.CheckBotHit(
+                camera.GetPosition(),
+                gun->GetLastFireDir(),
+                mapHit.distance,
+                m_GameManager.GetBotPlayers()
             );
-        } else {
-            // Hit the map
-            m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
 
-            if (m_Network.IsHost()) {
-                m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
-            } else if (m_Network.IsClient()) {
-                m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
+            if (botHit.hit && botHit.distance < playerHit.distance) {
+                // Bot is closer than remote player
+                m_CombatManager.HandleBotDamage(
+                    botHit.playerId, gun->GetDamage(),
+                    m_GameManager.GetBotPlayers()
+                );
+            } else {
+                // Hit a remote player
+                m_CombatManager.HandleDamage(
+                    playerHit.playerId, gun->GetDamage(), playerHit.point,
+                    m_Network, m_GameManager.GetRemotePlayers()
+                );
+            }
+        } else {
+            // Check bot hit before defaulting to map
+            auto botHit = m_CombatManager.CheckBotHit(
+                camera.GetPosition(),
+                gun->GetLastFireDir(),
+                mapHit.distance,
+                m_GameManager.GetBotPlayers()
+            );
+
+            if (botHit.hit && botHit.distance < mapHit.distance) {
+                m_CombatManager.HandleBotDamage(
+                    botHit.playerId, gun->GetDamage(),
+                    m_GameManager.GetBotPlayers()
+                );
+            } else {
+                // Hit the map
+                m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
+
+                if (m_Network.IsHost()) {
+                    m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
+                } else if (m_Network.IsClient()) {
+                    m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
+                }
             }
         }
     }

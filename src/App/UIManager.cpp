@@ -135,7 +135,7 @@ void UIManager::RenderLobby(const Network::NetworkManager& network,
 
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(460, 360));
+    ImGui::SetNextWindowSize(ImVec2(460, 440));
 
     ImGui::Begin("Game Lobby", nullptr,
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
@@ -175,27 +175,43 @@ void UIManager::RenderLobby(const Network::NetworkManager& network,
         for (const auto& p : players) {
             if (p.teamId != 0) continue;
             char buf[128];
-            snprintf(buf, sizeof(buf), "%s%s%s",
-                     p.name.c_str(),
-                     p.isLocal ? " (You)" : "",
-                     p.isHost ? " [Host]" : "");
+            if (p.isBot) {
+                snprintf(buf, sizeof(buf), "%s (Bot)", p.name.c_str());
+            } else {
+                snprintf(buf, sizeof(buf), "%s%s%s",
+                         p.name.c_str(),
+                         p.isLocal ? " (You)" : "",
+                         p.isHost ? " [Host]" : "");
+            }
             float tw = ImGui::CalcTextSize(buf).x;
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
                                   (ImGui::GetContentRegionAvail().x - tw) * 0.5f);
-            ImGui::TextUnformatted(buf);
+            if (p.isBot) {
+                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 0.9f), "%s", buf);
+            } else {
+                ImGui::TextUnformatted(buf);
+            }
         }
         ImGui::TableSetColumnIndex(1);
         for (const auto& p : players) {
             if (p.teamId != 1) continue;
             char buf[128];
-            snprintf(buf, sizeof(buf), "%s%s%s",
-                     p.name.c_str(),
-                     p.isLocal ? " (You)" : "",
-                     p.isHost ? " [Host]" : "");
+            if (p.isBot) {
+                snprintf(buf, sizeof(buf), "%s (Bot)", p.name.c_str());
+            } else {
+                snprintf(buf, sizeof(buf), "%s%s%s",
+                         p.name.c_str(),
+                         p.isLocal ? " (You)" : "",
+                         p.isHost ? " [Host]" : "");
+            }
             float tw = ImGui::CalcTextSize(buf).x;
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
                                   (ImGui::GetContentRegionAvail().x - tw) * 0.5f);
-            ImGui::TextUnformatted(buf);
+            if (p.isBot) {
+                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 0.9f), "%s", buf);
+            } else {
+                ImGui::TextUnformatted(buf);
+            }
         }
         ImGui::EndTable();
     }
@@ -217,6 +233,45 @@ void UIManager::RenderLobby(const Network::NetworkManager& network,
         }
     }
     ImGui::Spacing();
+
+    // ── Bot management buttons (host only) ──
+    if (network.IsHost()) {
+        ImGui::Separator();
+        {
+            const char* label = "Bots";
+            float tw = ImGui::CalcTextSize(label).x;
+            ImGui::SetCursorPosX((ImGui::GetWindowSize().x - tw) * 0.5f);
+            ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.3f, 1.0f), "%s", label);
+        }
+
+        const float btnW = 100.0f;
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        // + bots row
+        {
+            const float totalW = btnW + spacing + btnW;
+            ImGui::SetCursorPosX((ImGui::GetWindowSize().x - totalW) * 0.5f);
+            if (ImGui::Button("+ CT Bot", ImVec2(btnW, 24))) {
+                if (m_Callbacks.onAddBotCT) m_Callbacks.onAddBotCT();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("+ T Bot", ImVec2(btnW, 24))) {
+                if (m_Callbacks.onAddBotT) m_Callbacks.onAddBotT();
+            }
+        }
+        // - bots row
+        {
+            const float totalW = btnW + spacing + btnW;
+            ImGui::SetCursorPosX((ImGui::GetWindowSize().x - totalW) * 0.5f);
+            if (ImGui::Button("- CT Bot", ImVec2(btnW, 24))) {
+                if (m_Callbacks.onRemoveBotCT) m_Callbacks.onRemoveBotCT();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("- T Bot", ImVec2(btnW, 24))) {
+                if (m_Callbacks.onRemoveBotT) m_Callbacks.onRemoveBotT();
+            }
+        }
+        ImGui::Spacing();
+    }
 
     if (network.IsHost()) {
         // ── Host: Start Game + Cancel (centered) ──
