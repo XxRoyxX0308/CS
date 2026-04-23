@@ -76,12 +76,12 @@ private:
     std::vector<NavNode> m_Nodes;
     bool m_Built = false;
 
-    // Grid lookup acceleration
+    // Grid lookup acceleration (multi-layer: each cell can have multiple nodes)
     int m_GridResX = 0;
     int m_GridResZ = 0;
     float m_MinX = 0.0f;
     float m_MinZ = 0.0f;
-    std::vector<int> m_GridToNode; // grid cell -> node index (-1 if no node)
+    std::vector<std::vector<int>> m_GridToNodes; // grid cell -> list of node indices
 
     static constexpr float CELL_SIZE = 1.5f;
     static constexpr float PROBE_HEIGHT = 50.0f;
@@ -89,7 +89,9 @@ private:
     static constexpr float PROBE_CAP_HEIGHT = 1.0f;
     static constexpr float MAX_SLOPE_Y_DIFF = 1.5f;
     static constexpr float TRAVERSE_STEP = 0.5f;
-    static constexpr float MAX_STEP_HEIGHT = 0.8f;
+    static constexpr float MAX_STEP_HEIGHT = 0.5f;
+    static constexpr float MIN_LAYER_GAP = 2.0f;    ///< Min Y gap between layers
+    static constexpr int   MAX_LAYERS = 4;          ///< Max vertical layers per cell
 };
 
 } // namespace Navigation

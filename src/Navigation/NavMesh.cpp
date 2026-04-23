@@ -9,7 +9,7 @@ namespace Navigation {
 
 void NavMesh::Build(const Physics::CollisionMesh& mesh) {
     m_Nodes.clear();
-    m_GridToNode.clear();
+    m_GridToNodes.clear();
     m_Built = false;
 
     if (!mesh.IsBuilt()) {
@@ -52,12 +52,12 @@ void NavMesh::Build(const Physics::CollisionMesh& mesh) {
     if (m_GridResZ > MAX_RES) m_GridResZ = MAX_RES;
 
     const int totalCells = m_GridResX * m_GridResZ;
-    m_GridToNode.assign(totalCells, -1);
+    m_GridToNodes.resize(totalCells);
 
     LOG_INFO("NavMesh: sampling {}x{} grid ({} cells), cell size {:.1f}m",
              m_GridResX, m_GridResZ, totalCells, CELL_SIZE);
 
-    // Phase 1: Sample walkable positions
+    // Phase 1: Sample walkable positions (multi-layer)
     Physics::Capsule probeCap;
     probeCap.radius = PROBE_RADIUS;
     probeCap.height = PROBE_CAP_HEIGHT - 2.0f * PROBE_RADIUS;
@@ -67,30 +67,38 @@ void NavMesh::Build(const Physics::CollisionMesh& mesh) {
         for (int gx = 0; gx < m_GridResX; ++gx) {
             float worldX = m_MinX + (static_cast<float>(gx) + 0.5f) * CELL_SIZE;
             float worldZ = m_MinZ + (static_cast<float>(gz) + 0.5f) * CELL_SIZE;
-
-            // Place capsule high up and sweep down
-            probeCap.base = glm::vec3(worldX, PROBE_HEIGHT, worldZ);
-            auto groundY = Physics::CapsuleCast::SweepVertical(
-                probeCap, mesh, -(PROBE_HEIGHT + 60.0f));
-
-            if (!groundY.has_value()) continue;
-
-            float feetY = groundY.value();
-            // Skip positions that are too low (fallen off the map)
-            if (feetY < -40.0f) continue;
-
-            NavNode node;
-            node.position = glm::vec3(worldX, feetY + PROBE_CAP_HEIGHT, worldZ);
-
             int cellIdx = gz * m_GridResX + gx;
-            m_GridToNode[cellIdx] = static_cast<int>(m_Nodes.size());
-            m_Nodes.push_back(node);
+
+            // Probe downward from the top, finding multiple ground layers
+            float probeTop = PROBE_HEIGHT;
+            for (int layer = 0; layer < MAX_LAYERS; ++layer) {
+                probeCap.base = glm::vec3(worldX, probeTop, worldZ);
+                float sweepDist = -(probeTop + 60.0f);
+                auto groundY = Physics::CapsuleCast::SweepVertical(
+                    probeCap, mesh, sweepDist);
+
+                if (!groundY.has_value()) break;
+
+                float feetY = groundY.value();
+                if (feetY < -40.0f) break;
+
+                NavNode node;
+                node.position = glm::vec3(worldX, feetY + PROBE_CAP_HEIGHT, worldZ);
+
+                m_GridToNodes[cellIdx].push_back(static_cast<int>(m_Nodes.size()));
+                m_Nodes.push_back(node);
+
+                // Move probe below this surface for the next layer
+                // Go below the found ground by MIN_LAYER_GAP to skip thin surfaces
+                probeTop = feetY - MIN_LAYER_GAP;
+                if (probeTop < -40.0f) break;
+            }
         }
     }
 
     LOG_INFO("NavMesh: found {} walkable nodes", m_Nodes.size());
 
-    // Phase 2: Connect neighbors (8-directional)
+    // Phase 2: Connect neighbors (8-directional, across layers)
     const int dx[] = {-1, 0, 1, -1, 1, -1, 0, 1};
     const int dz[] = {-1, -1, -1, 0, 0, 1, 1, 1};
 
@@ -98,33 +106,36 @@ void NavMesh::Build(const Physics::CollisionMesh& mesh) {
     for (int gz = 0; gz < m_GridResZ; ++gz) {
         for (int gx = 0; gx < m_GridResX; ++gx) {
             int cellIdx = gz * m_GridResX + gx;
-            int nodeIdx = m_GridToNode[cellIdx];
-            if (nodeIdx < 0) continue;
+            const auto& cellNodes = m_GridToNodes[cellIdx];
 
-            NavNode& node = m_Nodes[static_cast<size_t>(nodeIdx)];
+            for (int nodeIdx : cellNodes) {
+                NavNode& node = m_Nodes[static_cast<size_t>(nodeIdx)];
 
-            for (int d = 0; d < 8; ++d) {
-                int nx = gx + dx[d];
-                int nz = gz + dz[d];
-                if (nx < 0 || nx >= m_GridResX || nz < 0 || nz >= m_GridResZ) continue;
+                for (int d = 0; d < 8; ++d) {
+                    int nx = gx + dx[d];
+                    int nz = gz + dz[d];
+                    if (nx < 0 || nx >= m_GridResX || nz < 0 || nz >= m_GridResZ) continue;
 
-                int neighborCellIdx = nz * m_GridResX + nx;
-                int neighborNodeIdx = m_GridToNode[neighborCellIdx];
-                if (neighborNodeIdx < 0) continue;
+                    int neighborCellIdx = nz * m_GridResX + nx;
+                    const auto& neighborNodes = m_GridToNodes[neighborCellIdx];
 
-                const NavNode& neighbor = m_Nodes[static_cast<size_t>(neighborNodeIdx)];
+                    // Find the best matching neighbor by Y proximity
+                    for (int neighborNodeIdx : neighborNodes) {
+                        const NavNode& neighbor = m_Nodes[static_cast<size_t>(neighborNodeIdx)];
 
-                // Check Y difference (slope limit)
-                float yDiff = std::abs(node.position.y - neighbor.position.y);
-                if (yDiff > MAX_SLOPE_Y_DIFF) continue;
+                        // Check Y difference (slope limit)
+                        float yDiff = std::abs(node.position.y - neighbor.position.y);
+                        if (yDiff > MAX_SLOPE_Y_DIFF) continue;
 
-                // Check traversability (no cliffs/gaps between nodes)
-                if (!CanTraverse(node.position, neighbor.position, mesh)) continue;
+                        // Check traversability (no cliffs/gaps between nodes)
+                        if (!CanTraverse(node.position, neighbor.position, mesh)) continue;
 
-                float dist = glm::distance(node.position, neighbor.position);
-                node.neighbors.push_back(static_cast<size_t>(neighborNodeIdx));
-                node.neighborDistances.push_back(dist);
-                ++edgeCount;
+                        float dist = glm::distance(node.position, neighbor.position);
+                        node.neighbors.push_back(static_cast<size_t>(neighborNodeIdx));
+                        node.neighborDistances.push_back(dist);
+                        ++edgeCount;
+                    }
+                }
             }
         }
     }
@@ -154,8 +165,9 @@ bool NavMesh::CanTraverse(const glm::vec3& from, const glm::vec3& to,
         float t = static_cast<float>(i) / static_cast<float>(steps);
         glm::vec3 samplePos = glm::mix(from, to, t);
 
-        // Probe downward from slightly above
-        probeCap.base = glm::vec3(samplePos.x, samplePos.y + 2.0f, samplePos.z);
+        // Probe downward from just above node level (small offset avoids
+        // starting inside the ground while staying below typical ceilings)
+        probeCap.base = glm::vec3(samplePos.x, samplePos.y + 0.5f, samplePos.z);
         auto groundY = Physics::CapsuleCast::SweepVertical(
             probeCap, mesh, -6.0f);
 
@@ -189,13 +201,13 @@ size_t NavMesh::FindNearestNode(const glm::vec3& pos) const {
                 int cz = gz + dz;
                 if (cx < 0 || cx >= m_GridResX || cz < 0 || cz >= m_GridResZ) continue;
 
-                int nodeIdx = m_GridToNode[cz * m_GridResX + cx];
-                if (nodeIdx < 0) continue;
-
-                float dist = glm::distance(pos, m_Nodes[static_cast<size_t>(nodeIdx)].position);
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    bestIdx = static_cast<size_t>(nodeIdx);
+                const auto& cellNodes = m_GridToNodes[cz * m_GridResX + cx];
+                for (int nodeIdx : cellNodes) {
+                    float dist = glm::distance(pos, m_Nodes[static_cast<size_t>(nodeIdx)].position);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestIdx = static_cast<size_t>(nodeIdx);
+                    }
                 }
             }
         }
