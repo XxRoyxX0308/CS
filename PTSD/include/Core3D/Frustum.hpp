@@ -31,8 +31,8 @@ public:
         RIGHT,
         BOTTOM,
         TOP,
-        NEAR,
-        FAR,
+        NEAR_PLANE,
+        FAR_PLANE,
         COUNT
     };
 
@@ -81,7 +81,7 @@ public:
         );
 
         // Near:   row3 + row2
-        m_Planes[NEAR] = glm::vec4(
+        m_Planes[NEAR_PLANE] = glm::vec4(
             viewProj[0][3] + viewProj[0][2],
             viewProj[1][3] + viewProj[1][2],
             viewProj[2][3] + viewProj[2][2],
@@ -89,7 +89,7 @@ public:
         );
 
         // Far:    row3 - row2
-        m_Planes[FAR] = glm::vec4(
+        m_Planes[FAR_PLANE] = glm::vec4(
             viewProj[0][3] - viewProj[0][2],
             viewProj[1][3] - viewProj[1][2],
             viewProj[2][3] - viewProj[2][2],
