@@ -178,6 +178,23 @@ bool NavMesh::CanTraverse(const glm::vec3& from, const glm::vec3& to,
         prevY = stepY;
     }
 
+    // Check for walls / doors that block the horizontal path between the two nodes.
+    // A pure ground probe cannot detect thin vertical surfaces (doors, fences).
+    // We sweep a standing capsule horizontally from 'from' to 'to' and reject
+    // the edge if anything with a mostly-vertical normal (|ny| < 0.7) is hit.
+    {
+        Physics::Capsule wallCap;
+        wallCap.radius = PROBE_RADIUS;
+        wallCap.height = PROBE_CAP_HEIGHT - 2.0f * PROBE_RADIUS;
+        if (wallCap.height < 0.0f) wallCap.height = 0.0f;
+        // Place base slightly above feet to avoid spurious floor triangle hits
+        float feetY = from.y - PROBE_CAP_HEIGHT;
+        wallCap.base = glm::vec3(from.x, feetY + wallCap.radius + 0.05f, from.z);
+        glm::vec3 horizVel(to.x - from.x, 0.0f, to.z - from.z);
+        auto wallHit = Physics::CapsuleCast::SweepCapsule(wallCap, horizVel, mesh);
+        if (wallHit.hit && std::abs(wallHit.normal.y) < 0.7f) return false;
+    }
+
     return true;
 }
 

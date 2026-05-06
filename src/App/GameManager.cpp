@@ -7,6 +7,7 @@
 
 #include <SDL.h>
 #include <string>
+#include <random>
 
 namespace App {
 
@@ -139,10 +140,15 @@ void GameManager::InitializeBots(int ctBotCount, int tBotCount) {
     CombatManager combatManager;
     uint8_t botId = 0;
 
+    // Seeded once per call to InitializeBots
+    static std::mt19937 s_Rng{ std::random_device{}() };
+    std::uniform_int_distribution<int> modeDist(0, 2);
+
     for (int i = 0; i < ctBotCount; ++i) {
         Entity::BotPlayer bot;
         std::string name = "CT Bot " + std::to_string(i + 1);
         bot.Init(m_Scene, Entity::CharacterType::FBI, botId++, name);
+        bot.SetWalkMode(static_cast<Entity::WalkMode>(modeDist(s_Rng)));
 
         glm::vec3 spawnPos = combatManager.GetSpawnPoint(
             m_CollisionMesh, Entity::CharacterType::FBI);
@@ -155,6 +161,7 @@ void GameManager::InitializeBots(int ctBotCount, int tBotCount) {
         Entity::BotPlayer bot;
         std::string name = "T Bot " + std::to_string(i + 1);
         bot.Init(m_Scene, Entity::CharacterType::TERRORIST, botId++, name);
+        bot.SetWalkMode(static_cast<Entity::WalkMode>(modeDist(s_Rng)));
 
         glm::vec3 spawnPos = combatManager.GetSpawnPoint(
             m_CollisionMesh, Entity::CharacterType::TERRORIST);

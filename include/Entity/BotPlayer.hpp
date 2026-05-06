@@ -18,6 +18,15 @@
 namespace Entity {
 
 /**
+ * @brief Walk zone assigned to a bot.
+ *
+ * ZONE_A    — A point area: x∈[6.4,31.3], z∈[-53.9,-48.7]
+ * ZONE_B    — B point area: x∈[-40.5,-28.1], z∈[-56.4,-32.6]
+ * FULL_MAP  — Entire navigable map.
+ */
+enum class WalkMode { ZONE_A, ZONE_B, FULL_MAP };
+
+/**
  * @brief AI-controlled bot character.
  *
  * Extends Character for physics/health/capsule movement.
@@ -68,6 +77,10 @@ public:
      */
     void Cleanup(Scene::SceneGraph& scene);
 
+    // ── Walk mode ──
+    void SetWalkMode(WalkMode mode) { m_WalkMode = mode; m_NeedsNewTarget = true; }
+    WalkMode GetWalkMode() const { return m_WalkMode; }
+
     // ── Identity ──
     uint8_t GetBotId() const { return m_BotId; }
     uint8_t GetTeamId() const { return m_TeamId; }
@@ -102,6 +115,13 @@ private:
     void UpdateModel(float dt);
     void UpdateGunTransform();
 
+    /**
+     * @brief Pick a random walkable node within the current walk-mode bounds
+     *        and set it as m_WalkTarget. Uses navMesh node list directly so
+     *        walkability and multi-floor support are guaranteed.
+     */
+    void AssignRandomWalkTarget(const Navigation::NavMesh& navMesh);
+
     // ── Identity ──
     uint8_t m_BotId = 0;
     uint8_t m_TeamId = 0; // 0 = CT, 1 = T
@@ -113,6 +133,11 @@ private:
     float m_TargetYaw = 0.0f;
     float m_TargetPitch = 0.0f;
     bool m_CanSeePlayer = false;
+
+    // ── Walk mode / target ──
+    WalkMode m_WalkMode = WalkMode::ZONE_A;
+    glm::vec3 m_WalkTarget{};
+    bool m_NeedsNewTarget = true;
 
     // ── Navigation state ──
     std::vector<glm::vec3> m_CurrentPath;
@@ -132,7 +157,7 @@ private:
     // ── Constants ──
     static constexpr float BOT_SPEED = 3.5f;
     static constexpr float WAYPOINT_THRESHOLD = 1.0f;
-    static constexpr float PATH_RECALC_INTERVAL = 1.0f;
+    static constexpr float PATH_RECALC_INTERVAL = 10.0f;
     static constexpr float VIEW_LERP_SPEED = 5.0f;
     static constexpr float EYE_HEIGHT_OFFSET = -0.1f;
     static constexpr glm::vec3 GUN_OFFSET{0.4f, -0.45f, -0.2f};

@@ -63,6 +63,12 @@ public:
     /** @brief Get total node count. */
     size_t GetNodeCount() const { return m_Nodes.size(); }
 
+    /** @brief Get XZ world-space bounds of the built grid. */
+    float GetMinX() const { return m_MinX; }
+    float GetMaxX() const { return m_MinX + static_cast<float>(m_GridResX) * CELL_SIZE; }
+    float GetMinZ() const { return m_MinZ; }
+    float GetMaxZ() const { return m_MinZ + static_cast<float>(m_GridResZ) * CELL_SIZE; }
+
 private:
     /**
      * @brief Check if a capsule can walk between two positions.

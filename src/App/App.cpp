@@ -112,7 +112,7 @@ void Application::SetupUICallbacks() {
 
     // ── Bot management callbacks ──
     callbacks.onAddBotCT = [this]() {
-        if (m_CTBotCount < 4) {
+        if (m_CTBotCount < 5) {
             ++m_CTBotCount;
             m_UIManager.SetCTBotCount(m_CTBotCount);
         }
@@ -124,7 +124,7 @@ void Application::SetupUICallbacks() {
         }
     };
     callbacks.onAddBotT = [this]() {
-        if (m_TBotCount < 4) {
+        if (m_TBotCount < 5) {
             ++m_TBotCount;
             m_UIManager.SetTBotCount(m_TBotCount);
         }
