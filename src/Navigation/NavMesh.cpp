@@ -7,6 +7,9 @@
 
 namespace Navigation {
 
+// ============================================================================
+//  Build - Sample walkable nodes and connect the graph
+// ============================================================================
 void NavMesh::Build(const Physics::CollisionMesh& mesh) {
     m_Nodes.clear();
     m_GridToNodes.clear();
@@ -144,6 +147,9 @@ void NavMesh::Build(const Physics::CollisionMesh& mesh) {
     LOG_INFO("NavMesh: built with {} nodes, {} edges", m_Nodes.size(), edgeCount);
 }
 
+// ============================================================================
+//  CanTraverse - Validate ground continuity and mid-segment blockers
+// ============================================================================
 bool NavMesh::CanTraverse(const glm::vec3& from, const glm::vec3& to,
                           const Physics::CollisionMesh& mesh) const {
     glm::vec3 dir = to - from;
@@ -178,26 +184,40 @@ bool NavMesh::CanTraverse(const glm::vec3& from, const glm::vec3& to,
         prevY = stepY;
     }
 
-    // Check for walls / doors that block the horizontal path between the two nodes.
-    // A pure ground probe cannot detect thin vertical surfaces (doors, fences).
-    // We sweep a standing capsule horizontally from 'from' to 'to' and reject
-    // the edge if anything with a mostly-vertical normal (|ny| < 0.7) is hit.
+    // Check for thin walls / doors that block the horizontal path between the
+    // two nodes. The original full-height capsule test was too aggressive and
+    // severed many valid edges because start/end-point brushes also counted as
+    // blockers. Use a small torso-height probe and only reject mid-segment
+    // hits with near-vertical normals.
     {
+        static constexpr float WALL_CHECK_RADIUS = 0.12f;
+        static constexpr float WALL_CHECK_HEIGHT_ABOVE_FEET = 0.75f;
+        static constexpr float WALL_BLOCK_MIN_T = 0.05f;
+        static constexpr float WALL_BLOCK_MAX_T = 0.95f;
+        static constexpr float WALL_NORMAL_Y_LIMIT = 0.3f;
+
         Physics::Capsule wallCap;
-        wallCap.radius = PROBE_RADIUS;
-        wallCap.height = PROBE_CAP_HEIGHT - 2.0f * PROBE_RADIUS;
-        if (wallCap.height < 0.0f) wallCap.height = 0.0f;
-        // Place base slightly above feet to avoid spurious floor triangle hits
+        wallCap.radius = WALL_CHECK_RADIUS;
+        wallCap.height = 0.0f; // sphere-like probe reduces false positives
+
         float feetY = from.y - PROBE_CAP_HEIGHT;
-        wallCap.base = glm::vec3(from.x, feetY + wallCap.radius + 0.05f, from.z);
+        wallCap.base = glm::vec3(from.x, feetY + WALL_CHECK_HEIGHT_ABOVE_FEET, from.z);
         glm::vec3 horizVel(to.x - from.x, 0.0f, to.z - from.z);
         auto wallHit = Physics::CapsuleCast::SweepCapsule(wallCap, horizVel, mesh);
-        if (wallHit.hit && std::abs(wallHit.normal.y) < 0.7f) return false;
+        if (wallHit.hit &&
+            wallHit.t > WALL_BLOCK_MIN_T &&
+            wallHit.t < WALL_BLOCK_MAX_T &&
+            std::abs(wallHit.normal.y) < WALL_NORMAL_Y_LIMIT) {
+            return false;
+        }
     }
 
     return true;
 }
 
+// ============================================================================
+//  FindNearestNode - Find nearest node by distance only
+// ============================================================================
 size_t NavMesh::FindNearestNode(const glm::vec3& pos) const {
     if (m_Nodes.empty()) return SIZE_MAX;
 
@@ -245,12 +265,93 @@ size_t NavMesh::FindNearestNode(const glm::vec3& pos) const {
     return bestIdx;
 }
 
+// ============================================================================
+//  FindNearestConnectedNode - Prefer locally reachable same-layer anchors
+// ============================================================================
+size_t NavMesh::FindNearestConnectedNode(const glm::vec3& pos,
+                                         const Physics::CollisionMesh& mesh) const {
+    if (m_Nodes.empty()) return SIZE_MAX;
+
+    static constexpr float PREFERRED_LAYER_Y_DIFF = 1.25f;
+
+    // Search a slightly wider local area than FindNearestNode and prefer nodes
+    // that are directly traversable from the query position. This avoids
+    // latching onto a node that is geometrically close but separated by a wall.
+    int gx = static_cast<int>((pos.x - m_MinX) / CELL_SIZE);
+    int gz = static_cast<int>((pos.z - m_MinZ) / CELL_SIZE);
+
+    auto searchLocal = [&](bool preferSameLayer) -> size_t {
+        size_t bestIdx = SIZE_MAX;
+        float bestScore = std::numeric_limits<float>::max();
+
+        auto considerNode = [&](size_t nodeIdx) {
+            const glm::vec3& nodePos = m_Nodes[nodeIdx].position;
+            if (preferSameLayer && std::abs(pos.y - nodePos.y) > PREFERRED_LAYER_Y_DIFF) {
+                return;
+            }
+
+            glm::vec3 anchor(pos.x, nodePos.y, pos.z);
+            if (!CanTraverse(anchor, nodePos, mesh)) {
+                return;
+            }
+
+            float score = glm::distance(pos, nodePos);
+            if (score < bestScore) {
+                bestScore = score;
+                bestIdx = nodeIdx;
+            }
+        };
+
+        int searchRadius = 5;
+        for (int r = 0; r <= searchRadius; ++r) {
+            for (int dz = -r; dz <= r; ++dz) {
+                for (int dx = -r; dx <= r; ++dx) {
+                    if (std::abs(dx) != r && std::abs(dz) != r && r > 0) continue;
+                    int cx = gx + dx;
+                    int cz = gz + dz;
+                    if (cx < 0 || cx >= m_GridResX || cz < 0 || cz >= m_GridResZ) continue;
+
+                    const auto& cellNodes = m_GridToNodes[cz * m_GridResX + cx];
+                    for (int nodeIdx : cellNodes) {
+                        considerNode(static_cast<size_t>(nodeIdx));
+                    }
+                }
+            }
+
+            if (bestIdx != SIZE_MAX && r >= 1) {
+                return bestIdx;
+            }
+        }
+
+        return bestIdx;
+    };
+
+    size_t bestIdx = searchLocal(true);
+    if (bestIdx != SIZE_MAX) {
+        return bestIdx;
+    }
+
+    bestIdx = searchLocal(false);
+    if (bestIdx != SIZE_MAX) {
+        return bestIdx;
+    }
+
+    // Final fallback: if the local connectivity-aware search fails, keep the
+    // original nearest-node behaviour so pathfinding never regresses to NONE
+    // solely because the query point is slightly off the mesh.
+    return FindNearestNode(pos);
+}
+
+// ============================================================================
+//  FindPath - Convert an A* node path into world-space waypoints
+// ============================================================================
 std::vector<glm::vec3> NavMesh::FindPath(const glm::vec3& start,
-                                         const glm::vec3& goal) const {
+                                         const glm::vec3& goal,
+                                         const Physics::CollisionMesh& mesh) const {
     if (!m_Built || m_Nodes.empty()) return {};
 
-    size_t startIdx = FindNearestNode(start);
-    size_t goalIdx = FindNearestNode(goal);
+    size_t startIdx = FindNearestConnectedNode(start, mesh);
+    size_t goalIdx = FindNearestConnectedNode(goal, mesh);
 
     if (startIdx == SIZE_MAX || goalIdx == SIZE_MAX) return {};
     if (startIdx == goalIdx) {

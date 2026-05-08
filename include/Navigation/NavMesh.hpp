@@ -44,15 +44,17 @@ public:
     /**
      * @brief Find a path between two world positions.
      *
-     * Locates the nearest nodes to start and goal, runs A* via
-     * PathFinder, and converts the result to world-space waypoints.
+        * Locates locally connected anchor nodes for start and goal, runs A*
+        * via PathFinder, and converts the result to world-space waypoints.
      *
-     * @param start World-space start position.
-     * @param goal  World-space goal position.
+        * @param start World-space start position.
+        * @param goal  World-space goal position.
+        * @param mesh  Collision mesh used to reject wrong-side local anchors.
      * @return Ordered list of waypoints (vec3), or empty if no path.
      */
     std::vector<glm::vec3> FindPath(const glm::vec3& start,
-                                    const glm::vec3& goal) const;
+                                    const glm::vec3& goal,
+                                    const Physics::CollisionMesh& mesh) const;
 
     /** @brief Get all navigation nodes. */
     const std::vector<NavNode>& GetNodes() const { return m_Nodes; }
@@ -70,6 +72,16 @@ public:
     float GetMaxZ() const { return m_MinZ + static_cast<float>(m_GridResZ) * CELL_SIZE; }
 
 private:
+    /**
+     * @brief Find the nearest node that is locally connectable from a world position.
+     *
+     * Prefer nodes that can be traversed to from the query position itself,
+     * which avoids picking a geometrically-nearest node that is actually behind
+        * a wall or on the wrong disconnected local pocket or layer.
+     */
+    size_t FindNearestConnectedNode(const glm::vec3& pos,
+                                    const Physics::CollisionMesh& mesh) const;
+
     /**
      * @brief Check if a capsule can walk between two positions.
      *

@@ -12,6 +12,79 @@
 
 namespace Entity {
 
+namespace {
+
+struct WalkBounds {
+    float minX;
+    float maxX;
+    float minZ;
+    float maxZ;
+};
+
+const char* WalkModeToString(WalkMode mode) {
+    switch (mode) {
+        case WalkMode::ZONE_A:
+            return "ZONE_A";
+        case WalkMode::ZONE_B:
+            return "ZONE_B";
+        case WalkMode::FULL_MAP:
+        default:
+            return "FULL_MAP";
+    }
+}
+
+WalkBounds GetWalkBounds(WalkMode mode, const Navigation::NavMesh& navMesh) {
+    switch (mode) {
+        case WalkMode::ZONE_A:
+            return {6.4f, 31.3f, -53.9f, -48.7f};
+        case WalkMode::ZONE_B:
+            return {-40.5f, -28.1f, -56.4f, -32.6f};
+        case WalkMode::FULL_MAP:
+        default:
+            return {navMesh.GetMinX(), navMesh.GetMaxX(),
+                    navMesh.GetMinZ(), navMesh.GetMaxZ()};
+    }
+}
+
+std::vector<size_t> CollectCandidatesInBounds(
+    const std::vector<Navigation::NavNode>& nodes,
+    const WalkBounds& bounds) {
+    std::vector<size_t> result;
+    result.reserve(64);
+
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        const glm::vec3& position = nodes[i].position;
+        if (position.x >= bounds.minX && position.x <= bounds.maxX &&
+            position.z >= bounds.minZ && position.z <= bounds.maxZ) {
+            result.push_back(i);
+        }
+    }
+
+    return result;
+}
+
+} // namespace
+
+// ============================================================================
+//  ResetRuntimeState - Clear transient movement and view state
+// ============================================================================
+void BotPlayer::ResetRuntimeState() {
+    m_CurrentPath.clear();
+    m_WaypointIndex = 0;
+    m_PathTimer = 0.0f;
+    m_Yaw = 0.0f;
+    m_Pitch = 0.0f;
+    m_TargetYaw = 0.0f;
+    m_TargetPitch = 0.0f;
+    m_CanSeePlayer = false;
+    m_IsWalking = false;
+    m_HasLastWalkTarget = false;
+    m_NeedsNewTarget = true;
+}
+
+// ============================================================================
+//  Init - Initialize bot visuals, identity, and runtime state
+// ============================================================================
 void BotPlayer::Init(Scene::SceneGraph& scene, CharacterType type,
                      uint8_t botId, const std::string& name) {
     // Clean up previous model if re-initializing
@@ -52,17 +125,7 @@ void BotPlayer::Init(Scene::SceneGraph& scene, CharacterType type,
     m_GunNode->SetVisible(true);
     scene.GetRoot()->AddChild(m_GunNode);
 
-    // Reset state
-    m_CurrentPath.clear();
-    m_WaypointIndex = 0;
-    m_PathTimer = 0.0f;
-    m_Yaw = 0.0f;
-    m_Pitch = 0.0f;
-    m_TargetYaw = 0.0f;
-    m_TargetPitch = 0.0f;
-    m_CanSeePlayer = false;
-    m_IsWalking = false;
-    m_NeedsNewTarget = true;
+    ResetRuntimeState();
 
     ResetHealth();
 
@@ -70,18 +133,21 @@ void BotPlayer::Init(Scene::SceneGraph& scene, CharacterType type,
              type == CharacterType::FBI ? "CT" : "T");
 }
 
+// ============================================================================
+//  Update - Update navigation, movement, physics, and rendering state
+// ============================================================================
 void BotPlayer::Update(float dt,
-                        const Physics::CollisionMesh& collisionMesh,
-                        const Navigation::NavMesh& navMesh,
-                        const glm::vec3& playerPos) {
+                       const Physics::CollisionMesh& collisionMesh,
+                       const Navigation::NavMesh& navMesh,
+                       const glm::vec3& playerPos) {
     if (!IsAlive() || !m_ModelInitialized) return;
     (void)playerPos; // player tracking disabled
 
     // Assign a new random walk target if needed
     if (m_NeedsNewTarget) {
-        AssignRandomWalkTarget(navMesh);
+        AssignRandomWalkTarget(navMesh, collisionMesh);
         if (!m_NeedsNewTarget) { // target was assigned
-            RecalculatePath(navMesh, m_WalkTarget);
+            RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
             m_PathTimer = PATH_RECALC_INTERVAL;
         }
     }
@@ -89,7 +155,7 @@ void BotPlayer::Update(float dt,
     // Periodically re-run A* toward the same walk target (handles dynamic obstacles)
     m_PathTimer -= dt;
     if (m_PathTimer <= 0.0f) {
-        RecalculatePath(navMesh, m_WalkTarget);
+        RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
         m_PathTimer = PATH_RECALC_INTERVAL;
     }
 
@@ -112,21 +178,23 @@ void BotPlayer::Update(float dt,
     UpdateGunTransform();
 }
 
+// ============================================================================
+//  Respawn - Reset bot state and place it at a spawn position
+// ============================================================================
 void BotPlayer::Respawn(const glm::vec3& spawnPosition) {
     ResetHealth();
     SetPosition(spawnPosition);
     m_VelocityY = 0.0f;
     m_OnGround = true;
-    m_CurrentPath.clear();
-    m_WaypointIndex = 0;
-    m_PathTimer = 0.0f;
-    m_IsWalking = false;
-    m_NeedsNewTarget = true;
+    ResetRuntimeState();
 
     LOG_INFO("Bot '{}' respawned at ({:.1f}, {:.1f}, {:.1f})",
              m_Name, spawnPosition.x, spawnPosition.y, spawnPosition.z);
 }
 
+// ============================================================================
+//  Cleanup - Remove bot-owned scene resources
+// ============================================================================
 void BotPlayer::Cleanup(Scene::SceneGraph& scene) {
     if (m_GunNode) {
         scene.GetRoot()->RemoveChild(m_GunNode);
@@ -137,62 +205,117 @@ void BotPlayer::Cleanup(Scene::SceneGraph& scene) {
     m_ModelInitialized = false;
 }
 
-void BotPlayer::AssignRandomWalkTarget(const Navigation::NavMesh& navMesh) {
+// ============================================================================
+//  AssignRandomWalkTarget - Pick a reachable target in the current walk mode
+// ============================================================================
+void BotPlayer::AssignRandomWalkTarget(const Navigation::NavMesh& navMesh,
+                                       const Physics::CollisionMesh& collisionMesh) {
     if (!navMesh.IsBuilt()) return;
 
-    // Determine XZ bounds for this bot's walk mode
-    float minX, maxX, minZ, maxZ;
-    switch (m_WalkMode) {
-        case WalkMode::ZONE_A:
-            minX = 6.4f;  maxX = 31.3f;
-            minZ = -53.9f; maxZ = -48.7f;
-            break;
-        case WalkMode::ZONE_B:
-            minX = -40.5f; maxX = -28.1f;
-            minZ = -56.4f; maxZ = -32.6f;
-            break;
-        case WalkMode::FULL_MAP:
-        default:
-            minX = navMesh.GetMinX(); maxX = navMesh.GetMaxX();
-            minZ = navMesh.GetMinZ(); maxZ = navMesh.GetMaxZ();
-            break;
-    }
+    static constexpr float MIN_TARGET_XZ_DISTANCE = 2.0f;
+    static constexpr float LAST_TARGET_XZ_DISTANCE = 1.5f;
 
-    // Collect all NavMesh nodes that fall within the zone bounds.
-    // Nodes already passed capsule-probe walkability at build time, so this
-    // guarantees a valid standing position. Multi-floor nodes at the same XZ
-    // are included and a random one will be selected, providing natural
-    // floor-layer randomisation.
     const auto& nodes = navMesh.GetNodes();
-    std::vector<size_t> candidates;
-    candidates.reserve(64);
-    for (size_t i = 0; i < nodes.size(); ++i) {
-        const glm::vec3& p = nodes[i].position;
-        if (p.x >= minX && p.x <= maxX && p.z >= minZ && p.z <= maxZ) {
-            candidates.push_back(i);
-        }
-    }
+    const WalkBounds walkBounds = GetWalkBounds(m_WalkMode, navMesh);
+    std::vector<size_t> candidates = CollectCandidatesInBounds(nodes, walkBounds);
 
     if (candidates.empty()) {
-        LOG_WARN("Bot '{}': no NavMesh nodes found in walk zone, retrying next frame", m_Name);
+        LOG_WARN("Bot '{}': no NavMesh nodes found in walk zone {}, retrying next frame",
+                 m_Name, WalkModeToString(m_WalkMode));
         return; // m_NeedsNewTarget stays true → retry next frame
     }
 
-    // Thread-safe static RNG (one per bot would be cleaner but static is fine here)
     static std::mt19937 s_Rng{ std::random_device{}() };
-    std::uniform_int_distribution<size_t> dist(0, candidates.size() - 1);
-    m_WalkTarget = nodes[candidates[dist(s_Rng)]].position;
-    m_NeedsNewTarget = false;
+    std::shuffle(candidates.begin(), candidates.end(), s_Rng);
 
-    LOG_DEBUG("Bot '{}': new walk target ({:.1f}, {:.1f}, {:.1f}), mode={}",
-              m_Name, m_WalkTarget.x, m_WalkTarget.y, m_WalkTarget.z,
-              static_cast<int>(m_WalkMode));
+    const glm::vec2 currentXZ(GetPosition().x, GetPosition().z);
+    const glm::vec2 lastTargetXZ(m_LastWalkTarget.x, m_LastWalkTarget.z);
+
+    auto tryAssignCandidate = [&](const std::vector<size_t>& candidatePool,
+                                  bool avoidCloseTargets,
+                                  bool usedFallback) -> bool {
+        for (size_t candidateIdx : candidatePool) {
+            const glm::vec3& candidatePos = nodes[candidateIdx].position;
+            const glm::vec2 candidateXZ(candidatePos.x, candidatePos.z);
+
+            if (avoidCloseTargets) {
+                if (glm::distance(candidateXZ, currentXZ) < MIN_TARGET_XZ_DISTANCE) {
+                    continue;
+                }
+                if (m_HasLastWalkTarget &&
+                    glm::distance(candidateXZ, lastTargetXZ) < LAST_TARGET_XZ_DISTANCE) {
+                    continue;
+                }
+            }
+
+            auto path = navMesh.FindPath(GetPosition(), candidatePos, collisionMesh);
+            if (path.empty()) {
+                continue;
+            }
+
+            if (!m_NeedsNewTarget) {
+                m_LastWalkTarget = m_WalkTarget;
+                m_HasLastWalkTarget = true;
+            } else if (m_WalkTarget != glm::vec3(0.0f)) {
+                m_LastWalkTarget = m_WalkTarget;
+                m_HasLastWalkTarget = true;
+            }
+
+            m_WalkTarget = candidatePos;
+            m_NeedsNewTarget = false;
+
+            LOG_INFO(
+                "Bot '{}': assigned reachable target ({:.1f}, {:.1f}, {:.1f}), mode={}, path_nodes={}, relaxed={}, fallback={}",
+                m_Name, m_WalkTarget.x, m_WalkTarget.y, m_WalkTarget.z,
+                WalkModeToString(m_WalkMode), path.size(), avoidCloseTargets ? 0 : 1, usedFallback ? 1 : 0);
+            return true;
+        }
+
+        return false;
+    };
+
+    if (tryAssignCandidate(candidates, true, false)) {
+        return;
+    }
+
+    if (tryAssignCandidate(candidates, false, false)) {
+        return;
+    }
+
+    const WalkBounds fullMapBounds = GetWalkBounds(WalkMode::FULL_MAP, navMesh);
+    std::vector<size_t> fallbackCandidates = CollectCandidatesInBounds(nodes, fullMapBounds);
+    std::shuffle(fallbackCandidates.begin(), fallbackCandidates.end(), s_Rng);
+
+    if (tryAssignCandidate(fallbackCandidates, true, true) ||
+        tryAssignCandidate(fallbackCandidates, false, true)) {
+        LOG_WARN(
+            "Bot '{}': {} had {} standable candidates but none were reachable from ({:.1f}, {:.1f}, {:.1f}); using full-map fallback target",
+            m_Name, WalkModeToString(m_WalkMode), candidates.size(),
+            GetPosition().x, GetPosition().y, GetPosition().z);
+        return;
+    }
+
+    LOG_WARN("Bot '{}': {} had {} standable candidates but none were reachable from ({:.1f}, {:.1f}, {:.1f})",
+             m_Name, WalkModeToString(m_WalkMode), candidates.size(),
+             GetPosition().x, GetPosition().y, GetPosition().z);
 }
 
+// ============================================================================
+//  RecalculatePath - Rebuild path toward the current walk target
+// ============================================================================
 void BotPlayer::RecalculatePath(const Navigation::NavMesh& navMesh,
+                                const Physics::CollisionMesh& collisionMesh,
                                 const glm::vec3& targetPos) {
-    m_CurrentPath = navMesh.FindPath(GetPosition(), targetPos);
+    m_CurrentPath = navMesh.FindPath(GetPosition(), targetPos, collisionMesh);
     m_WaypointIndex = 0;
+
+    if (m_CurrentPath.empty()) {
+        LOG_WARN("Bot '{}': failed to build path to target ({:.1f}, {:.1f}, {:.1f}) from ({:.1f}, {:.1f}, {:.1f})",
+                 m_Name,
+                 targetPos.x, targetPos.y, targetPos.z,
+                 GetPosition().x, GetPosition().y, GetPosition().z);
+        return;
+    }
 
     // Skip the first waypoint if it's very close (our current position)
     if (m_CurrentPath.size() > 1) {
@@ -205,6 +328,9 @@ void BotPlayer::RecalculatePath(const Navigation::NavMesh& navMesh,
     }
 }
 
+// ============================================================================
+//  FollowPath - Move toward the current waypoint with wall avoidance
+// ============================================================================
 void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
     if (m_CurrentPath.empty() || m_WaypointIndex >= m_CurrentPath.size()) {
         m_IsWalking = false;
@@ -236,13 +362,9 @@ void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
     }
     dir /= len;
 
-    // Wall-avoidance steering: probe laterally and blend in a push-away force
-    // when a wall is detected within WALL_PROBE_DIST of the capsule surface.
-    // This prevents the bot from grinding against walls while following its path.
-    // A surface is treated as a wall when |normal.y| < 0.7 (not floor/ceiling).
     static constexpr float WALL_PROBE_DIST  = 0.6f;  // lateral scan range
-    static constexpr float WALL_AVOID_SCALE = 1.5f;  // blend strength
-    static constexpr float WALL_MIN_CLEARANCE = 0.01f; // keeps bot off wall surface
+    static constexpr float WALL_AVOID_SCALE = 2.5f;  // blend strength
+    static constexpr float WALL_MIN_CLEARANCE = 0.1f; // keeps bot off wall surface
     (void)WALL_MIN_CLEARANCE; // expressed through WALL_PROBE_DIST tuning
     {
         Physics::Capsule avoidCap = MakeCapsule();
@@ -274,9 +396,12 @@ void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
     }
 }
 
+// ============================================================================
+//  UpdateView - Smoothly face movement direction
+// ============================================================================
 void BotPlayer::UpdateView(float dt,
-                            const glm::vec3& /*playerPos*/,
-                            const Physics::CollisionMesh& /*mesh*/) {
+                           const glm::vec3& /*playerPos*/,
+                           const Physics::CollisionMesh& /*mesh*/) {
     // Player tracking disabled: always face movement direction
     m_CanSeePlayer = false;
     m_TargetPitch = 0.0f;
@@ -292,8 +417,11 @@ void BotPlayer::UpdateView(float dt,
     m_Pitch = glm::mix(m_Pitch, m_TargetPitch, lerpFactor);
 }
 
+// ============================================================================
+//  CanSeePlayer - Visibility test (currently unused by active behavior)
+// ============================================================================
 bool BotPlayer::CanSeePlayer(const glm::vec3& playerPos,
-                              const Physics::CollisionMesh& mesh) const {
+                             const Physics::CollisionMesh& mesh) const {
     glm::vec3 eyePos = GetPosition();
     eyePos.y += EYE_HEIGHT_OFFSET;
 
@@ -308,6 +436,9 @@ bool BotPlayer::CanSeePlayer(const glm::vec3& playerPos,
     return !wallHit.hit || wallHit.distance >= dist - 0.5f;
 }
 
+// ============================================================================
+//  UpdateModel - Sync animated character model
+// ============================================================================
 void BotPlayer::UpdateModel(float dt) {
     if (!m_ModelInitialized) return;
 
@@ -317,6 +448,9 @@ void BotPlayer::UpdateModel(float dt) {
     m_CharacterModel.Update(dt, feetPos, m_Yaw, m_IsWalking);
 }
 
+// ============================================================================
+//  UpdateGunTransform - Sync third-person gun prop with bot pose
+// ============================================================================
 void BotPlayer::UpdateGunTransform() {
     if (!m_GunNode) return;
 
@@ -340,6 +474,9 @@ void BotPlayer::UpdateGunTransform() {
     m_GunNode->SetRotation(gunRot);
 }
 
+// ============================================================================
+//  SetVisible - Toggle bot renderable state
+// ============================================================================
 void BotPlayer::SetVisible(bool visible) {
     if (m_ModelInitialized) {
         m_CharacterModel.SetVisible(visible);
@@ -349,11 +486,17 @@ void BotPlayer::SetVisible(bool visible) {
     }
 }
 
+// ============================================================================
+//  GetCharacterModelPtr - Return shared model for hit detection
+// ============================================================================
 std::shared_ptr<Core3D::Model> BotPlayer::GetCharacterModelPtr() const {
     if (!m_ModelInitialized) return nullptr;
     return m_CharacterModel.GetModel();
 }
 
+// ============================================================================
+//  GetModelWorldTransform - Return world transform for hit detection
+// ============================================================================
 glm::mat4 BotPlayer::GetModelWorldTransform() const {
     if (!m_ModelInitialized) return glm::mat4(1.0f);
     auto node = m_CharacterModel.GetNode();

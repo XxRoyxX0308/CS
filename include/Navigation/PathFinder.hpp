@@ -22,7 +22,7 @@ struct NavNode {
 /**
  * @brief A* pathfinding algorithm operating on a NavNode graph.
  *
- * This class is stateless — all methods are static.
+ * This class is stateless - all methods are static.
  * It finds the shortest path through a graph of NavNodes using
  * the A* algorithm with Euclidean distance as the heuristic.
  */
@@ -32,7 +32,7 @@ public:
 
     /**
      * @brief Find the shortest path between two nodes using A*.
-     * @param nodes  The navigation graph (vector of NavNodes).
+        * @param nodes     The navigation graph (vector of NavNodes).
      * @param startIdx  Index of the starting node.
      * @param goalIdx   Index of the goal node.
      * @return Ordered list of node indices from start to goal (inclusive),

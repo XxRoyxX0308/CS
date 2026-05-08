@@ -33,12 +33,10 @@ enum class WalkMode { ZONE_A, ZONE_B, FULL_MAP };
  * Composes a CharacterModel for rendering and a gun model prop.
  *
  * Behavior:
- *   - Every PATH_RECALC_INTERVAL seconds, recalculates A* path
- *     toward the player position via the NavMesh.
- *   - Follows the path by moving toward successive waypoints.
- *   - Faces its movement direction by default.
- *   - If the player is visible (raycast with no wall obstruction),
- *     smoothly rotates to face the player instead.
+ *   - Is assigned one of three walk modes (A site, B site, full map).
+ *   - Picks a random reachable NavMesh node inside the active walk mode.
+ *   - Follows the current path and requests a new target after arrival.
+ *   - Faces its movement direction; player tracking is currently disabled.
  */
 class BotPlayer : public Character {
 public:
@@ -100,7 +98,11 @@ public:
     void SetVisible(bool visible);
 
 private:
+    /** @brief Reset transient navigation/view state. */
+    void ResetRuntimeState();
+
     void RecalculatePath(const Navigation::NavMesh& navMesh,
+                         const Physics::CollisionMesh& collisionMesh,
                          const glm::vec3& targetPos);
 
     void FollowPath(float dt, const Physics::CollisionMesh& mesh);
@@ -116,11 +118,15 @@ private:
     void UpdateGunTransform();
 
     /**
-     * @brief Pick a random walkable node within the current walk-mode bounds
-     *        and set it as m_WalkTarget. Uses navMesh node list directly so
-     *        walkability and multi-floor support are guaranteed.
+        * @brief Pick a random reachable node for the current walk mode.
+        *
+        * The selection prefers targets that are not too close to the bot's
+        * current position or its previous target. If a zone has no reachable
+        * node from the bot's current connected component, a full-map fallback is
+        * used to keep the bot moving instead of stalling in place.
      */
-    void AssignRandomWalkTarget(const Navigation::NavMesh& navMesh);
+    void AssignRandomWalkTarget(const Navigation::NavMesh& navMesh,
+                                const Physics::CollisionMesh& collisionMesh);
 
     // ── Identity ──
     uint8_t m_BotId = 0;
@@ -137,6 +143,8 @@ private:
     // ── Walk mode / target ──
     WalkMode m_WalkMode = WalkMode::ZONE_A;
     glm::vec3 m_WalkTarget{};
+    glm::vec3 m_LastWalkTarget{};
+    bool m_HasLastWalkTarget = false;
     bool m_NeedsNewTarget = true;
 
     // ── Navigation state ──

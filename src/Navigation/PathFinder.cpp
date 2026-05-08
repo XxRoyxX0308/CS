@@ -8,11 +8,17 @@
 
 namespace Navigation {
 
+// ============================================================================
+//  Heuristic - Euclidean distance for A* search
+// ============================================================================
 float PathFinder::Heuristic(const glm::vec3& a, const glm::vec3& b) {
     glm::vec3 diff = a - b;
     return std::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
 }
 
+// ============================================================================
+//  Search - Find a shortest path through the NavNode graph
+// ============================================================================
 std::vector<size_t> PathFinder::Search(const std::vector<NavNode>& nodes,
                                        size_t startIdx,
                                        size_t goalIdx) {
@@ -55,10 +61,11 @@ std::vector<size_t> PathFinder::Search(const std::vector<NavNode>& nodes,
         }
 
         float currentG = gScore[current.nodeIdx];
+        float currentH = Heuristic(nodes[current.nodeIdx].position,
+                                   nodes[goalIdx].position);
 
         // Skip stale entries
-        if (currentG < current.fScore - Heuristic(nodes[current.nodeIdx].position,
-                                                    nodes[goalIdx].position) - 0.001f) {
+        if (currentG < current.fScore - currentH - 0.001f) {
             continue;
         }
 
