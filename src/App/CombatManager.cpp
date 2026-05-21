@@ -52,6 +52,35 @@ PlayerHitResult CombatManager::CheckPlayerHit(
     return result;
 }
 
+PlayerHitResult CombatManager::CheckLocalPlayerHit(
+    const glm::vec3& origin,
+    const glm::vec3& direction,
+    float maxDist,
+    const Entity::Player& player) const {
+
+    PlayerHitResult result;
+
+    if (!player.IsAlive()) {
+        return result;
+    }
+
+    auto model = player.GetCharacterModelPtr();
+    if (!model) {
+        return result;
+    }
+
+    glm::mat4 transform = player.GetModelWorldTransform();
+    auto hit = Weapon::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
+    if (hit.hit) {
+        result.hit = true;
+        result.playerId = 0;
+        result.distance = hit.distance;
+        result.point = hit.point;
+    }
+
+    return result;
+}
+
 void CombatManager::HandleDamage(uint8_t victimId,
                                   float damage,
                                   const glm::vec3& hitPoint,
@@ -84,6 +113,17 @@ void CombatManager::HandleDamage(uint8_t victimId,
         // Client sends hit report to server
         network.SendPlayerHit(victimId, damage, hitPoint);
         LOG_INFO("Client reports hitting player {} for {} damage", victimId, damage);
+    }
+}
+
+void CombatManager::HandleLocalPlayerDamage(Entity::Player& player, float damage) {
+    bool stillAlive = player.TakeDamage(damage);
+
+    LOG_INFO("Local player hit for {} damage, health now: {:.0f}",
+             damage, player.GetHealth());
+
+    if (!stillAlive) {
+        LOG_INFO("Local player was killed by a bot");
     }
 }
 

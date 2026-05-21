@@ -8,6 +8,8 @@
 #include "Scene/SceneGraph.hpp"
 #include "Scene/SceneNode.hpp"
 #include "Core3D/Model.hpp"
+#include "Core3D/Camera.hpp"
+#include "Weapon/Weapon.hpp"
 
 #include <glm/glm.hpp>
 #include <memory>
@@ -36,12 +38,16 @@ enum class WalkMode { ZONE_A, ZONE_B, FULL_MAP };
  *   - Is assigned one of three walk modes (A site, B site, full map).
  *   - Picks a random reachable NavMesh node inside the active walk mode.
  *   - Follows the current path and requests a new target after arrival.
- *   - Faces its movement direction; player tracking is currently disabled.
+ *   - Stops patrol to face and fire at the player after acquiring them.
  */
 class BotPlayer : public Character {
 public:
     BotPlayer() = default;
     ~BotPlayer() override = default;
+    BotPlayer(const BotPlayer&) = delete;
+    BotPlayer& operator=(const BotPlayer&) = delete;
+    BotPlayer(BotPlayer&&) noexcept = default;
+    BotPlayer& operator=(BotPlayer&&) noexcept = default;
 
     /**
      * @brief Initialize the bot with a model and identity.
@@ -87,6 +93,9 @@ public:
     // ── View ──
     float GetYaw() const { return m_Yaw; }
     float GetPitch() const { return m_Pitch; }
+    glm::vec3 GetEyePosition() const;
+    bool ConsumeShotThisFrame();
+    const Weapon::Weapon* GetGameplayWeapon() const { return m_Weapon.get(); }
 
     // ── Model access (for hit detection) ──
     CharacterType GetCharacterType() const { return m_CharacterModel.GetCharacterType(); }
@@ -101,6 +110,14 @@ private:
     /** @brief Reset transient navigation/view state. */
     void ResetRuntimeState();
 
+    /** @brief Update bot weapon/aim state and fire if the player is visible. */
+    void UpdateCombat(float dt,
+                      const Physics::CollisionMesh& collisionMesh,
+                      const glm::vec3& playerPos);
+
+    /** @brief Sync the internal aim camera from bot pose. */
+    void SyncAimCamera();
+
     void RecalculatePath(const Navigation::NavMesh& navMesh,
                          const Physics::CollisionMesh& collisionMesh,
                          const glm::vec3& targetPos);
@@ -113,6 +130,9 @@ private:
 
     bool CanSeePlayer(const glm::vec3& playerPos,
                       const Physics::CollisionMesh& mesh) const;
+
+    bool HasLineOfSightToPlayer(const glm::vec3& playerPos,
+                                const Physics::CollisionMesh& mesh) const;
 
     void UpdateModel(float dt);
     void UpdateGunTransform();
@@ -156,7 +176,14 @@ private:
     CharacterModel m_CharacterModel;
     bool m_ModelInitialized = false;
     bool m_IsWalking = false;
+    bool m_IsEngagingPlayer = false;
+    bool m_FiredShotThisFrame = false;
+    float m_EngagementGraceTimer = 0.0f;
     Scene::SceneGraph* m_Scene = nullptr;
+
+    // ── Combat ──
+    std::unique_ptr<Weapon::Weapon> m_Weapon;
+    Core3D::Camera m_AimCamera;
 
     // ── Third-person gun prop ──
     std::shared_ptr<Core3D::Model> m_GunModel;
@@ -168,6 +195,8 @@ private:
     static constexpr float PATH_RECALC_INTERVAL = 10.0f;
     static constexpr float VIEW_LERP_SPEED = 5.0f;
     static constexpr float EYE_HEIGHT_OFFSET = -0.1f;
+    static constexpr float FIRE_FOV_HALF_ANGLE = 60.0f;
+    static constexpr float ENGAGEMENT_GRACE_TIME = 0.25f;
     static constexpr glm::vec3 GUN_OFFSET{0.4f, -0.45f, -0.2f};
 };
 

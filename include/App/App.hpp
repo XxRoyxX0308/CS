@@ -76,6 +76,7 @@ private:
     void SetupNetworkCallbacks();
     void HandleCharacterSwitch();
     void HandleBulletHit();
+    void HandleBotGunfire();
     void SendCharacterConfig();
 };
 

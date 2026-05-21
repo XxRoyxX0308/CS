@@ -45,6 +45,20 @@ public:
         const std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers) const;
 
     /**
+     * @brief Check if a ray hits the local player.
+     * @param origin Ray origin.
+     * @param direction Ray direction (normalized).
+     * @param maxDist Maximum distance to check.
+     * @param player Local player.
+     * @return Hit result.
+     */
+    PlayerHitResult CheckLocalPlayerHit(
+        const glm::vec3& origin,
+        const glm::vec3& direction,
+        float maxDist,
+        const Entity::Player& player) const;
+
+    /**
      * @brief Handle damage to a player (Host or Client logic).
      * @param victimId ID of the player hit.
      * @param damage Amount of damage.
@@ -57,6 +71,11 @@ public:
                       const glm::vec3& hitPoint,
                       Network::NetworkManager& network,
                       std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers);
+
+    /**
+     * @brief Apply damage to the local player.
+     */
+    void HandleLocalPlayerDamage(Entity::Player& player, float damage);
 
     /**
      * @brief Check and handle local player respawn.

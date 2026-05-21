@@ -79,6 +79,8 @@ public:
 
     CharacterModel &GetCharacterModel() { return m_CharacterModel; }
     const CharacterModel &GetCharacterModel() const { return m_CharacterModel; }
+    std::shared_ptr<Core3D::Model> GetCharacterModelPtr() const;
+    glm::mat4 GetModelWorldTransform() const;
 
     /**
      * @brief Switch to a different character type.

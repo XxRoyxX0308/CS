@@ -41,6 +41,16 @@ void Player::SwitchCharacter(Scene::SceneGraph &scene,
     m_CharacterModel.SwitchCharacter(scene, type);
 }
 
+std::shared_ptr<Core3D::Model> Player::GetCharacterModelPtr() const {
+    return m_CharacterModel.GetModel();
+}
+
+glm::mat4 Player::GetModelWorldTransform() const {
+    auto node = m_CharacterModel.GetNode();
+    if (!node) return glm::mat4(1.0f);
+    return node->GetWorldTransform();
+}
+
 // ============================================================================
 //  SpawnOnMap - Find spawn point using capsule ground sweep
 // ============================================================================

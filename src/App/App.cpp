@@ -310,6 +310,9 @@ void Application::Update() {
     // ── Update bots ──
     m_GameManager.UpdateBots(dt);
 
+    // ── Process bot gunfire ──
+    HandleBotGunfire();
+
     // ── Check bullet hit and spawn bullet holes ──
     HandleBulletHit();
 
@@ -456,6 +459,47 @@ void Application::HandleBulletHit() {
                 } else if (m_Network.IsClient()) {
                     m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
                 }
+            }
+        }
+    }
+}
+
+// ============================================================================
+//  HandleBotGunfire - Process bot shots against the local player and map
+// ============================================================================
+void Application::HandleBotGunfire() {
+    auto& player = m_GameManager.GetPlayer();
+
+    for (auto& bot : m_GameManager.GetBotPlayers()) {
+        if (!bot.ConsumeShotThisFrame()) {
+            continue;
+        }
+
+        const auto* gun = bot.GetGameplayWeapon();
+        if (!gun) {
+            continue;
+        }
+
+        const auto& mapHit = gun->GetLastHit();
+        float maxDist = mapHit.hit ? mapHit.distance : gun->GetBulletRange();
+
+        auto playerHit = m_CombatManager.CheckLocalPlayerHit(
+            bot.GetEyePosition(),
+            gun->GetLastFireDir(),
+            maxDist,
+            player
+        );
+
+        if (playerHit.hit && playerHit.distance <= maxDist) {
+            m_CombatManager.HandleLocalPlayerDamage(player, gun->GetDamage());
+            continue;
+        }
+
+        if (mapHit.hit) {
+            m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
+
+            if (m_Network.IsHost()) {
+                m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
             }
         }
     }

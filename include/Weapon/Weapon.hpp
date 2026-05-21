@@ -38,6 +38,9 @@ public:
     /** @brief Load the weapon model and attach its node to the scene. */
     void Init(Scene::SceneGraph &scene);
 
+    /** @brief Initialize weapon runtime state without creating any scene node. */
+    void InitRuntimeOnly();
+
     /** @brief Remove the weapon node from the scene. */
     void Cleanup(Scene::SceneGraph &scene);
 
@@ -59,6 +62,7 @@ public:
     int  GetMagSize()     const { return m_MagSize; }
     bool IsReloading()    const { return m_IsReloading; }
     float GetDamage()     const { return m_Damage; }
+    float GetBulletRange() const { return m_BulletRange; }
     int  GetPrice()       const { return m_Price; }
     const std::string& GetModelPath() const { return m_ModelPath; }
     const glm::vec3& GetWeaponScale() const { return m_WeaponScale; }
@@ -80,6 +84,9 @@ public:
      * Used by WeaponDefs to read modelPath/modelScale without a SceneGraph.
      */
     void ApplyConfig() { Configure(); }
+
+    /** @brief Reset ammo, cooldown, reload, recoil, and spread state. */
+    void ResetRuntimeState();
 
 protected:
     /**

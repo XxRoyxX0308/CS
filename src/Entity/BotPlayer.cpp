@@ -1,5 +1,6 @@
 #include "Entity/BotPlayer.hpp"
 #include "Physics/CapsuleCast.hpp"
+#include "Weapon/Pistols/M1895.hpp"
 #include "Weapon/RayCast.hpp"
 #include "Weapon/WeaponDefs.hpp"
 #include "Util/Logger.hpp"
@@ -72,12 +73,17 @@ void BotPlayer::ResetRuntimeState() {
     m_CurrentPath.clear();
     m_WaypointIndex = 0;
     m_PathTimer = 0.0f;
+    m_WalkTarget = glm::vec3(0.0f);
+    m_LastWalkTarget = glm::vec3(0.0f);
     m_Yaw = 0.0f;
     m_Pitch = 0.0f;
     m_TargetYaw = 0.0f;
     m_TargetPitch = 0.0f;
     m_CanSeePlayer = false;
     m_IsWalking = false;
+    m_IsEngagingPlayer = false;
+    m_FiredShotThisFrame = false;
+    m_EngagementGraceTimer = 0.0f;
     m_HasLastWalkTarget = false;
     m_NeedsNewTarget = true;
 }
@@ -125,6 +131,9 @@ void BotPlayer::Init(Scene::SceneGraph& scene, CharacterType type,
     m_GunNode->SetVisible(true);
     scene.GetRoot()->AddChild(m_GunNode);
 
+    m_Weapon = std::make_unique<Weapon::M1895>();
+    m_Weapon->InitRuntimeOnly();
+
     ResetRuntimeState();
 
     ResetHealth();
@@ -141,37 +150,62 @@ void BotPlayer::Update(float dt,
                        const Navigation::NavMesh& navMesh,
                        const glm::vec3& playerPos) {
     if (!IsAlive() || !m_ModelInitialized) return;
-    (void)playerPos; // player tracking disabled
 
-    // Assign a new random walk target if needed
-    if (m_NeedsNewTarget) {
-        AssignRandomWalkTarget(navMesh, collisionMesh);
-        if (!m_NeedsNewTarget) { // target was assigned
+    m_FiredShotThisFrame = false;
+    const bool canAcquirePlayer = CanSeePlayer(playerPos, collisionMesh);
+    const bool hasLineOfSight = HasLineOfSightToPlayer(playerPos, collisionMesh);
+
+    if (canAcquirePlayer) {
+        m_EngagementGraceTimer = ENGAGEMENT_GRACE_TIME;
+    } else {
+        m_EngagementGraceTimer = std::max(0.0f, m_EngagementGraceTimer - dt);
+    }
+
+    if (m_IsEngagingPlayer) {
+        m_IsEngagingPlayer = hasLineOfSight || (m_EngagementGraceTimer > 0.0f);
+    } else {
+        m_IsEngagingPlayer = canAcquirePlayer;
+    }
+
+    m_CanSeePlayer = hasLineOfSight && m_IsEngagingPlayer;
+
+    if (!m_IsEngagingPlayer) {
+        // Assign a new random walk target if needed
+        if (m_NeedsNewTarget) {
+            AssignRandomWalkTarget(navMesh, collisionMesh);
+            if (!m_NeedsNewTarget) { // target was assigned
+                RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
+                m_PathTimer = PATH_RECALC_INTERVAL;
+            }
+        }
+
+        // Periodically re-run A* toward the same walk target (handles dynamic obstacles)
+        m_PathTimer -= dt;
+        if (m_PathTimer <= 0.0f) {
             RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
             m_PathTimer = PATH_RECALC_INTERVAL;
         }
-    }
 
-    // Periodically re-run A* toward the same walk target (handles dynamic obstacles)
-    m_PathTimer -= dt;
-    if (m_PathTimer <= 0.0f) {
-        RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
-        m_PathTimer = PATH_RECALC_INTERVAL;
-    }
+        // Move along path
+        FollowPath(dt, collisionMesh);
 
-    // Move along path
-    FollowPath(dt, collisionMesh);
-
-    // When the bot reaches its target, request a new one
-    if (!m_IsWalking && !m_NeedsNewTarget) {
-        m_NeedsNewTarget = true;
+        // When the bot reaches its target, request a new one
+        if (!m_IsWalking && !m_NeedsNewTarget) {
+            m_NeedsNewTarget = true;
+        }
+    } else {
+        // Stop movement while engaging so the player remains inside the cone.
+        m_IsWalking = false;
     }
 
     // Physics (gravity + ground detection)
     UpdatePhysics(dt, collisionMesh);
 
-    // View direction (player tracking disabled)
-    UpdateView(dt, glm::vec3(0.0f), collisionMesh);
+    // View direction
+    UpdateView(dt, playerPos, collisionMesh);
+
+    // Combat (shared weapon spread / cooldown / recoil)
+    UpdateCombat(dt, collisionMesh, playerPos);
 
     // Sync model
     UpdateModel(dt);
@@ -187,9 +221,24 @@ void BotPlayer::Respawn(const glm::vec3& spawnPosition) {
     m_VelocityY = 0.0f;
     m_OnGround = true;
     ResetRuntimeState();
+    if (m_Weapon) {
+        m_Weapon->ResetRuntimeState();
+    }
 
     LOG_INFO("Bot '{}' respawned at ({:.1f}, {:.1f}, {:.1f})",
              m_Name, spawnPosition.x, spawnPosition.y, spawnPosition.z);
+}
+
+glm::vec3 BotPlayer::GetEyePosition() const {
+    glm::vec3 eyePos = GetPosition();
+    eyePos.y += EYE_HEIGHT_OFFSET;
+    return eyePos;
+}
+
+bool BotPlayer::ConsumeShotThisFrame() {
+    bool fired = m_FiredShotThisFrame;
+    m_FiredShotThisFrame = false;
+    return fired;
 }
 
 // ============================================================================
@@ -329,6 +378,39 @@ void BotPlayer::RecalculatePath(const Navigation::NavMesh& navMesh,
 }
 
 // ============================================================================
+//  UpdateCombat - Update aim camera, spread, and fire control
+// ============================================================================
+void BotPlayer::UpdateCombat(float dt,
+                             const Physics::CollisionMesh& collisionMesh,
+                             const glm::vec3& /*playerPos*/) {
+    if (!m_Weapon) return;
+
+    SyncAimCamera();
+    m_Weapon->Update(dt, m_AimCamera, m_IsWalking, false, m_OnGround);
+
+    if (!m_CanSeePlayer) {
+        m_Pitch = m_AimCamera.GetPitch();
+        return;
+    }
+
+    int ammoBefore = m_Weapon->GetCurrentAmmo();
+    m_Weapon->Fire(m_AimCamera, collisionMesh);
+    m_FiredShotThisFrame = m_FiredShotThisFrame ||
+                           (m_Weapon->GetCurrentAmmo() < ammoBefore);
+    m_Pitch = m_AimCamera.GetPitch();
+}
+
+// ============================================================================
+//  SyncAimCamera - Mirror bot pose to an internal firing camera
+// ============================================================================
+void BotPlayer::SyncAimCamera() {
+    m_AimCamera.SetPosition(GetEyePosition());
+    m_AimCamera.SetYaw(m_Yaw);
+    m_AimCamera.SetPitch(m_Pitch);
+    m_AimCamera.UpdateVectors();
+}
+
+// ============================================================================
 //  FollowPath - Move toward the current waypoint with wall avoidance
 // ============================================================================
 void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
@@ -391,21 +473,27 @@ void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
     m_IsWalking = true;
 
     // Set target yaw based on movement direction (for default view)
-    if (!m_CanSeePlayer) {
+    if (!m_IsEngagingPlayer) {
         m_TargetYaw = glm::degrees(std::atan2(dir.x, -dir.z));
     }
 }
 
 // ============================================================================
-//  UpdateView - Smoothly face movement direction
+//  UpdateView - Smoothly face the player or movement direction
 // ============================================================================
 void BotPlayer::UpdateView(float dt,
-                           const glm::vec3& /*playerPos*/,
+                           const glm::vec3& playerPos,
                            const Physics::CollisionMesh& /*mesh*/) {
-    // Player tracking disabled: always face movement direction
-    m_CanSeePlayer = false;
-    m_TargetPitch = 0.0f;
-    // m_TargetYaw is updated by FollowPath() when the bot is moving
+    if (m_IsEngagingPlayer) {
+        glm::vec3 eyePos = GetEyePosition();
+        glm::vec3 toPlayer = playerPos - eyePos;
+        float horizDist = glm::length(glm::vec2(toPlayer.x, toPlayer.z));
+
+        m_TargetYaw = glm::degrees(std::atan2(toPlayer.x, -toPlayer.z));
+        m_TargetPitch = glm::degrees(std::atan2(toPlayer.y, horizDist));
+    } else {
+        m_TargetPitch = 0.0f;
+    }
 
     // Smooth interpolation
     float lerpFactor = 1.0f - std::exp(-VIEW_LERP_SPEED * dt);
@@ -422,9 +510,29 @@ void BotPlayer::UpdateView(float dt,
 // ============================================================================
 bool BotPlayer::CanSeePlayer(const glm::vec3& playerPos,
                              const Physics::CollisionMesh& mesh) const {
-    glm::vec3 eyePos = GetPosition();
-    eyePos.y += EYE_HEIGHT_OFFSET;
+    glm::vec3 eyePos = GetEyePosition();
 
+    glm::vec3 toPlayer = playerPos - eyePos;
+    float dist = glm::length(toPlayer);
+    if (dist < 0.1f) return true;
+
+    glm::vec2 toPlayerXZ(toPlayer.x, toPlayer.z);
+    float horizLen = glm::length(toPlayerXZ);
+    if (horizLen < 0.001f) return true;
+
+    float yawRad = glm::radians(m_Yaw);
+    glm::vec2 forwardXZ(std::cos(yawRad), std::sin(yawRad));
+    glm::vec2 toPlayerDir = toPlayerXZ / horizLen;
+    float fovDot = glm::dot(glm::normalize(forwardXZ), toPlayerDir);
+    float minDot = std::cos(glm::radians(FIRE_FOV_HALF_ANGLE));
+    if (fovDot < minDot) return false;
+
+    return HasLineOfSightToPlayer(playerPos, mesh);
+}
+
+bool BotPlayer::HasLineOfSightToPlayer(const glm::vec3& playerPos,
+                                       const Physics::CollisionMesh& mesh) const {
+    glm::vec3 eyePos = GetEyePosition();
     glm::vec3 toPlayer = playerPos - eyePos;
     float dist = glm::length(toPlayer);
     if (dist < 0.1f) return true;

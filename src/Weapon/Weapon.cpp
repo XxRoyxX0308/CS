@@ -9,18 +9,26 @@
 namespace Weapon {
 
 // ============================================================================
-//  Init — load model, create scene node
+//  ResetRuntimeState - Reset ammo, cooldown, reload, recoil, and spread
 // ============================================================================
-void Weapon::Init(Scene::SceneGraph &scene) {
-    Configure();
-
+void Weapon::ResetRuntimeState() {
     m_CurrentAmmo = m_MagSize;
     m_FireCooldown = 0.0f;
     m_IsReloading = false;
     m_ReloadTimer = 0.0f;
     m_CurrentRecoil = 0.0f;
-
+    m_ReloadAnimAngle = 0.0f;
     m_Spread.Reset();
+    m_LastHit = {};
+    m_LastFireDir = glm::vec3(0.0f, 0.0f, 1.0f);
+}
+
+// ============================================================================
+//  Init — load model, create scene node
+// ============================================================================
+void Weapon::Init(Scene::SceneGraph &scene) {
+    Configure();
+    ResetRuntimeState();
 
     m_Model = std::make_shared<Core3D::Model>(m_ModelPath, false);
     m_Node  = std::make_shared<Scene::SceneNode>();
@@ -30,6 +38,14 @@ void Weapon::Init(Scene::SceneGraph &scene) {
     scene.GetRoot()->AddChild(m_Node);
 
     LOG_INFO("Weapon loaded: {} (ammo: {})", m_ModelPath, m_MagSize);
+}
+
+// ============================================================================
+//  InitRuntimeOnly - Configure weapon runtime state without renderables
+// ============================================================================
+void Weapon::InitRuntimeOnly() {
+    Configure();
+    ResetRuntimeState();
 }
 
 // ============================================================================
