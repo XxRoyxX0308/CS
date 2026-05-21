@@ -607,6 +607,19 @@ void UIManager::RenderDebugPanel(const Core3D::Camera& camera,
     }
     ImGui::Text("Remote Players: %zu", remotePlayerCount);
 
+    ImGui::Separator();
+    ImGui::Text("Bot Debug");
+    const char* followLabel = m_DebugBotsFollowPlayer
+        ? "Stop Bot Follow (No Attack)"
+        : "All Bots Follow Player (No Attack)";
+    if (ImGui::Button(followLabel, ImVec2(240.0f, 0.0f))) {
+        m_DebugBotsFollowPlayer = !m_DebugBotsFollowPlayer;
+        if (m_Callbacks.onSetBotsFollowPlayerNoAttack) {
+            m_Callbacks.onSetBotsFollowPlayerNoAttack(m_DebugBotsFollowPlayer);
+        }
+    }
+    ImGui::Text("Bot Follow Override: %s", m_DebugBotsFollowPlayer ? "ON" : "OFF");
+
     // Character health info
     ImGui::Separator();
     ImGui::Text("Health: %.0f / %.0f", player.GetHealth(), player.GetMaxHealth());

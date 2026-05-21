@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <cstddef>
+#include <optional>
 
 namespace Navigation {
 
@@ -90,6 +91,17 @@ private:
      */
     bool CanTraverse(const glm::vec3& from, const glm::vec3& to,
                      const Physics::CollisionMesh& mesh) const;
+
+   /**
+    * @brief Sample a walkable anchor Y below a reference point.
+    *
+    * Retries the downward probe from a few lower start heights so low roofs
+    * or overhangs do not get mistaken for the floor.
+    */
+   std::optional<float> SampleGroundAnchorY(const glm::vec3& referencePos,
+                                  float maxAcceptedAnchorY,
+                                  float probeDistance,
+                                  const Physics::CollisionMesh& mesh) const;
 
     std::vector<NavNode> m_Nodes;
     bool m_Built = false;

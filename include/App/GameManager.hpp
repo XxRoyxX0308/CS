@@ -77,6 +77,8 @@ public:
     // ── Bot management ──
     void InitializeBots(int ctBotCount, int tBotCount);
     void UpdateBots(float dt);
+    void SetBotsFollowPlayerNoAttack(bool enabled);
+    bool AreBotsFollowingPlayerNoAttack() const { return m_BotsFollowPlayerNoAttack; }
     void CleanupBots();
     std::vector<Entity::BotPlayer>& GetBotPlayers() { return m_BotPlayers; }
     const std::vector<Entity::BotPlayer>& GetBotPlayers() const { return m_BotPlayers; }
@@ -96,6 +98,7 @@ private:
 
     std::unordered_map<uint8_t, Entity::RemotePlayer> m_RemotePlayers;
     std::vector<Entity::BotPlayer> m_BotPlayers;
+    bool m_BotsFollowPlayerNoAttack = false;
     Navigation::NavMesh m_NavMesh;
 };
 

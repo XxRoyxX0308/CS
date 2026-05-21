@@ -149,6 +149,7 @@ void GameManager::InitializeBots(int ctBotCount, int tBotCount) {
         std::string name = "CT Bot " + std::to_string(i + 1);
         bot.Init(m_Scene, Entity::CharacterType::FBI, botId++, name);
         bot.SetWalkMode(static_cast<Entity::WalkMode>(modeDist(s_Rng)));
+        bot.SetDebugFollowPlayerNoAttack(m_BotsFollowPlayerNoAttack);
 
         glm::vec3 spawnPos = combatManager.GetSpawnPoint(
             m_CollisionMesh, Entity::CharacterType::FBI);
@@ -162,6 +163,7 @@ void GameManager::InitializeBots(int ctBotCount, int tBotCount) {
         std::string name = "T Bot " + std::to_string(i + 1);
         bot.Init(m_Scene, Entity::CharacterType::TERRORIST, botId++, name);
         bot.SetWalkMode(static_cast<Entity::WalkMode>(modeDist(s_Rng)));
+        bot.SetDebugFollowPlayerNoAttack(m_BotsFollowPlayerNoAttack);
 
         glm::vec3 spawnPos = combatManager.GetSpawnPoint(
             m_CollisionMesh, Entity::CharacterType::TERRORIST);
@@ -179,6 +181,14 @@ void GameManager::UpdateBots(float dt) {
 
     for (auto& bot : m_BotPlayers) {
         bot.Update(dt, m_CollisionMesh, m_NavMesh, playerPos);
+    }
+}
+
+void GameManager::SetBotsFollowPlayerNoAttack(bool enabled) {
+    m_BotsFollowPlayerNoAttack = enabled;
+
+    for (auto& bot : m_BotPlayers) {
+        bot.SetDebugFollowPlayerNoAttack(enabled);
     }
 }
 

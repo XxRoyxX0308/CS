@@ -135,6 +135,9 @@ void Application::SetupUICallbacks() {
             m_UIManager.SetTBotCount(m_TBotCount);
         }
     };
+    callbacks.onSetBotsFollowPlayerNoAttack = [this](bool enabled) {
+        m_GameManager.SetBotsFollowPlayerNoAttack(enabled);
+    };
 
     m_UIManager.SetCallbacks(std::move(callbacks));
 }

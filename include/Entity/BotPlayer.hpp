@@ -39,6 +39,7 @@ enum class WalkMode { ZONE_A, ZONE_B, FULL_MAP };
  *   - Picks a random reachable NavMesh node inside the active walk mode.
  *   - Follows the current path and requests a new target after arrival.
  *   - Stops patrol to face and fire at the player after acquiring them.
+ *   - Chases the player's current position for a short time after losing sight.
  */
 class BotPlayer : public Character {
 public:
@@ -96,6 +97,8 @@ public:
     glm::vec3 GetEyePosition() const;
     bool ConsumeShotThisFrame();
     const Weapon::Weapon* GetGameplayWeapon() const { return m_Weapon.get(); }
+    void SetDebugFollowPlayerNoAttack(bool enabled);
+    bool IsDebugFollowPlayerNoAttack() const { return m_DebugFollowPlayerNoAttack; }
 
     // ── Model access (for hit detection) ──
     CharacterType GetCharacterType() const { return m_CharacterModel.GetCharacterType(); }
@@ -107,6 +110,8 @@ public:
     void SetVisible(bool visible);
 
 private:
+    enum class BehaviorState { PATROLLING, ATTACKING, CHASING };
+
     /** @brief Reset transient navigation/view state. */
     void ResetRuntimeState();
 
@@ -171,14 +176,17 @@ private:
     std::vector<glm::vec3> m_CurrentPath;
     size_t m_WaypointIndex = 0;
     float m_PathTimer = 0.0f;
+    glm::vec3 m_ChaseTarget{};
+    float m_ChaseTimer = 0.0f;
+    float m_ChasePathRefreshTimer = 0.0f;
+    bool m_DebugFollowPlayerNoAttack = false;
 
     // ── Model ──
     CharacterModel m_CharacterModel;
     bool m_ModelInitialized = false;
     bool m_IsWalking = false;
-    bool m_IsEngagingPlayer = false;
+    BehaviorState m_BehaviorState = BehaviorState::PATROLLING;
     bool m_FiredShotThisFrame = false;
-    float m_EngagementGraceTimer = 0.0f;
     Scene::SceneGraph* m_Scene = nullptr;
 
     // ── Combat ──
@@ -193,10 +201,12 @@ private:
     static constexpr float BOT_SPEED = 3.5f;
     static constexpr float WAYPOINT_THRESHOLD = 1.0f;
     static constexpr float PATH_RECALC_INTERVAL = 10.0f;
+    static constexpr float CHASE_DURATION = 6.0f;
+    static constexpr float CHASE_PATH_RECALC_INTERVAL = 2.0f;
+    static constexpr float DEBUG_FOLLOW_PATH_RECALC_INTERVAL = 0.5f;
     static constexpr float VIEW_LERP_SPEED = 5.0f;
     static constexpr float EYE_HEIGHT_OFFSET = -0.1f;
     static constexpr float FIRE_FOV_HALF_ANGLE = 60.0f;
-    static constexpr float ENGAGEMENT_GRACE_TIME = 0.25f;
     static constexpr glm::vec3 GUN_OFFSET{0.4f, -0.45f, -0.2f};
 };
 

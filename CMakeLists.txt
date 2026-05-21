@@ -66,6 +66,14 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/Network/Client/GameClient.cpp
     ${CS_SRC_DIR}/Network/Discovery/LANDiscovery.cpp
 )
+
+set(CS_NAV_PROBE_FILES
+    ${CS_SRC_DIR}/Tools/NavMeshProbe.cpp
+    ${CS_SRC_DIR}/Physics/CollisionMesh.cpp
+    ${CS_SRC_DIR}/Physics/CapsuleCast.cpp
+    ${CS_SRC_DIR}/Navigation/PathFinder.cpp
+    ${CS_SRC_DIR}/Navigation/NavMesh.cpp
+)
 set(CS_INCLUDE_FILES
     # App Module (Refactored)
     ${CS_INCLUDE_DIR}/App/App.hpp
@@ -123,7 +131,17 @@ add_executable(CS
     ${CS_INCLUDE_FILES}
 )
 
+add_executable(CSNavProbe
+    ${CS_NAV_PROBE_FILES}
+    ${CS_INCLUDE_FILES}
+)
+
 target_link_libraries(CS
+    SDL2::SDL2main
+    PTSD
+)
+
+target_link_libraries(CSNavProbe
     SDL2::SDL2main
     PTSD
 )
@@ -139,7 +157,15 @@ target_include_directories(CS PRIVATE
     ${CS_INCLUDE_DIR}
 )
 
+target_include_directories(CSNavProbe PRIVATE
+    ${CS_INCLUDE_DIR}
+)
+
 target_compile_definitions(CS PRIVATE
+    ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets"
+)
+
+target_compile_definitions(CSNavProbe PRIVATE
     ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets"
 )
 
@@ -149,8 +175,22 @@ if(WIN32)
         NOMINMAX
         WIN32_LEAN_AND_MEAN
     )
+
+    target_compile_definitions(CSNavProbe PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+    )
 endif()
 
 target_compile_options(CS PRIVATE
     ${TARGET_COMPILE_OPTIONS}
+)
+
+target_compile_options(CSNavProbe PRIVATE
+    ${TARGET_COMPILE_OPTIONS}
+)
+
+target_include_directories(CSNavProbe SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/PTSD/include
+    ${DEPENDENCY_INCLUDE_DIRS}
 )

@@ -171,17 +171,22 @@ bool NavMesh::CanTraverse(const glm::vec3& from, const glm::vec3& to,
         float t = static_cast<float>(i) / static_cast<float>(steps);
         glm::vec3 samplePos = glm::mix(from, to, t);
 
-        // Probe downward from just above node level (small offset avoids
-        // starting inside the ground while staying below typical ceilings)
-        probeCap.base = glm::vec3(samplePos.x, samplePos.y + 0.5f, samplePos.z);
-        auto groundY = Physics::CapsuleCast::SweepVertical(
-            probeCap, mesh, -6.0f);
+        auto stepY = SampleGroundAnchorY(samplePos,
+                                         prevY + MAX_STEP_HEIGHT,
+                                         6.0f,
+                                         mesh);
+        if (!stepY.has_value()) {
+            LOG_DEBUG(
+                "NavMesh: missing traversable ground from ({:.1f}, {:.1f}, {:.1f}) to ({:.1f}, {:.1f}, {:.1f}) at sample ({:.1f}, {:.1f}, {:.1f})",
+                from.x, from.y, from.z,
+                to.x, to.y, to.z,
+                samplePos.x, samplePos.y, samplePos.z);
+            return false;
+        }
 
-        if (!groundY.has_value()) return false;
-
-        float stepY = groundY.value() + PROBE_CAP_HEIGHT;
-        if (std::abs(stepY - prevY) > MAX_STEP_HEIGHT) return false;
-        prevY = stepY;
+        float stepAnchorY = stepY.value();
+        if (std::abs(stepAnchorY - prevY) > MAX_STEP_HEIGHT) return false;
+        prevY = stepAnchorY;
     }
 
     // Check for thin walls / doors that block the horizontal path between the
@@ -195,6 +200,7 @@ bool NavMesh::CanTraverse(const glm::vec3& from, const glm::vec3& to,
         static constexpr float WALL_BLOCK_MIN_T = 0.05f;
         static constexpr float WALL_BLOCK_MAX_T = 0.95f;
         static constexpr float WALL_NORMAL_Y_LIMIT = 0.3f;
+        static constexpr float WALL_POINT_Y_TOLERANCE = 0.22f;
 
         Physics::Capsule wallCap;
         wallCap.radius = WALL_CHECK_RADIUS;
@@ -207,12 +213,47 @@ bool NavMesh::CanTraverse(const glm::vec3& from, const glm::vec3& to,
         if (wallHit.hit &&
             wallHit.t > WALL_BLOCK_MIN_T &&
             wallHit.t < WALL_BLOCK_MAX_T &&
-            std::abs(wallHit.normal.y) < WALL_NORMAL_Y_LIMIT) {
+            std::abs(wallHit.normal.y) < WALL_NORMAL_Y_LIMIT &&
+            std::abs(wallHit.point.y - wallCap.base.y) <= WALL_POINT_Y_TOLERANCE) {
             return false;
         }
     }
 
     return true;
+}
+
+std::optional<float> NavMesh::SampleGroundAnchorY(const glm::vec3& referencePos,
+                                                  float maxAcceptedAnchorY,
+                                                  float probeDistance,
+                                                  const Physics::CollisionMesh& mesh) const {
+    static constexpr float PROBE_BASE_OFFSETS[] = {0.15f, -0.15f, -0.45f, -0.75f};
+
+    Physics::Capsule probeCap;
+    probeCap.radius = PROBE_RADIUS;
+    probeCap.height = PROBE_CAP_HEIGHT - 2.0f * PROBE_RADIUS;
+    if (probeCap.height < 0.0f) probeCap.height = 0.0f;
+
+    std::optional<float> bestAnchorY;
+    for (float baseOffset : PROBE_BASE_OFFSETS) {
+        probeCap.base = glm::vec3(referencePos.x,
+                                  referencePos.y + baseOffset,
+                                  referencePos.z);
+        auto groundY = Physics::CapsuleCast::SweepVertical(probeCap, mesh, -probeDistance);
+        if (!groundY.has_value()) {
+            continue;
+        }
+
+        float anchorY = groundY.value() + PROBE_CAP_HEIGHT;
+        if (anchorY > maxAcceptedAnchorY) {
+            continue;
+        }
+
+        if (!bestAnchorY.has_value() || anchorY > *bestAnchorY) {
+            bestAnchorY = anchorY;
+        }
+    }
+
+    return bestAnchorY;
 }
 
 // ============================================================================
@@ -273,6 +314,9 @@ size_t NavMesh::FindNearestConnectedNode(const glm::vec3& pos,
     if (m_Nodes.empty()) return SIZE_MAX;
 
     static constexpr float PREFERRED_LAYER_Y_DIFF = 1.25f;
+    static constexpr float LOCAL_ANCHOR_PROBE_DISTANCE = 6.0f;
+    static constexpr float FALLBACK_LAYER_Y_DIFF = 1.75f;
+    static constexpr float LOCAL_ANCHOR_MAX_RISE = 0.25f;
 
     // Search a slightly wider local area than FindNearestNode and prefer nodes
     // that are directly traversable from the query position. This avoids
@@ -280,22 +324,38 @@ size_t NavMesh::FindNearestConnectedNode(const glm::vec3& pos,
     int gx = static_cast<int>((pos.x - m_MinX) / CELL_SIZE);
     int gz = static_cast<int>((pos.z - m_MinZ) / CELL_SIZE);
 
+    auto sampleLocalAnchor = [&](const glm::vec3& queryPos) -> std::optional<glm::vec3> {
+        auto anchorY = SampleGroundAnchorY(queryPos,
+                                           queryPos.y + LOCAL_ANCHOR_MAX_RISE,
+                                           LOCAL_ANCHOR_PROBE_DISTANCE,
+                                           mesh);
+        if (!anchorY.has_value()) {
+            return std::nullopt;
+        }
+
+        return glm::vec3(queryPos.x, anchorY.value(), queryPos.z);
+    };
+
+    const std::optional<glm::vec3> localAnchor = sampleLocalAnchor(pos);
+    const glm::vec3 referenceAnchor = localAnchor.value_or(pos);
+
     auto searchLocal = [&](bool preferSameLayer) -> size_t {
         size_t bestIdx = SIZE_MAX;
         float bestScore = std::numeric_limits<float>::max();
 
         auto considerNode = [&](size_t nodeIdx) {
             const glm::vec3& nodePos = m_Nodes[nodeIdx].position;
-            if (preferSameLayer && std::abs(pos.y - nodePos.y) > PREFERRED_LAYER_Y_DIFF) {
+            if (preferSameLayer &&
+                std::abs(referenceAnchor.y - nodePos.y) > PREFERRED_LAYER_Y_DIFF) {
                 return;
             }
 
-            glm::vec3 anchor(pos.x, nodePos.y, pos.z);
+            glm::vec3 anchor = referenceAnchor;
             if (!CanTraverse(anchor, nodePos, mesh)) {
                 return;
             }
 
-            float score = glm::distance(pos, nodePos);
+            float score = glm::distance(anchor, nodePos);
             if (score < bestScore) {
                 bestScore = score;
                 bestIdx = nodeIdx;
@@ -336,10 +396,30 @@ size_t NavMesh::FindNearestConnectedNode(const glm::vec3& pos,
         return bestIdx;
     }
 
-    // Final fallback: if the local connectivity-aware search fails, keep the
-    // original nearest-node behaviour so pathfinding never regresses to NONE
-    // solely because the query point is slightly off the mesh.
-    return FindNearestNode(pos);
+    // Final fallback: keep a nearest-node escape hatch for slightly off-mesh
+    // positions, but do not silently jump to a far-away vertical layer.
+    size_t fallbackIdx = FindNearestNode(referenceAnchor);
+    if (fallbackIdx == SIZE_MAX) {
+        return SIZE_MAX;
+    }
+
+    if (!localAnchor.has_value()) {
+        return fallbackIdx;
+    }
+
+    const glm::vec3& fallbackPos = m_Nodes[fallbackIdx].position;
+    const float fallbackYDiff = std::abs(referenceAnchor.y - fallbackPos.y);
+    if (fallbackYDiff > FALLBACK_LAYER_Y_DIFF ||
+        !CanTraverse(*localAnchor, fallbackPos, mesh)) {
+        LOG_DEBUG(
+            "NavMesh: rejecting disconnected fallback node for query ({:.1f}, {:.1f}, {:.1f}) -> node ({:.1f}, {:.1f}, {:.1f}), layer_dy={:.2f}",
+            pos.x, pos.y, pos.z,
+            fallbackPos.x, fallbackPos.y, fallbackPos.z,
+            fallbackYDiff);
+        return SIZE_MAX;
+    }
+
+    return fallbackIdx;
 }
 
 // ============================================================================
@@ -353,13 +433,31 @@ std::vector<glm::vec3> NavMesh::FindPath(const glm::vec3& start,
     size_t startIdx = FindNearestConnectedNode(start, mesh);
     size_t goalIdx = FindNearestConnectedNode(goal, mesh);
 
-    if (startIdx == SIZE_MAX || goalIdx == SIZE_MAX) return {};
+    if (startIdx == SIZE_MAX || goalIdx == SIZE_MAX) {
+        LOG_DEBUG(
+            "NavMesh: failed to resolve local nodes for path start ({:.1f}, {:.1f}, {:.1f}) -> goal ({:.1f}, {:.1f}, {:.1f}), start_idx={}, goal_idx={}",
+            start.x, start.y, start.z,
+            goal.x, goal.y, goal.z,
+            startIdx == SIZE_MAX ? -1 : static_cast<int>(startIdx),
+            goalIdx == SIZE_MAX ? -1 : static_cast<int>(goalIdx));
+        return {};
+    }
     if (startIdx == goalIdx) {
         return {m_Nodes[startIdx].position};
     }
 
     auto nodeIndices = PathFinder::Search(m_Nodes, startIdx, goalIdx);
-    if (nodeIndices.empty()) return {};
+    if (nodeIndices.empty()) {
+        LOG_DEBUG(
+            "NavMesh: graph search failed start_idx={} neighbors={} at ({:.1f}, {:.1f}, {:.1f}), goal_idx={} neighbors={} at ({:.1f}, {:.1f}, {:.1f})",
+            static_cast<int>(startIdx),
+            static_cast<int>(m_Nodes[startIdx].neighbors.size()),
+            m_Nodes[startIdx].position.x, m_Nodes[startIdx].position.y, m_Nodes[startIdx].position.z,
+            static_cast<int>(goalIdx),
+            static_cast<int>(m_Nodes[goalIdx].neighbors.size()),
+            m_Nodes[goalIdx].position.x, m_Nodes[goalIdx].position.y, m_Nodes[goalIdx].position.z);
+        return {};
+    }
 
     std::vector<glm::vec3> waypoints;
     waypoints.reserve(nodeIndices.size());

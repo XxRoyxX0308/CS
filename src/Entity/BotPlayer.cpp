@@ -73,6 +73,9 @@ void BotPlayer::ResetRuntimeState() {
     m_CurrentPath.clear();
     m_WaypointIndex = 0;
     m_PathTimer = 0.0f;
+    m_ChaseTarget = glm::vec3(0.0f);
+    m_ChaseTimer = 0.0f;
+    m_ChasePathRefreshTimer = 0.0f;
     m_WalkTarget = glm::vec3(0.0f);
     m_LastWalkTarget = glm::vec3(0.0f);
     m_Yaw = 0.0f;
@@ -81,9 +84,8 @@ void BotPlayer::ResetRuntimeState() {
     m_TargetPitch = 0.0f;
     m_CanSeePlayer = false;
     m_IsWalking = false;
-    m_IsEngagingPlayer = false;
+    m_BehaviorState = BehaviorState::PATROLLING;
     m_FiredShotThisFrame = false;
-    m_EngagementGraceTimer = 0.0f;
     m_HasLastWalkTarget = false;
     m_NeedsNewTarget = true;
 }
@@ -152,50 +154,86 @@ void BotPlayer::Update(float dt,
     if (!IsAlive() || !m_ModelInitialized) return;
 
     m_FiredShotThisFrame = false;
-    const bool canAcquirePlayer = CanSeePlayer(playerPos, collisionMesh);
-    const bool hasLineOfSight = HasLineOfSightToPlayer(playerPos, collisionMesh);
+    if (m_DebugFollowPlayerNoAttack) {
+        m_BehaviorState = BehaviorState::CHASING;
+        m_CanSeePlayer = false;
+        m_ChaseTarget = playerPos;
+        m_ChaseTimer = CHASE_DURATION;
+        m_ChasePathRefreshTimer -= dt;
 
-    if (canAcquirePlayer) {
-        m_EngagementGraceTimer = ENGAGEMENT_GRACE_TIME;
+        if (m_CurrentPath.empty() || m_WaypointIndex >= m_CurrentPath.size()) {
+            m_ChasePathRefreshTimer = 0.0f;
+        }
+
+        if (m_ChasePathRefreshTimer <= 0.0f) {
+            RecalculatePath(navMesh, collisionMesh, m_ChaseTarget);
+            m_ChasePathRefreshTimer = DEBUG_FOLLOW_PATH_RECALC_INTERVAL;
+        }
+
+        FollowPath(dt, collisionMesh);
     } else {
-        m_EngagementGraceTimer = std::max(0.0f, m_EngagementGraceTimer - dt);
-    }
+        const bool canSeePlayer = CanSeePlayer(playerPos, collisionMesh);
 
-    if (m_IsEngagingPlayer) {
-        m_IsEngagingPlayer = hasLineOfSight || (m_EngagementGraceTimer > 0.0f);
-    } else {
-        m_IsEngagingPlayer = canAcquirePlayer;
-    }
+        if (canSeePlayer) {
+            m_BehaviorState = BehaviorState::ATTACKING;
+            m_CanSeePlayer = true;
+            m_ChaseTarget = playerPos;
+            m_ChaseTimer = CHASE_DURATION;
+            m_ChasePathRefreshTimer = 0.0f;
+            m_IsWalking = false;
+        } else if ((m_BehaviorState == BehaviorState::ATTACKING ||
+                    m_BehaviorState == BehaviorState::CHASING) &&
+                   m_ChaseTimer > 0.0f) {
+            m_ChaseTimer = std::max(0.0f, m_ChaseTimer - dt);
+            m_CanSeePlayer = false;
 
-    m_CanSeePlayer = hasLineOfSight && m_IsEngagingPlayer;
+            if (m_ChaseTimer > 0.0f) {
+                m_BehaviorState = BehaviorState::CHASING;
+                m_ChasePathRefreshTimer -= dt;
 
-    if (!m_IsEngagingPlayer) {
-        // Assign a new random walk target if needed
-        if (m_NeedsNewTarget) {
-            AssignRandomWalkTarget(navMesh, collisionMesh);
-            if (!m_NeedsNewTarget) { // target was assigned
+                if (m_ChasePathRefreshTimer <= 0.0f) {
+                    m_ChaseTarget = playerPos;
+                    RecalculatePath(navMesh, collisionMesh, m_ChaseTarget);
+                    m_ChasePathRefreshTimer = CHASE_PATH_RECALC_INTERVAL;
+                }
+
+                FollowPath(dt, collisionMesh);
+            } else {
+                m_BehaviorState = BehaviorState::PATROLLING;
+                m_CurrentPath.clear();
+                m_WaypointIndex = 0;
+                m_PathTimer = 0.0f;
+                m_IsWalking = false;
+                m_NeedsNewTarget = true;
+            }
+        } else {
+            m_BehaviorState = BehaviorState::PATROLLING;
+            m_CanSeePlayer = false;
+
+            // Assign a new random walk target if needed
+            if (m_NeedsNewTarget) {
+                AssignRandomWalkTarget(navMesh, collisionMesh);
+                if (!m_NeedsNewTarget) { // target was assigned
+                    RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
+                    m_PathTimer = PATH_RECALC_INTERVAL;
+                }
+            }
+
+            // Periodically re-run A* toward the same walk target (handles dynamic obstacles)
+            m_PathTimer -= dt;
+            if (m_PathTimer <= 0.0f) {
                 RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
                 m_PathTimer = PATH_RECALC_INTERVAL;
             }
-        }
 
-        // Periodically re-run A* toward the same walk target (handles dynamic obstacles)
-        m_PathTimer -= dt;
-        if (m_PathTimer <= 0.0f) {
-            RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
-            m_PathTimer = PATH_RECALC_INTERVAL;
-        }
+            // Move along path
+            FollowPath(dt, collisionMesh);
 
-        // Move along path
-        FollowPath(dt, collisionMesh);
-
-        // When the bot reaches its target, request a new one
-        if (!m_IsWalking && !m_NeedsNewTarget) {
-            m_NeedsNewTarget = true;
+            // When the bot reaches its target, request a new one
+            if (!m_IsWalking && !m_NeedsNewTarget) {
+                m_NeedsNewTarget = true;
+            }
         }
-    } else {
-        // Stop movement while engaging so the player remains inside the cone.
-        m_IsWalking = false;
     }
 
     // Physics (gravity + ground detection)
@@ -239,6 +277,25 @@ bool BotPlayer::ConsumeShotThisFrame() {
     bool fired = m_FiredShotThisFrame;
     m_FiredShotThisFrame = false;
     return fired;
+}
+
+void BotPlayer::SetDebugFollowPlayerNoAttack(bool enabled) {
+    m_DebugFollowPlayerNoAttack = enabled;
+    m_CanSeePlayer = false;
+    m_CurrentPath.clear();
+    m_WaypointIndex = 0;
+    m_IsWalking = false;
+    m_ChasePathRefreshTimer = 0.0f;
+
+    if (enabled) {
+        m_BehaviorState = BehaviorState::CHASING;
+        m_ChaseTimer = CHASE_DURATION;
+        return;
+    }
+
+    m_BehaviorState = BehaviorState::PATROLLING;
+    m_ChaseTimer = 0.0f;
+    m_NeedsNewTarget = true;
 }
 
 // ============================================================================
@@ -473,7 +530,7 @@ void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
     m_IsWalking = true;
 
     // Set target yaw based on movement direction (for default view)
-    if (!m_IsEngagingPlayer) {
+    if (m_BehaviorState != BehaviorState::ATTACKING) {
         m_TargetYaw = glm::degrees(std::atan2(dir.x, -dir.z));
     }
 }
@@ -484,7 +541,7 @@ void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
 void BotPlayer::UpdateView(float dt,
                            const glm::vec3& playerPos,
                            const Physics::CollisionMesh& /*mesh*/) {
-    if (m_IsEngagingPlayer) {
+    if (m_BehaviorState == BehaviorState::ATTACKING) {
         glm::vec3 eyePos = GetEyePosition();
         glm::vec3 toPlayer = playerPos - eyePos;
         float horizDist = glm::length(glm::vec2(toPlayer.x, toPlayer.z));

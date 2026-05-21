@@ -44,6 +44,7 @@ struct UICallbacks {
     std::function<void()> onRemoveBotCT;
     std::function<void()> onAddBotT;
     std::function<void()> onRemoveBotT;
+    std::function<void(bool enabled)> onSetBotsFollowPlayerNoAttack;
 };
 
 /**
@@ -132,6 +133,7 @@ private:
     UICallbacks m_Callbacks;
     bool m_ShowDebugPanel = false;
     bool m_ShowBuyMenu = false;
+    bool m_DebugBotsFollowPlayer = false;
     int m_CTBotCount = 0;
     int m_TBotCount = 0;
 };
