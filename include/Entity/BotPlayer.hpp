@@ -134,7 +134,8 @@ private:
     glm::vec3 GetActiveNavigationTarget() const;
     void ResetPathProgressTracking(const glm::vec3& position);
     bool ShouldRefreshPathTo(const glm::vec3& targetPos,
-                             float moveThreshold) const;
+                             float moveThreshold,
+                             float currentPathGoalSlack) const;
 
     void UpdateView(float dt,
                     const glm::vec3& playerPos,
@@ -191,6 +192,7 @@ private:
     glm::vec2 m_LastProgressPositionXZ{};
     float m_BestWaypointDistance = 0.0f;
     float m_StuckTimer = 0.0f;
+    float m_StuckRepathCooldownTimer = 0.0f;
     float m_VisibilityCheckTimer = 0.0f;
     size_t m_TrackedWaypointIndex = 0;
     bool m_HasLastPathGoal = false;
@@ -222,11 +224,18 @@ private:
     static constexpr float WAYPOINT_MAX_THRESHOLD = 0.75f;
     static constexpr float WAYPOINT_PASS_DISTANCE = 0.15f;
     static constexpr float PATH_RECALC_INTERVAL = 10.0f;
+    static constexpr float PATROL_TARGET_RETRY_INTERVAL = 0.9f;
     static constexpr float CHASE_DURATION = 6.0f;
     static constexpr float CHASE_PATH_RECALC_INTERVAL = 2.0f;
     static constexpr float DEBUG_FOLLOW_PATH_RECALC_INTERVAL = 0.5f;
     static constexpr float PATH_TARGET_RECALC_DISTANCE = 1.25f;
+    static constexpr float CHASE_PATH_GOAL_SLACK_DISTANCE = 1.75f;
+    static constexpr float DEBUG_FOLLOW_PATH_GOAL_SLACK_DISTANCE = 2.5f;
+    static constexpr float PATH_REFRESH_INTERVAL_JITTER_FRACTION = 0.35f;
+    static constexpr float PATROL_TARGET_RETRY_JITTER_FRACTION = 0.35f;
     static constexpr float VISIBILITY_CACHE_INTERVAL = 0.12f;
+    static constexpr float VISIBILITY_CACHE_MISS_INTERVAL_SCALE = 1.75f;
+    static constexpr float VISIBILITY_CACHE_JITTER_FRACTION = 0.4f;
     static constexpr float VISIBILITY_CACHE_MOVE_DISTANCE = 0.35f;
     static constexpr float VIEW_LERP_SPEED = 5.0f;
     static constexpr float EYE_HEIGHT_OFFSET = -0.1f;
@@ -238,6 +247,10 @@ private:
     static constexpr float WALL_AVOID_MIN_SCALE = 0.45f;
     static constexpr float WALL_AVOID_MAX_SCALE = 1.4f;
     static constexpr float WALL_FORWARD_ESCAPE_SCALE = 0.6f;
+    static constexpr float STUCK_MIN_PROGRESS_MOVE_RATIO = 0.35f;
+    static constexpr float STUCK_REPATH_DELAY_JITTER_FRACTION = 0.35f;
+    static constexpr float STUCK_REPATH_COOLDOWN = 1.25f;
+    static constexpr float STUCK_REPATH_COOLDOWN_JITTER_FRACTION = 0.3f;
     static constexpr float STUCK_PROGRESS_EPSILON = 0.05f;
     static constexpr float STUCK_REPATH_DELAY = 0.75f;
     static constexpr glm::vec3 GUN_OFFSET{0.4f, -0.45f, -0.2f};
