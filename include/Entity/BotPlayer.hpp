@@ -127,14 +127,21 @@ private:
                          const Physics::CollisionMesh& collisionMesh,
                          const glm::vec3& targetPos);
 
-    void FollowPath(float dt, const Physics::CollisionMesh& mesh);
+    void FollowPath(float dt,
+                    const Physics::CollisionMesh& mesh,
+                    const Navigation::NavMesh& navMesh);
+
+    glm::vec3 GetActiveNavigationTarget() const;
+    void ResetPathProgressTracking(const glm::vec3& position);
+    bool ShouldRefreshPathTo(const glm::vec3& targetPos,
+                             float moveThreshold) const;
 
     void UpdateView(float dt,
                     const glm::vec3& playerPos,
                     const Physics::CollisionMesh& mesh);
 
     bool CanSeePlayer(const glm::vec3& playerPos,
-                      const Physics::CollisionMesh& mesh) const;
+                      const Physics::CollisionMesh& mesh);
 
     bool HasLineOfSightToPlayer(const glm::vec3& playerPos,
                                 const Physics::CollisionMesh& mesh) const;
@@ -179,6 +186,16 @@ private:
     glm::vec3 m_ChaseTarget{};
     float m_ChaseTimer = 0.0f;
     float m_ChasePathRefreshTimer = 0.0f;
+    glm::vec3 m_LastPathGoal{};
+    glm::vec3 m_LastVisibilityCheckTarget{};
+    glm::vec2 m_LastProgressPositionXZ{};
+    float m_BestWaypointDistance = 0.0f;
+    float m_StuckTimer = 0.0f;
+    float m_VisibilityCheckTimer = 0.0f;
+    size_t m_TrackedWaypointIndex = 0;
+    bool m_HasLastPathGoal = false;
+    bool m_HasVisibilityCheck = false;
+    bool m_CachedCanSeePlayer = false;
     bool m_DebugFollowPlayerNoAttack = false;
 
     // ── Model ──
@@ -199,14 +216,30 @@ private:
 
     // ── Constants ──
     static constexpr float BOT_SPEED = 3.5f;
-    static constexpr float WAYPOINT_THRESHOLD = 1.0f;
+    static constexpr float WAYPOINT_THRESHOLD = 0.35f;
+    static constexpr float WAYPOINT_RADIUS_SCALE = 0.8f;
+    static constexpr float WAYPOINT_LOOKAHEAD_BONUS = 0.15f;
+    static constexpr float WAYPOINT_MAX_THRESHOLD = 0.75f;
+    static constexpr float WAYPOINT_PASS_DISTANCE = 0.15f;
     static constexpr float PATH_RECALC_INTERVAL = 10.0f;
     static constexpr float CHASE_DURATION = 6.0f;
     static constexpr float CHASE_PATH_RECALC_INTERVAL = 2.0f;
     static constexpr float DEBUG_FOLLOW_PATH_RECALC_INTERVAL = 0.5f;
+    static constexpr float PATH_TARGET_RECALC_DISTANCE = 1.25f;
+    static constexpr float VISIBILITY_CACHE_INTERVAL = 0.12f;
+    static constexpr float VISIBILITY_CACHE_MOVE_DISTANCE = 0.35f;
     static constexpr float VIEW_LERP_SPEED = 5.0f;
     static constexpr float EYE_HEIGHT_OFFSET = -0.1f;
     static constexpr float FIRE_FOV_HALF_ANGLE = 60.0f;
+    static constexpr float TURN_LOOKAHEAD_DISTANCE = 1.75f;
+    static constexpr float TURN_LOOKAHEAD_WEIGHT = 0.45f;
+    static constexpr float WALL_PROBE_DIST = 0.55f;
+    static constexpr float FORWARD_PROBE_DIST = 0.65f;
+    static constexpr float WALL_AVOID_MIN_SCALE = 0.45f;
+    static constexpr float WALL_AVOID_MAX_SCALE = 1.4f;
+    static constexpr float WALL_FORWARD_ESCAPE_SCALE = 0.6f;
+    static constexpr float STUCK_PROGRESS_EPSILON = 0.05f;
+    static constexpr float STUCK_REPATH_DELAY = 0.75f;
     static constexpr glm::vec3 GUN_OFFSET{0.4f, -0.45f, -0.2f};
 };
 

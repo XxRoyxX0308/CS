@@ -93,15 +93,32 @@ private:
                      const Physics::CollisionMesh& mesh) const;
 
    /**
+    * @brief Project a world position onto a nearby walkable local anchor.
+    *
+    * Keeps the original XZ query while sampling a compatible traversal Y,
+    * which helps preserve thin-door and tight-corner intent at path ends.
+    */
+   std::optional<glm::vec3> SampleLocalAnchor(const glm::vec3& referencePos,
+                                    float maxRise,
+                                    float probeDistance,
+                                    const Physics::CollisionMesh& mesh) const;
+
+   /**
+    * @brief Greedily collapse raw node waypoints using existing traversal tests.
+    */
+   std::vector<glm::vec3> SmoothPath(const std::vector<glm::vec3>& rawWaypoints,
+                             const Physics::CollisionMesh& mesh) const;
+
+   /**
     * @brief Sample a walkable anchor Y below a reference point.
     *
     * Retries the downward probe from a few lower start heights so low roofs
     * or overhangs do not get mistaken for the floor.
     */
    std::optional<float> SampleGroundAnchorY(const glm::vec3& referencePos,
-                                  float maxAcceptedAnchorY,
-                                  float probeDistance,
-                                  const Physics::CollisionMesh& mesh) const;
+                                            float maxAcceptedAnchorY,
+                                            float probeDistance,
+                                            const Physics::CollisionMesh& mesh) const;
 
     std::vector<NavNode> m_Nodes;
     bool m_Built = false;

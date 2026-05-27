@@ -36,7 +36,7 @@ public:
      * @param direction Ray direction (normalized).
      * @param maxDist Maximum distance to check.
      * @param remotePlayers Map of remote players.
-     * @return Hit result.
+     * @return Hit result based on character collision capsules.
      */
     PlayerHitResult CheckPlayerHit(
         const glm::vec3& origin,
@@ -50,7 +50,7 @@ public:
      * @param direction Ray direction (normalized).
      * @param maxDist Maximum distance to check.
      * @param player Local player.
-     * @return Hit result.
+     * @return Hit result based on the player collision capsule.
      */
     PlayerHitResult CheckLocalPlayerHit(
         const glm::vec3& origin,

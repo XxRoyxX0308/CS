@@ -7,6 +7,26 @@
 
 namespace Navigation {
 
+namespace {
+
+constexpr float kLocalAnchorProbeDistance = 6.0f;
+constexpr float kLocalAnchorMaxRise = 0.25f;
+constexpr float kDuplicateWaypointDistance = 0.05f;
+constexpr float kMaxSmoothLookaheadDistance = 12.0f;
+constexpr size_t kMaxSmoothLookaheadNodes = 10;
+
+void AppendDistinctWaypoint(std::vector<glm::vec3>& waypoints,
+                            const glm::vec3& waypoint) {
+    if (!waypoints.empty() &&
+        glm::distance(waypoints.back(), waypoint) <= kDuplicateWaypointDistance) {
+        return;
+    }
+
+    waypoints.push_back(waypoint);
+}
+
+} // namespace
+
 // ============================================================================
 //  Build - Sample walkable nodes and connect the graph
 // ============================================================================
@@ -314,9 +334,7 @@ size_t NavMesh::FindNearestConnectedNode(const glm::vec3& pos,
     if (m_Nodes.empty()) return SIZE_MAX;
 
     static constexpr float PREFERRED_LAYER_Y_DIFF = 1.25f;
-    static constexpr float LOCAL_ANCHOR_PROBE_DISTANCE = 6.0f;
     static constexpr float FALLBACK_LAYER_Y_DIFF = 1.75f;
-    static constexpr float LOCAL_ANCHOR_MAX_RISE = 0.25f;
 
     // Search a slightly wider local area than FindNearestNode and prefer nodes
     // that are directly traversable from the query position. This avoids
@@ -324,19 +342,8 @@ size_t NavMesh::FindNearestConnectedNode(const glm::vec3& pos,
     int gx = static_cast<int>((pos.x - m_MinX) / CELL_SIZE);
     int gz = static_cast<int>((pos.z - m_MinZ) / CELL_SIZE);
 
-    auto sampleLocalAnchor = [&](const glm::vec3& queryPos) -> std::optional<glm::vec3> {
-        auto anchorY = SampleGroundAnchorY(queryPos,
-                                           queryPos.y + LOCAL_ANCHOR_MAX_RISE,
-                                           LOCAL_ANCHOR_PROBE_DISTANCE,
-                                           mesh);
-        if (!anchorY.has_value()) {
-            return std::nullopt;
-        }
-
-        return glm::vec3(queryPos.x, anchorY.value(), queryPos.z);
-    };
-
-    const std::optional<glm::vec3> localAnchor = sampleLocalAnchor(pos);
+    const std::optional<glm::vec3> localAnchor = SampleLocalAnchor(
+        pos, kLocalAnchorMaxRise, kLocalAnchorProbeDistance, mesh);
     const glm::vec3 referenceAnchor = localAnchor.value_or(pos);
 
     auto searchLocal = [&](bool preferSameLayer) -> size_t {
@@ -422,6 +429,62 @@ size_t NavMesh::FindNearestConnectedNode(const glm::vec3& pos,
     return fallbackIdx;
 }
 
+std::optional<glm::vec3> NavMesh::SampleLocalAnchor(
+    const glm::vec3& referencePos,
+    float maxRise,
+    float probeDistance,
+    const Physics::CollisionMesh& mesh) const {
+    auto anchorY = SampleGroundAnchorY(referencePos,
+                                       referencePos.y + maxRise,
+                                       probeDistance,
+                                       mesh);
+    if (!anchorY.has_value()) {
+        return std::nullopt;
+    }
+
+    return glm::vec3(referencePos.x, anchorY.value(), referencePos.z);
+}
+
+std::vector<glm::vec3> NavMesh::SmoothPath(
+    const std::vector<glm::vec3>& rawWaypoints,
+    const Physics::CollisionMesh& mesh) const {
+    if (rawWaypoints.size() <= 2) {
+        return rawWaypoints;
+    }
+
+    std::vector<glm::vec3> waypoints;
+    waypoints.reserve(rawWaypoints.size());
+    AppendDistinctWaypoint(waypoints, rawWaypoints.front());
+
+    size_t anchorIndex = 0;
+    while (anchorIndex + 1 < rawWaypoints.size()) {
+        size_t bestReachableIndex = anchorIndex + 1;
+        size_t candidateIndex = anchorIndex + 2;
+        while (candidateIndex < rawWaypoints.size()) {
+            if (candidateIndex - anchorIndex > kMaxSmoothLookaheadNodes) {
+                break;
+            }
+
+            if (glm::distance(rawWaypoints[anchorIndex], rawWaypoints[candidateIndex]) >
+                kMaxSmoothLookaheadDistance) {
+                break;
+            }
+
+            if (!CanTraverse(rawWaypoints[anchorIndex], rawWaypoints[candidateIndex], mesh)) {
+                break;
+            }
+
+            bestReachableIndex = candidateIndex;
+            ++candidateIndex;
+        }
+
+        AppendDistinctWaypoint(waypoints, rawWaypoints[bestReachableIndex]);
+        anchorIndex = bestReachableIndex;
+    }
+
+    return waypoints;
+}
+
 // ============================================================================
 //  FindPath - Convert an A* node path into world-space waypoints
 // ============================================================================
@@ -442,9 +505,6 @@ std::vector<glm::vec3> NavMesh::FindPath(const glm::vec3& start,
             goalIdx == SIZE_MAX ? -1 : static_cast<int>(goalIdx));
         return {};
     }
-    if (startIdx == goalIdx) {
-        return {m_Nodes[startIdx].position};
-    }
 
     auto nodeIndices = PathFinder::Search(m_Nodes, startIdx, goalIdx);
     if (nodeIndices.empty()) {
@@ -459,10 +519,26 @@ std::vector<glm::vec3> NavMesh::FindPath(const glm::vec3& start,
         return {};
     }
 
-    std::vector<glm::vec3> waypoints;
-    waypoints.reserve(nodeIndices.size());
+    const glm::vec3 startAnchor = SampleLocalAnchor(
+        start, kLocalAnchorMaxRise, kLocalAnchorProbeDistance, mesh).value_or(m_Nodes[startIdx].position);
+    const glm::vec3 goalAnchor = SampleLocalAnchor(
+        goal, kLocalAnchorMaxRise, kLocalAnchorProbeDistance, mesh).value_or(m_Nodes[goalIdx].position);
+
+    std::vector<glm::vec3> rawWaypoints;
+    rawWaypoints.reserve(nodeIndices.size() + 2);
+    AppendDistinctWaypoint(rawWaypoints, startAnchor);
     for (size_t idx : nodeIndices) {
-        waypoints.push_back(m_Nodes[idx].position);
+        AppendDistinctWaypoint(rawWaypoints, m_Nodes[idx].position);
+    }
+    AppendDistinctWaypoint(rawWaypoints, goalAnchor);
+
+    std::vector<glm::vec3> waypoints = SmoothPath(rawWaypoints, mesh);
+    if (waypoints.size() != rawWaypoints.size()) {
+        LOG_DEBUG(
+            "NavMesh: smoothed path from {} raw waypoints to {} between ({:.1f}, {:.1f}, {:.1f}) and ({:.1f}, {:.1f}, {:.1f})",
+            rawWaypoints.size(), waypoints.size(),
+            start.x, start.y, start.z,
+            goal.x, goal.y, goal.z);
     }
 
     return waypoints;

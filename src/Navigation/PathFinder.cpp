@@ -1,7 +1,6 @@
 #include "Navigation/PathFinder.hpp"
 
 #include <queue>
-#include <unordered_map>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -37,8 +36,10 @@ std::vector<size_t> PathFinder::Search(const std::vector<NavNode>& nodes,
 
     std::priority_queue<OpenEntry, std::vector<OpenEntry>, std::greater<OpenEntry>> openSet;
 
-    std::unordered_map<size_t, float> gScore;
-    std::unordered_map<size_t, size_t> cameFrom;
+    const size_t nodeCount = nodes.size();
+    std::vector<float> gScore(nodeCount, std::numeric_limits<float>::infinity());
+    std::vector<size_t> cameFrom(nodeCount, SIZE_MAX);
+    std::vector<bool> closed(nodeCount, false);
 
     gScore[startIdx] = 0.0f;
     openSet.push({Heuristic(nodes[startIdx].position, nodes[goalIdx].position), startIdx});
@@ -47,6 +48,10 @@ std::vector<size_t> PathFinder::Search(const std::vector<NavNode>& nodes,
         OpenEntry current = openSet.top();
         openSet.pop();
 
+        if (closed[current.nodeIdx]) {
+            continue;
+        }
+
         if (current.nodeIdx == goalIdx) {
             // Reconstruct path
             std::vector<size_t> path;
@@ -54,6 +59,9 @@ std::vector<size_t> PathFinder::Search(const std::vector<NavNode>& nodes,
             while (node != startIdx) {
                 path.push_back(node);
                 node = cameFrom[node];
+                if (node == SIZE_MAX) {
+                    return {};
+                }
             }
             path.push_back(startIdx);
             std::reverse(path.begin(), path.end());
@@ -69,18 +77,23 @@ std::vector<size_t> PathFinder::Search(const std::vector<NavNode>& nodes,
             continue;
         }
 
+        closed[current.nodeIdx] = true;
+
         const NavNode& currentNode = nodes[current.nodeIdx];
         for (size_t i = 0; i < currentNode.neighbors.size(); ++i) {
             size_t neighborIdx = currentNode.neighbors[i];
+            if (closed[neighborIdx]) {
+                continue;
+            }
+
             float edgeCost = currentNode.neighborDistances[i];
             float tentativeG = currentG + edgeCost;
 
-            auto it = gScore.find(neighborIdx);
-            if (it == gScore.end() || tentativeG < it->second) {
+            if (tentativeG < gScore[neighborIdx]) {
                 gScore[neighborIdx] = tentativeG;
                 cameFrom[neighborIdx] = current.nodeIdx;
                 float f = tentativeG + Heuristic(nodes[neighborIdx].position,
-                                                  nodes[goalIdx].position);
+                                                 nodes[goalIdx].position);
                 openSet.push({f, neighborIdx});
             }
         }

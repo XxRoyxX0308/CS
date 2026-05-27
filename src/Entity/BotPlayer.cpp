@@ -9,6 +9,7 @@
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 #include <algorithm>
+#include <limits>
 #include <random>
 
 namespace Entity {
@@ -76,6 +77,8 @@ void BotPlayer::ResetRuntimeState() {
     m_ChaseTarget = glm::vec3(0.0f);
     m_ChaseTimer = 0.0f;
     m_ChasePathRefreshTimer = 0.0f;
+    m_LastPathGoal = glm::vec3(0.0f);
+    m_LastVisibilityCheckTarget = glm::vec3(0.0f);
     m_WalkTarget = glm::vec3(0.0f);
     m_LastWalkTarget = glm::vec3(0.0f);
     m_Yaw = 0.0f;
@@ -87,7 +90,46 @@ void BotPlayer::ResetRuntimeState() {
     m_BehaviorState = BehaviorState::PATROLLING;
     m_FiredShotThisFrame = false;
     m_HasLastWalkTarget = false;
+    m_HasLastPathGoal = false;
+    m_HasVisibilityCheck = false;
+    m_CachedCanSeePlayer = false;
+    m_VisibilityCheckTimer = 0.0f;
     m_NeedsNewTarget = true;
+    ResetPathProgressTracking(GetPosition());
+}
+
+void BotPlayer::ResetPathProgressTracking(const glm::vec3& position) {
+    m_LastProgressPositionXZ = glm::vec2(position.x, position.z);
+    m_BestWaypointDistance = std::numeric_limits<float>::max();
+    m_StuckTimer = 0.0f;
+    m_TrackedWaypointIndex = m_WaypointIndex;
+}
+
+glm::vec3 BotPlayer::GetActiveNavigationTarget() const {
+    if (m_BehaviorState == BehaviorState::PATROLLING) {
+        if (m_WalkTarget != glm::vec3(0.0f)) {
+            return m_WalkTarget;
+        }
+    } else if (m_ChaseTarget != glm::vec3(0.0f)) {
+        return m_ChaseTarget;
+    }
+
+    if (!m_CurrentPath.empty()) {
+        return m_CurrentPath.back();
+    }
+
+    return GetPosition();
+}
+
+bool BotPlayer::ShouldRefreshPathTo(const glm::vec3& targetPos,
+                                    float moveThreshold) const {
+    if (!m_HasLastPathGoal || m_CurrentPath.empty() || m_WaypointIndex >= m_CurrentPath.size()) {
+        return true;
+    }
+
+    const glm::vec2 targetXZ(targetPos.x, targetPos.z);
+    const glm::vec2 lastGoalXZ(m_LastPathGoal.x, m_LastPathGoal.z);
+    return glm::distance(targetXZ, lastGoalXZ) >= moveThreshold;
 }
 
 // ============================================================================
@@ -154,6 +196,8 @@ void BotPlayer::Update(float dt,
     if (!IsAlive() || !m_ModelInitialized) return;
 
     m_FiredShotThisFrame = false;
+    m_VisibilityCheckTimer = std::max(0.0f, m_VisibilityCheckTimer - dt);
+
     if (m_DebugFollowPlayerNoAttack) {
         m_BehaviorState = BehaviorState::CHASING;
         m_CanSeePlayer = false;
@@ -161,16 +205,21 @@ void BotPlayer::Update(float dt,
         m_ChaseTimer = CHASE_DURATION;
         m_ChasePathRefreshTimer -= dt;
 
-        if (m_CurrentPath.empty() || m_WaypointIndex >= m_CurrentPath.size()) {
+        const bool needsPath = m_CurrentPath.empty() || m_WaypointIndex >= m_CurrentPath.size();
+        if (needsPath) {
             m_ChasePathRefreshTimer = 0.0f;
         }
 
-        if (m_ChasePathRefreshTimer <= 0.0f) {
+        if (m_ChasePathRefreshTimer <= 0.0f &&
+            (needsPath || ShouldRefreshPathTo(m_ChaseTarget, PATH_TARGET_RECALC_DISTANCE))) {
             RecalculatePath(navMesh, collisionMesh, m_ChaseTarget);
+        }
+
+        if (m_ChasePathRefreshTimer <= 0.0f) {
             m_ChasePathRefreshTimer = DEBUG_FOLLOW_PATH_RECALC_INTERVAL;
         }
 
-        FollowPath(dt, collisionMesh);
+        FollowPath(dt, collisionMesh, navMesh);
     } else {
         const bool canSeePlayer = CanSeePlayer(playerPos, collisionMesh);
 
@@ -191,13 +240,17 @@ void BotPlayer::Update(float dt,
                 m_BehaviorState = BehaviorState::CHASING;
                 m_ChasePathRefreshTimer -= dt;
 
-                if (m_ChasePathRefreshTimer <= 0.0f) {
+                if (m_ChasePathRefreshTimer <= 0.0f &&
+                    ShouldRefreshPathTo(playerPos, PATH_TARGET_RECALC_DISTANCE)) {
                     m_ChaseTarget = playerPos;
                     RecalculatePath(navMesh, collisionMesh, m_ChaseTarget);
+                }
+
+                if (m_ChasePathRefreshTimer <= 0.0f) {
                     m_ChasePathRefreshTimer = CHASE_PATH_RECALC_INTERVAL;
                 }
 
-                FollowPath(dt, collisionMesh);
+                FollowPath(dt, collisionMesh, navMesh);
             } else {
                 m_BehaviorState = BehaviorState::PATROLLING;
                 m_CurrentPath.clear();
@@ -215,19 +268,11 @@ void BotPlayer::Update(float dt,
                 AssignRandomWalkTarget(navMesh, collisionMesh);
                 if (!m_NeedsNewTarget) { // target was assigned
                     RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
-                    m_PathTimer = PATH_RECALC_INTERVAL;
                 }
             }
 
-            // Periodically re-run A* toward the same walk target (handles dynamic obstacles)
-            m_PathTimer -= dt;
-            if (m_PathTimer <= 0.0f) {
-                RecalculatePath(navMesh, collisionMesh, m_WalkTarget);
-                m_PathTimer = PATH_RECALC_INTERVAL;
-            }
-
             // Move along path
-            FollowPath(dt, collisionMesh);
+            FollowPath(dt, collisionMesh, navMesh);
 
             // When the bot reaches its target, request a new one
             if (!m_IsWalking && !m_NeedsNewTarget) {
@@ -268,24 +313,17 @@ void BotPlayer::Respawn(const glm::vec3& spawnPosition) {
 }
 
 glm::vec3 BotPlayer::GetEyePosition() const {
-    glm::vec3 eyePos = GetPosition();
-    eyePos.y += EYE_HEIGHT_OFFSET;
-    return eyePos;
+    return GetPosition() + glm::vec3(0.0f, m_CameraYOffset, 0.0f);
 }
 
 bool BotPlayer::ConsumeShotThisFrame() {
-    bool fired = m_FiredShotThisFrame;
+    const bool fired = m_FiredShotThisFrame;
     m_FiredShotThisFrame = false;
     return fired;
 }
 
 void BotPlayer::SetDebugFollowPlayerNoAttack(bool enabled) {
     m_DebugFollowPlayerNoAttack = enabled;
-    m_CanSeePlayer = false;
-    m_CurrentPath.clear();
-    m_WaypointIndex = 0;
-    m_IsWalking = false;
-    m_ChasePathRefreshTimer = 0.0f;
 
     if (enabled) {
         m_BehaviorState = BehaviorState::CHASING;
@@ -414,6 +452,9 @@ void BotPlayer::RecalculatePath(const Navigation::NavMesh& navMesh,
                                 const glm::vec3& targetPos) {
     m_CurrentPath = navMesh.FindPath(GetPosition(), targetPos, collisionMesh);
     m_WaypointIndex = 0;
+    m_LastPathGoal = targetPos;
+    m_HasLastPathGoal = true;
+    ResetPathProgressTracking(GetPosition());
 
     if (m_CurrentPath.empty()) {
         LOG_WARN("Bot '{}': failed to build path to target ({:.1f}, {:.1f}, {:.1f}) from ({:.1f}, {:.1f}, {:.1f})",
@@ -430,6 +471,7 @@ void BotPlayer::RecalculatePath(const Navigation::NavMesh& navMesh,
             glm::vec2(m_CurrentPath[0].x, m_CurrentPath[0].z));
         if (distToFirst < WAYPOINT_THRESHOLD) {
             m_WaypointIndex = 1;
+            ResetPathProgressTracking(GetPosition());
         }
     }
 }
@@ -470,29 +512,59 @@ void BotPlayer::SyncAimCamera() {
 // ============================================================================
 //  FollowPath - Move toward the current waypoint with wall avoidance
 // ============================================================================
-void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
+void BotPlayer::FollowPath(float dt,
+                           const Physics::CollisionMesh& mesh,
+                           const Navigation::NavMesh& navMesh) {
     if (m_CurrentPath.empty() || m_WaypointIndex >= m_CurrentPath.size()) {
         m_IsWalking = false;
         return;
     }
 
-    const glm::vec3& target = m_CurrentPath[m_WaypointIndex];
     glm::vec3 myPos = GetPosition();
 
-    // XZ distance to current waypoint
-    glm::vec2 toTarget(target.x - myPos.x, target.z - myPos.z);
-    float distXZ = glm::length(toTarget);
+    auto shouldAdvanceWaypoint = [&](size_t waypointIndex) {
+        const glm::vec3& waypoint = m_CurrentPath[waypointIndex];
+        glm::vec2 toWaypoint(waypoint.x - myPos.x, waypoint.z - myPos.z);
+        float waypointDist = glm::length(toWaypoint);
 
-    if (distXZ < WAYPOINT_THRESHOLD) {
-        ++m_WaypointIndex;
-        if (m_WaypointIndex >= m_CurrentPath.size()) {
-            m_IsWalking = false;
-            return;
+        float reachDistance = std::max(WAYPOINT_THRESHOLD,
+                                       GetRadius() * WAYPOINT_RADIUS_SCALE);
+        if (waypointIndex + 1 < m_CurrentPath.size()) {
+            reachDistance = std::min(WAYPOINT_MAX_THRESHOLD,
+                                     reachDistance + WAYPOINT_LOOKAHEAD_BONUS);
+
+            glm::vec2 nextSegment(m_CurrentPath[waypointIndex + 1].x - waypoint.x,
+                                  m_CurrentPath[waypointIndex + 1].z - waypoint.z);
+            float nextSegmentLen = glm::length(nextSegment);
+            if (nextSegmentLen > 0.001f) {
+                glm::vec2 nextSegmentDir = nextSegment / nextSegmentLen;
+                float passedDistance = glm::dot(
+                    glm::vec2(myPos.x - waypoint.x, myPos.z - waypoint.z),
+                    nextSegmentDir);
+                if (passedDistance > WAYPOINT_PASS_DISTANCE) {
+                    return true;
+                }
+            }
         }
+
+        return waypointDist <= reachDistance;
+    };
+
+    while (m_WaypointIndex < m_CurrentPath.size() &&
+           shouldAdvanceWaypoint(m_WaypointIndex)) {
+        ++m_WaypointIndex;
+        ResetPathProgressTracking(myPos);
+    }
+
+    if (m_WaypointIndex >= m_CurrentPath.size()) {
+        m_IsWalking = false;
+        return;
     }
 
     // Recompute direction to (potentially new) waypoint
     const glm::vec3& wp = m_CurrentPath[m_WaypointIndex];
+    glm::vec2 toWaypointXZ(wp.x - myPos.x, wp.z - myPos.z);
+    float distXZ = glm::length(toWaypointXZ);
     glm::vec3 dir(wp.x - myPos.x, 0.0f, wp.z - myPos.z);
     float len = glm::length(dir);
     if (len < 0.001f) {
@@ -501,26 +573,57 @@ void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
     }
     dir /= len;
 
-    static constexpr float WALL_PROBE_DIST  = 0.6f;  // lateral scan range
-    static constexpr float WALL_AVOID_SCALE = 2.5f;  // blend strength
-    static constexpr float WALL_MIN_CLEARANCE = 0.1f; // keeps bot off wall surface
-    (void)WALL_MIN_CLEARANCE; // expressed through WALL_PROBE_DIST tuning
+    if (m_WaypointIndex + 1 < m_CurrentPath.size() && distXZ < TURN_LOOKAHEAD_DISTANCE) {
+        const glm::vec3& nextWp = m_CurrentPath[m_WaypointIndex + 1];
+        glm::vec3 nextDir(nextWp.x - wp.x, 0.0f, nextWp.z - wp.z);
+        float nextLen = glm::length(nextDir);
+        if (nextLen > 0.001f) {
+            nextDir /= nextLen;
+            float lookaheadWeight = TURN_LOOKAHEAD_WEIGHT *
+                std::clamp(1.0f - (distXZ / TURN_LOOKAHEAD_DISTANCE), 0.0f, 1.0f);
+            dir = glm::normalize(glm::mix(dir, nextDir, lookaheadWeight));
+        }
+    }
+
+    float sidePressureRight = 0.0f;
+    float sidePressureLeft = 0.0f;
+    float forwardPressure = 0.0f;
     {
         Physics::Capsule avoidCap = MakeCapsule();
         glm::vec3 rightVec(dir.z, 0.0f, -dir.x);  // perpendicular to movement
 
         auto hitR = Physics::CapsuleCast::SweepCapsule(avoidCap,  rightVec * WALL_PROBE_DIST, mesh);
         auto hitL = Physics::CapsuleCast::SweepCapsule(avoidCap, -rightVec * WALL_PROBE_DIST, mesh);
+        auto hitF = Physics::CapsuleCast::SweepCapsule(avoidCap,  dir * FORWARD_PROBE_DIST, mesh);
 
-        glm::vec3 avoidance(0.0f);
-        // strength = 1 when touching (t=0), 0 when at probe edge (t=1)
-        if (hitR.hit && std::abs(hitR.normal.y) < 0.7f)
-            avoidance -= rightVec * (1.0f - hitR.t);
-        if (hitL.hit && std::abs(hitL.normal.y) < 0.7f)
-            avoidance += rightVec * (1.0f - hitL.t);
+        if (hitR.hit && std::abs(hitR.normal.y) < 0.7f) {
+            sidePressureRight = 1.0f - hitR.t;
+        }
+        if (hitL.hit && std::abs(hitL.normal.y) < 0.7f) {
+            sidePressureLeft = 1.0f - hitL.t;
+        }
+        if (hitF.hit && std::abs(hitF.normal.y) < 0.7f) {
+            forwardPressure = 1.0f - hitF.t;
+        }
 
-        if (glm::length(avoidance) > 0.001f)
-            dir = glm::normalize(dir + avoidance * WALL_AVOID_SCALE);
+        const float corridorPressure = std::min(sidePressureLeft, sidePressureRight);
+        const float sideBias = sidePressureLeft - sidePressureRight;
+        const float wallAvoidScale = glm::mix(WALL_AVOID_MAX_SCALE,
+                                              WALL_AVOID_MIN_SCALE,
+                                              corridorPressure);
+
+        glm::vec3 steer = dir;
+        if (std::abs(sideBias) > 0.001f) {
+            steer += rightVec * sideBias * wallAvoidScale;
+        }
+
+        if (forwardPressure > 0.001f && std::abs(sideBias) > 0.001f) {
+            steer += rightVec * sideBias * (forwardPressure * WALL_FORWARD_ESCAPE_SCALE);
+        }
+
+        if (glm::length(steer) > 0.001f) {
+            dir = glm::normalize(steer);
+        }
     }
 
     // Move
@@ -528,6 +631,35 @@ void BotPlayer::FollowPath(float dt, const Physics::CollisionMesh& mesh) {
     glm::vec3 desiredPos = myPos + dir * moveDist;
     TryMove(desiredPos, mesh);
     m_IsWalking = true;
+
+    glm::vec3 newPos = GetPosition();
+    float newDistXZ = glm::distance(glm::vec2(newPos.x, newPos.z),
+                                    glm::vec2(wp.x, wp.z));
+    bool improvedDistance = newDistXZ + STUCK_PROGRESS_EPSILON < m_BestWaypointDistance;
+    bool advancedWaypoint = m_TrackedWaypointIndex != m_WaypointIndex;
+
+    if (advancedWaypoint || improvedDistance) {
+        m_BestWaypointDistance = newDistXZ;
+        m_LastProgressPositionXZ = glm::vec2(newPos.x, newPos.z);
+        m_StuckTimer = 0.0f;
+        m_TrackedWaypointIndex = m_WaypointIndex;
+    } else if (forwardPressure > 0.0f || std::max(sidePressureLeft, sidePressureRight) > 0.0f) {
+        m_StuckTimer += dt;
+        if (m_StuckTimer >= STUCK_REPATH_DELAY) {
+            glm::vec3 activeTarget = GetActiveNavigationTarget();
+            LOG_DEBUG(
+                "Bot '{}': refreshing path near waypoint {} at ({:.2f}, {:.2f}, {:.2f}); dist={:.2f}, wallL={:.2f}, wallR={:.2f}, wallF={:.2f}",
+                m_Name,
+                static_cast<int>(m_WaypointIndex),
+                newPos.x, newPos.y, newPos.z,
+                newDistXZ,
+                sidePressureLeft,
+                sidePressureRight,
+                forwardPressure);
+            RecalculatePath(navMesh, mesh, activeTarget);
+            return;
+        }
+    }
 
     // Set target yaw based on movement direction (for default view)
     if (m_BehaviorState != BehaviorState::ATTACKING) {
@@ -566,25 +698,52 @@ void BotPlayer::UpdateView(float dt,
 //  CanSeePlayer - Visibility test (currently unused by active behavior)
 // ============================================================================
 bool BotPlayer::CanSeePlayer(const glm::vec3& playerPos,
-                             const Physics::CollisionMesh& mesh) const {
+                             const Physics::CollisionMesh& mesh) {
+    if (m_HasVisibilityCheck &&
+        m_VisibilityCheckTimer > 0.0f &&
+        glm::distance(glm::vec2(playerPos.x, playerPos.z),
+                      glm::vec2(m_LastVisibilityCheckTarget.x, m_LastVisibilityCheckTarget.z)) <
+            VISIBILITY_CACHE_MOVE_DISTANCE) {
+        return m_CachedCanSeePlayer;
+    }
+
     glm::vec3 eyePos = GetEyePosition();
 
     glm::vec3 toPlayer = playerPos - eyePos;
     float dist = glm::length(toPlayer);
-    if (dist < 0.1f) return true;
+    if (dist < 0.1f) {
+        m_LastVisibilityCheckTarget = playerPos;
+        m_HasVisibilityCheck = true;
+        m_VisibilityCheckTimer = VISIBILITY_CACHE_INTERVAL;
+        m_CachedCanSeePlayer = true;
+        return true;
+    }
 
     glm::vec2 toPlayerXZ(toPlayer.x, toPlayer.z);
     float horizLen = glm::length(toPlayerXZ);
-    if (horizLen < 0.001f) return true;
+    if (horizLen < 0.001f) {
+        m_LastVisibilityCheckTarget = playerPos;
+        m_HasVisibilityCheck = true;
+        m_VisibilityCheckTimer = VISIBILITY_CACHE_INTERVAL;
+        m_CachedCanSeePlayer = true;
+        return true;
+    }
 
     float yawRad = glm::radians(m_Yaw);
     glm::vec2 forwardXZ(std::cos(yawRad), std::sin(yawRad));
     glm::vec2 toPlayerDir = toPlayerXZ / horizLen;
     float fovDot = glm::dot(glm::normalize(forwardXZ), toPlayerDir);
     float minDot = std::cos(glm::radians(FIRE_FOV_HALF_ANGLE));
-    if (fovDot < minDot) return false;
+    bool canSeePlayer = false;
+    if (fovDot >= minDot) {
+        canSeePlayer = HasLineOfSightToPlayer(playerPos, mesh);
+    }
 
-    return HasLineOfSightToPlayer(playerPos, mesh);
+    m_LastVisibilityCheckTarget = playerPos;
+    m_HasVisibilityCheck = true;
+    m_VisibilityCheckTimer = VISIBILITY_CACHE_INTERVAL;
+    m_CachedCanSeePlayer = canSeePlayer;
+    return canSeePlayer;
 }
 
 bool BotPlayer::HasLineOfSightToPlayer(const glm::vec3& playerPos,

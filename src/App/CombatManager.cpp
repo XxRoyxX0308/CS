@@ -22,6 +22,20 @@ float RandInRange(float a, float b) {
     std::uniform_real_distribution<float> dist(a, b);
     return dist(rng);
 }
+
+PlayerHitResult MakePlayerHitResult(uint8_t playerId,
+                                    const Weapon::RayHitResult& hit) {
+    PlayerHitResult result;
+    if (!hit.hit) {
+        return result;
+    }
+
+    result.hit = true;
+    result.playerId = playerId;
+    result.distance = hit.distance;
+    result.point = hit.point;
+    return result;
+}
 } // namespace
 
 PlayerHitResult CombatManager::CheckPlayerHit(
@@ -35,17 +49,14 @@ PlayerHitResult CombatManager::CheckPlayerHit(
     for (const auto& [playerId, remote] : remotePlayers) {
         if (!remote.IsAlive()) continue;
 
-        auto model = remote.GetCharacterModelPtr();
-        if (model) {
-            glm::mat4 transform = remote.GetModelWorldTransform();
-            auto hit = Weapon::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
+        auto hit = Weapon::RayCast::CastAgainstCapsule(
+            origin,
+            direction,
+            remote.MakeCapsule(),
+            maxDist);
 
-            if (hit.hit && hit.distance < result.distance) {
-                result.hit = true;
-                result.playerId = playerId;
-                result.distance = hit.distance;
-                result.point = hit.point;
-            }
+        if (hit.hit && hit.distance < result.distance) {
+            result = MakePlayerHitResult(playerId, hit);
         }
     }
 
@@ -58,27 +69,16 @@ PlayerHitResult CombatManager::CheckLocalPlayerHit(
     float maxDist,
     const Entity::Player& player) const {
 
-    PlayerHitResult result;
-
     if (!player.IsAlive()) {
-        return result;
+        return {};
     }
 
-    auto model = player.GetCharacterModelPtr();
-    if (!model) {
-        return result;
-    }
-
-    glm::mat4 transform = player.GetModelWorldTransform();
-    auto hit = Weapon::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
-    if (hit.hit) {
-        result.hit = true;
-        result.playerId = 0;
-        result.distance = hit.distance;
-        result.point = hit.point;
-    }
-
-    return result;
+    auto hit = Weapon::RayCast::CastAgainstCapsule(
+        origin,
+        direction,
+        player.MakeCapsule(),
+        maxDist);
+    return MakePlayerHitResult(0, hit);
 }
 
 void CombatManager::HandleDamage(uint8_t victimId,
@@ -187,17 +187,14 @@ PlayerHitResult CombatManager::CheckBotHit(
         const auto& bot = bots[i];
         if (!bot.IsAlive()) continue;
 
-        auto model = bot.GetCharacterModelPtr();
-        if (model) {
-            glm::mat4 transform = bot.GetModelWorldTransform();
-            auto hit = Weapon::RayCast::CastAgainstModel(origin, direction, *model, transform, maxDist);
+        auto hit = Weapon::RayCast::CastAgainstCapsule(
+            origin,
+            direction,
+            bot.MakeCapsule(),
+            maxDist);
 
-            if (hit.hit && hit.distance < result.distance) {
-                result.hit = true;
-                result.playerId = static_cast<uint8_t>(i); // Store bot index
-                result.distance = hit.distance;
-                result.point = hit.point;
-            }
+        if (hit.hit && hit.distance < result.distance) {
+            result = MakePlayerHitResult(static_cast<uint8_t>(i), hit);
         }
     }
 
