@@ -97,6 +97,7 @@ public:
 
     int GetMoney() const { return m_Money; }
     void SetMoney(int money) { m_Money = money; }
+    void AddMoney(int amount) { m_Money += amount; }
     void SpendMoney(int amount) { m_Money -= amount; }
 
 protected:
@@ -119,7 +120,7 @@ protected:
     float m_MaxHealth = 100.0f;     ///< Maximum health
 
     // ── Economy ──
-    int m_Money = 50000;             ///< Current money for buy menu
+    int m_Money = 1200;             ///< Current money for buy menu
 };
 
 } // namespace Entity

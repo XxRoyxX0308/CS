@@ -60,6 +60,15 @@ public:
         bool isBot = false;
     };
 
+    struct MatchSummaryRow {
+        std::string name;
+        uint8_t teamId = 0;
+        bool isLocal = false;
+        bool isBot = false;
+        int kills = 0;
+        int deaths = 0;
+    };
+
     UIManager() = default;
 
     /** @brief Set UI action callbacks. */
@@ -99,11 +108,21 @@ public:
     /** @brief Render in-game HUD (health/ammo). */
     void RenderHUD(const Entity::Player& player);
 
+    /** @brief Render top-of-screen team kill totals. */
+    void RenderTeamScore(int ctKills, int tKills);
+
     /** @brief Render crosshair with dynamic spread circle. */
     void RenderCrosshair(const Entity::Player& player);
 
     /** @brief Render weapon buy menu overlay. */
     void RenderBuyMenu(int playerMoney);
+
+    /** @brief Render Win/Loss match result overlay. */
+    void RenderMatchResult(bool isWinner);
+
+    /** @brief Render end-of-match summary table and countdown. */
+    void RenderMatchSummary(const std::vector<MatchSummaryRow>& rows,
+                            float timeRemaining);
 
     /** @brief Check if buy menu is shown. */
     bool IsBuyMenuVisible() const { return m_ShowBuyMenu; }

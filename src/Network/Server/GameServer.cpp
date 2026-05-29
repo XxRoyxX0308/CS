@@ -302,7 +302,7 @@ void GameServer::HandleInput(uint32_t peerId, const InputPacket& packet) {
     }
 }
 
-void GameServer::BroadcastGameState(const NetPlayerState* players, uint8_t playerCount) {
+void GameServer::BroadcastGameState(const GameStatePacket& statePacket) {
     if (!m_IsRunning || m_Clients.empty()) return;
 
     // Rate limiting
@@ -314,8 +314,7 @@ void GameServer::BroadcastGameState(const NetPlayerState* players, uint8_t playe
         auto packet = PacketBuilder::GameState(
             m_ServerTick,
             client.lastInputSequence,
-            players,
-            playerCount
+            statePacket
         );
 
         m_Socket.SendToPeer(client.peerId, packet.data(), packet.size(),
@@ -357,6 +356,11 @@ void GameServer::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, 
 
 void GameServer::BroadcastGameStart() {
     auto packet = PacketBuilder::GameStart();
+    m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+}
+
+void GameServer::BroadcastReturnToLobby() {
+    auto packet = PacketBuilder::ReturnToLobby();
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
 }
 

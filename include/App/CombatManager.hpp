@@ -66,7 +66,7 @@ public:
      * @param network Network manager for broadcasting.
      * @param remotePlayers Remote players map.
      */
-    void HandleDamage(uint8_t victimId,
+    bool HandleDamage(uint8_t victimId,
                       float damage,
                       const glm::vec3& hitPoint,
                       Network::NetworkManager& network,
@@ -75,7 +75,7 @@ public:
     /**
      * @brief Apply damage to the local player.
      */
-    void HandleLocalPlayerDamage(Entity::Player& player, float damage);
+    bool HandleLocalPlayerDamage(Entity::Player& player, float damage);
 
     /**
      * @brief Check and handle local player respawn.
@@ -108,7 +108,7 @@ public:
     /**
      * @brief Apply damage to a bot.
      */
-    void HandleBotDamage(size_t botIndex,
+    bool HandleBotDamage(size_t botIndex,
                          float damage,
                          std::vector<Entity::BotPlayer>& bots);
 

@@ -81,6 +81,9 @@ public:
      */
     size_t GetCount() const { return m_Holes.size(); }
 
+    /** @brief Remove all active bullet holes. */
+    void Clear() { m_Holes.clear(); }
+
 private:
     void InitQuadMesh();
     void InitShader();

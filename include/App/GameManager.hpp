@@ -85,6 +85,8 @@ public:
     const Navigation::NavMesh& GetNavMesh() const { return m_NavMesh; }
 
 private:
+    void ResetSceneResources();
+
     Scene::SceneGraph m_Scene;
     Render::ForwardRenderer m_Renderer;
 
@@ -100,6 +102,7 @@ private:
     std::vector<Entity::BotPlayer> m_BotPlayers;
     bool m_BotsFollowPlayerNoAttack = false;
     Navigation::NavMesh m_NavMesh;
+    bool m_Initialized = false;
 };
 
 } // namespace App

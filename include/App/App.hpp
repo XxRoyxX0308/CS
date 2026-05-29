@@ -19,7 +19,35 @@
 #include "App/GameManager.hpp"
 #include "Network/NetworkManager.hpp"
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 namespace App {
+
+enum class MatchPhase : uint8_t {
+    LIVE = 0,
+    RESULT = 1,
+    SUMMARY = 2,
+};
+
+struct MatchParticipantStats {
+    uint8_t participantId = 0xFF;
+    std::string name;
+    uint8_t teamId = 0;
+    bool isBot = false;
+    int kills = 0;
+    int deaths = 0;
+};
+
+struct MatchState {
+    uint8_t ctKills = 0;
+    uint8_t tKills = 0;
+    MatchPhase phase = MatchPhase::LIVE;
+    uint8_t winningTeam = 0xFF;
+    float phaseTimeRemaining = 0.0f;
+    std::vector<MatchParticipantStats> participants;
+};
 
 /**
  * @brief Main application coordinator.
@@ -49,6 +77,12 @@ public:
     /** @brief Game Update state handler. */
     void Update();
 
+    /** @brief Post-match result state handler. */
+    void MatchResult();
+
+    /** @brief Post-match summary state handler. */
+    void MatchSummary();
+
     /** @brief Game End state handler. */
     void End();
 
@@ -70,6 +104,7 @@ private:
     // ── Bot configuration ──
     int m_CTBotCount = 0;
     int m_TBotCount = 0;
+    MatchState m_MatchState;
 
     // ── Helper Methods ──
     void SetupUICallbacks();
@@ -78,6 +113,22 @@ private:
     void HandleBulletHit();
     void HandleBotGunfire();
     void SendCharacterConfig();
+    void ResetMatchState();
+    void InitializeMatchState();
+    void StartMatchResult(uint8_t winningTeam);
+    void UpdatePostMatch(float dt);
+    void ReturnToLobby(bool broadcastToClients = false);
+    void SyncClientAuthoritativeState();
+    void SyncClientMatchState();
+    void UpdatePassiveNetwork(float dt);
+    uint8_t GetLocalTeamId() const;
+    bool IsLocalWinner() const;
+    MatchParticipantStats* FindMatchParticipant(uint8_t participantId);
+    const MatchParticipantStats* FindMatchParticipant(uint8_t participantId) const;
+    void RecordKill(uint8_t killerId, uint8_t victimId);
+    Network::MatchStateView BuildNetworkMatchStateView() const;
+    std::vector<UIManager::MatchSummaryRow> BuildMatchSummaryRows() const;
+    static uint8_t MakeBotParticipantId(size_t botIndex);
 };
 
 } // namespace App

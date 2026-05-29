@@ -337,6 +337,25 @@ void UIManager::RenderHUD(const Entity::Player& player) {
     ImGui::End();
 }
 
+void UIManager::RenderTeamScore(int ctKills, int tKills) {
+    ImGuiIO& io = ImGui::GetIO();
+
+    ImGui::SetNextWindowBgAlpha(0.35f);
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, 18.0f), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
+    ImGui::Begin("##HUDTeamScore", nullptr,
+                 ImGuiWindowFlags_NoDecoration |
+                     ImGuiWindowFlags_AlwaysAutoResize |
+                     ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoFocusOnAppearing |
+                     ImGuiWindowFlags_NoNav);
+    ImGui::TextColored(ImVec4(0.45f, 0.75f, 1.0f, 1.0f), "CT %d", ctKills);
+    ImGui::SameLine();
+    ImGui::TextUnformatted("/");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.4f, 1.0f), "T %d", tKills);
+    ImGui::End();
+}
+
 // ============================================================================
 //  RenderCrosshair — Static crosshair + dynamic spread circle
 // ============================================================================
@@ -552,6 +571,100 @@ void UIManager::RenderBuyMenu(int playerMoney) {
         float tw = ImGui::CalcTextSize(hint).x;
         ImGui::SetCursorPosX((ImGui::GetWindowSize().x - tw) * 0.5f);
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", hint);
+    }
+
+    ImGui::End();
+}
+
+void UIManager::RenderMatchResult(bool isWinner) {
+    ImGuiIO& io = ImGui::GetIO();
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGui::SetNextWindowBgAlpha(0.28f);
+
+    ImGui::Begin("##MatchResultOverlay", nullptr,
+                 ImGuiWindowFlags_NoDecoration |
+                     ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoMove |
+                     ImGuiWindowFlags_NoInputs);
+
+    const char* text = isWinner ? "Win" : "Loss";
+    const ImVec4 color = isWinner
+        ? ImVec4(0.30f, 0.95f, 0.45f, 1.0f)
+        : ImVec4(1.0f, 0.35f, 0.35f, 1.0f);
+
+    ImGui::SetWindowFontScale(2.5f);
+    const ImVec2 textSize = ImGui::CalcTextSize(text);
+    ImGui::SetCursorScreenPos(ImVec2(center.x - textSize.x * 0.5f,
+                                     center.y - textSize.y * 0.5f));
+    ImGui::TextColored(color, "%s", text);
+    ImGui::SetWindowFontScale(1.0f);
+
+    ImGui::End();
+}
+
+void UIManager::RenderMatchSummary(const std::vector<MatchSummaryRow>& rows,
+                                   float timeRemaining) {
+    ImGuiIO& io = ImGui::GetIO();
+    const int countdown = std::max(0, static_cast<int>(std::ceil(timeRemaining)));
+
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
+                            ImGuiCond_Always,
+                            ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(760.0f, 460.0f));
+    ImGui::SetNextWindowBgAlpha(0.92f);
+
+    ImGui::Begin("Match Summary", nullptr,
+                 ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoCollapse |
+                     ImGuiWindowFlags_NoSavedSettings);
+
+    ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.30f, 1.0f), "Final Scoreboard");
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 220.0f);
+    ImGui::Text("Returning to lobby in %d", countdown);
+    ImGui::Separator();
+
+    if (ImGui::BeginTable("MatchSummaryTable", 4,
+                          ImGuiTableFlags_Borders |
+                              ImGuiTableFlags_RowBg |
+                              ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("Team", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+        ImGui::TableSetupColumn("Name");
+        ImGui::TableSetupColumn("Kills", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+        ImGui::TableSetupColumn("Deaths", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+        ImGui::TableHeadersRow();
+
+        for (const auto& row : rows) {
+            ImGui::TableNextRow();
+
+            ImGui::TableSetColumnIndex(0);
+            const bool isCT = row.teamId == 0;
+            ImGui::TextColored(
+                isCT ? ImVec4(0.45f, 0.75f, 1.0f, 1.0f) : ImVec4(1.0f, 0.55f, 0.4f, 1.0f),
+                "%s",
+                isCT ? "CT" : "T"
+            );
+
+            ImGui::TableSetColumnIndex(1);
+            if (row.isLocal) {
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.4f, 1.0f), "%s (You)", row.name.c_str());
+            } else if (row.isBot) {
+                ImGui::TextColored(ImVec4(0.75f, 0.75f, 0.75f, 1.0f), "%s (Bot)", row.name.c_str());
+            } else {
+                ImGui::TextUnformatted(row.name.c_str());
+            }
+
+            ImGui::TableSetColumnIndex(2);
+            ImGui::Text("%d", row.kills);
+
+            ImGui::TableSetColumnIndex(3);
+            ImGui::Text("%d", row.deaths);
+        }
+
+        ImGui::EndTable();
     }
 
     ImGui::End();

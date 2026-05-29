@@ -81,20 +81,20 @@ PlayerHitResult CombatManager::CheckLocalPlayerHit(
     return MakePlayerHitResult(0, hit);
 }
 
-void CombatManager::HandleDamage(uint8_t victimId,
-                                  float damage,
-                                  const glm::vec3& hitPoint,
-                                  Network::NetworkManager& network,
-                                  std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers) {
+bool CombatManager::HandleDamage(uint8_t victimId,
+                                 float damage,
+                                 const glm::vec3& hitPoint,
+                                 Network::NetworkManager& network,
+                                 std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers) {
     if (network.IsHost()) {
         // Host processes damage directly
         if (victimId == 0) {
             // Host was hit (shouldn't happen in normal gameplay)
-            return;
+            return false;
         }
 
         auto it = remotePlayers.find(victimId);
-        if (it == remotePlayers.end()) return;
+        if (it == remotePlayers.end()) return false;
 
         auto& victim = it->second;
         bool stillAlive = victim.TakeDamage(damage);
@@ -108,15 +108,18 @@ void CombatManager::HandleDamage(uint8_t victimId,
         if (!stillAlive) {
             LOG_INFO("Player {} was killed by player {}!", victimId, attackerId);
             network.BroadcastPlayerDeath(victimId, attackerId);
+            return true;
         }
     } else if (network.IsClient()) {
         // Client sends hit report to server
         network.SendPlayerHit(victimId, damage, hitPoint);
         LOG_INFO("Client reports hitting player {} for {} damage", victimId, damage);
     }
+
+    return false;
 }
 
-void CombatManager::HandleLocalPlayerDamage(Entity::Player& player, float damage) {
+bool CombatManager::HandleLocalPlayerDamage(Entity::Player& player, float damage) {
     bool stillAlive = player.TakeDamage(damage);
 
     LOG_INFO("Local player hit for {} damage, health now: {:.0f}",
@@ -124,7 +127,10 @@ void CombatManager::HandleLocalPlayerDamage(Entity::Player& player, float damage
 
     if (!stillAlive) {
         LOG_INFO("Local player was killed by a bot");
+        return true;
     }
+
+    return false;
 }
 
 void CombatManager::CheckLocalRespawn(Entity::Player& player,
@@ -201,10 +207,10 @@ PlayerHitResult CombatManager::CheckBotHit(
     return result;
 }
 
-void CombatManager::HandleBotDamage(size_t botIndex,
-                                     float damage,
-                                     std::vector<Entity::BotPlayer>& bots) {
-    if (botIndex >= bots.size()) return;
+bool CombatManager::HandleBotDamage(size_t botIndex,
+                                    float damage,
+                                    std::vector<Entity::BotPlayer>& bots) {
+    if (botIndex >= bots.size()) return false;
 
     auto& bot = bots[botIndex];
     bool stillAlive = bot.TakeDamage(damage);
@@ -214,7 +220,10 @@ void CombatManager::HandleBotDamage(size_t botIndex,
 
     if (!stillAlive) {
         LOG_INFO("Bot '{}' was killed!", bot.GetName());
+        return true;
     }
+
+    return false;
 }
 
 void CombatManager::CheckBotRespawns(std::vector<Entity::BotPlayer>& bots,

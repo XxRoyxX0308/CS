@@ -135,6 +135,13 @@ std::optional<NetPlayerState> NetworkManager::GetLocalPlayerState() const {
     return std::nullopt;
 }
 
+std::optional<MatchStateView> NetworkManager::GetLatestMatchState() const {
+    if (m_Client) {
+        return m_Client->GetLatestMatchState();
+    }
+    return std::nullopt;
+}
+
 uint32_t NetworkManager::GetLastAckedInput() const {
     if (m_Client) {
         return m_Client->GetLastAckedInput();
@@ -162,9 +169,9 @@ std::vector<uint8_t> NetworkManager::GetRemotePlayerIds() const {
     return {};
 }
 
-void NetworkManager::BroadcastGameState(const NetPlayerState* players, uint8_t playerCount) {
+void NetworkManager::BroadcastGameState(const GameStatePacket& packet) {
     if (m_Server) {
-        m_Server->BroadcastGameState(players, playerCount);
+        m_Server->BroadcastGameState(packet);
     }
 }
 
@@ -190,6 +197,12 @@ void NetworkManager::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3
 void NetworkManager::BroadcastGameStart() {
     if (m_Server) {
         m_Server->BroadcastGameStart();
+    }
+}
+
+void NetworkManager::BroadcastReturnToLobby() {
+    if (m_Server) {
+        m_Server->BroadcastReturnToLobby();
     }
 }
 
@@ -409,6 +422,12 @@ void NetworkManager::SetupClientCallbacks() {
     m_Client->SetOnGameStart([this]() {
         if (m_OnGameStart) {
             m_OnGameStart();
+        }
+    });
+
+    m_Client->SetOnReturnToLobby([this]() {
+        if (m_OnReturnToLobby) {
+            m_OnReturnToLobby();
         }
     });
 }

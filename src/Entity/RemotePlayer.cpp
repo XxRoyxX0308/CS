@@ -45,6 +45,8 @@ void RemotePlayer::UpdateFromNetworkState(const Network::NetPlayerState &state, 
     m_IsAlive = state.IsAlive();
     m_IsWalking = state.IsWalking();
     m_IsCrouching = state.IsCrouching();
+    m_Money = state.money;
+    m_TeamId = state.teamId;
 
     // Smooth interpolation toward target
     float t = 1.0f - std::pow(1.0f - SMOOTH_FACTOR, dt * 60.0f);
@@ -154,6 +156,27 @@ void RemotePlayer::SetGunModel(const std::string &modelPath, const glm::vec3 &sc
     m_GunNode->SetScale(m_GunScale);
     m_GunNode->SetVisible(true);
     m_Scene->GetRoot()->AddChild(m_GunNode);
+}
+
+void RemotePlayer::Cleanup() {
+    if (!m_Scene) {
+        return;
+    }
+
+    if (m_GunNode) {
+        m_Scene->GetRoot()->RemoveChild(m_GunNode);
+        m_GunNode.reset();
+        m_GunModel.reset();
+    }
+
+    if (m_ModelInitialized) {
+        auto node = m_Model.GetNode();
+        if (node) {
+            m_Scene->GetRoot()->RemoveChild(node);
+        }
+    }
+
+    m_ModelInitialized = false;
 }
 
 Physics::Capsule RemotePlayer::MakeCapsule() const {

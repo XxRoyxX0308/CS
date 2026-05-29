@@ -21,6 +21,8 @@ namespace Network {
 constexpr uint16_t DEFAULT_PORT = 27015;
 constexpr uint16_t DISCOVERY_PORT = 5555;
 constexpr uint8_t MAX_PLAYERS = 10;
+constexpr uint8_t MAX_BOTS_PER_TEAM = 5;
+constexpr uint8_t MAX_MATCH_PARTICIPANTS = MAX_PLAYERS + MAX_BOTS_PER_TEAM * 2;
 constexpr float STATE_BROADCAST_RATE = 20.0f;  // Hz
 constexpr float INTERP_DELAY = 0.1f;           // 100ms interpolation delay
 constexpr size_t STATE_BUFFER_SIZE = 32;       // ~1 second at 30Hz
@@ -40,6 +42,14 @@ constexpr uint8_t FLAG_IS_RELOADING = 0x02;
 constexpr uint8_t FLAG_IS_ALIVE     = 0x04;
 constexpr uint8_t FLAG_IS_WALKING   = 0x08;
 constexpr uint8_t FLAG_IS_CROUCHING = 0x10;
+
+constexpr uint8_t MATCH_FLAG_IS_BOT = 0x01;
+
+enum class MatchStatePhase : uint8_t {
+    LIVE = 0,
+    RESULT = 1,
+    SUMMARY = 2,
+};
 
 // Magic bytes for LAN discovery
 constexpr uint8_t DISCOVERY_MAGIC[4] = {'C', 'S', 'F', 'P'};
@@ -67,6 +77,7 @@ enum class PacketType : uint8_t {
     // State (Server -> Client)
     S2C_GAME_STATE     = 0x30,
     S2C_GAME_START     = 0x35,
+    S2C_RETURN_TO_LOBBY = 0x36,
     S2C_PLAYER_HIT     = 0x31,
     S2C_PLAYER_DEATH   = 0x32,
     S2C_BULLET_EFFECT  = 0x33,
@@ -115,6 +126,10 @@ struct GameStartPacket {
     PacketHeader header;
 };
 
+struct ReturnToLobbyPacket {
+    PacketHeader header;
+};
+
 // LAN Discovery Packets
 struct DiscoveryQueryPacket {
     uint8_t magic[4];
@@ -157,6 +172,8 @@ struct NetPlayerState {
     float velocityY;
     uint8_t health;
     uint8_t currentAmmo;
+    int32_t money;
+    uint8_t teamId;
     uint8_t flags;
 
     glm::vec3 GetPosition() const { return glm::vec3(posX, posY, posZ); }
@@ -171,13 +188,41 @@ struct NetPlayerState {
     bool IsCrouching() const { return (flags & FLAG_IS_CROUCHING) != 0; }
 };
 
+struct NetMatchParticipantState {
+    uint8_t participantId;
+    uint8_t teamId;
+    uint8_t kills;
+    uint8_t deaths;
+    uint8_t flags;
+    char name[32];
+
+    bool IsBot() const { return (flags & MATCH_FLAG_IS_BOT) != 0; }
+};
+
+struct MatchStateView {
+    uint8_t ctKills = 0;
+    uint8_t tKills = 0;
+    MatchStatePhase phase = MatchStatePhase::LIVE;
+    uint8_t winningTeam = 0xFF;
+    float phaseTimeRemaining = 0.0f;
+    uint8_t participantCount = 0;
+    NetMatchParticipantState participants[MAX_MATCH_PARTICIPANTS]{};
+};
+
 // Game State Packet
 struct GameStatePacket {
     PacketHeader header;
     uint32_t serverTick;
     uint32_t lastAckedInput;  // For client-side prediction reconciliation
     uint8_t playerCount;
+    uint8_t ctKills;
+    uint8_t tKills;
+    MatchStatePhase matchPhase;
+    uint8_t winningTeam;
+    float phaseTimeRemaining;
+    uint8_t participantCount;
     NetPlayerState players[MAX_PLAYERS];
+    NetMatchParticipantState participants[MAX_MATCH_PARTICIPANTS];
 };
 
 // Hit/Effect Packets

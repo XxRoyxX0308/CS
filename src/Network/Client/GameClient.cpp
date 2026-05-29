@@ -46,6 +46,8 @@ bool GameClient::Connect(const std::string& address, uint16_t port, const std::s
     m_InputSequence = 0;
     m_LastAckedInput = 0;
     m_StateBuffer.Clear();
+    m_LatestMatchState = {};
+    m_HasMatchState = false;
 
     LOG_INFO("Connecting to {}:{} as {}", address, port, playerName);
     return true;
@@ -59,6 +61,8 @@ void GameClient::Disconnect() {
     m_ConnectionState = ConnectionState::Disconnected;
     m_LocalPlayerId = 0xFF;
     m_StateBuffer.Clear();
+    m_LatestMatchState = {};
+    m_HasMatchState = false;
 
     LOG_INFO("Disconnected from server");
 
@@ -194,6 +198,12 @@ void GameClient::HandlePacket(const std::vector<uint8_t>& data) {
             break;
         }
 
+        case PacketType::S2C_RETURN_TO_LOBBY: {
+            auto packet = PacketParser::ParseReturnToLobby(data);
+            if (packet) HandleReturnToLobby(*packet);
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -253,6 +263,19 @@ void GameClient::HandleGameState(const GameStatePacket& packet) {
     }
 
     m_StateBuffer.PushSnapshot(snapshot);
+
+    m_LatestMatchState.ctKills = packet.ctKills;
+    m_LatestMatchState.tKills = packet.tKills;
+    m_LatestMatchState.phase = packet.matchPhase;
+    m_LatestMatchState.winningTeam = packet.winningTeam;
+    m_LatestMatchState.phaseTimeRemaining = packet.phaseTimeRemaining;
+    m_LatestMatchState.participantCount = packet.participantCount;
+
+    for (uint8_t i = 0; i < packet.participantCount && i < MAX_MATCH_PARTICIPANTS; ++i) {
+        m_LatestMatchState.participants[i] = packet.participants[i];
+    }
+
+    m_HasMatchState = true;
 }
 
 void GameClient::HandlePlayerHit(const PlayerHitPacket& packet) {
@@ -295,6 +318,12 @@ void GameClient::HandleGameStart(const GameStartPacket& /*packet*/) {
     }
 }
 
+void GameClient::HandleReturnToLobby(const ReturnToLobbyPacket& /*packet*/) {
+    if (m_OnReturnToLobby) {
+        m_OnReturnToLobby();
+    }
+}
+
 void GameClient::SendInput(const InputState& input) {
     if (m_ConnectionState != ConnectionState::Connected) return;
 
@@ -331,6 +360,13 @@ void GameClient::SendPlayerConfig(uint8_t characterType, uint8_t gunType) {
 
 std::optional<NetPlayerState> GameClient::GetLocalPlayerState() const {
     return m_StateBuffer.GetLatestState(m_LocalPlayerId);
+}
+
+std::optional<MatchStateView> GameClient::GetLatestMatchState() const {
+    if (!m_HasMatchState) {
+        return std::nullopt;
+    }
+    return m_LatestMatchState;
 }
 
 std::optional<NetPlayerState> GameClient::GetInterpolatedState(uint8_t playerId, float renderTime) const {

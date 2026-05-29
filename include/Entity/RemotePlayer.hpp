@@ -60,8 +60,10 @@ public:
     void SetYaw(float yaw) { m_TargetYaw = yaw; }
     void SetPitch(float pitch) { m_TargetPitch = pitch; }
     void SetWalking(bool walking) { m_IsWalking = walking; }
+    bool IsWalking() const { return m_IsWalking; }
     void SetCrouching(bool crouching) { m_IsCrouching = crouching; }
     bool IsCrouching() const { return m_IsCrouching; }
+    void SetTeamId(uint8_t teamId) { m_TeamId = teamId; }
 
     // ── Getters ───────────────────────────────────────────────────────────
 
@@ -72,12 +74,14 @@ public:
     float GetYaw() const { return m_Yaw; }
     float GetPitch() const { return m_Pitch; }
     CharacterType GetCharacterType() const { return m_Model.GetCharacterType(); }
+    uint8_t GetTeamId() const { return m_TeamId; }
     float GetHealth() const { return m_Health; }
     void SetHealth(float health) { m_Health = health; m_IsAlive = health > 0.0f; }
     bool IsAlive() const { return m_IsAlive; }
 
     int GetMoney() const { return m_Money; }
     void SetMoney(int money) { m_Money = money; }
+    void AddMoney(int amount) { m_Money += amount; }
     void SpendMoney(int amount) { m_Money -= amount; }
 
     // ── Model Control ─────────────────────────────────────────────────────
@@ -86,6 +90,7 @@ public:
     void SetCharacterType(CharacterType type);
     /** @brief Change the third-person gun model using a GLTF path. */
     void SetGunModel(const std::string &modelPath, const glm::vec3 &scale);
+    void Cleanup();
     // ── Collision ─────────────────────────────────────────────────────────
 
     /** @brief Create capsule for hit detection. */
@@ -131,6 +136,7 @@ private:
     bool m_IsAlive = true;
     bool m_IsWalking = false;
     bool m_IsCrouching = false;
+    uint8_t m_TeamId = 1;
     int m_Money = 5000;
 
     // ── Character Model ───────────────────────────────────────────────────

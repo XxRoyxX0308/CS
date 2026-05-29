@@ -71,7 +71,7 @@ public:
     void Update(float dt);
 
     // Broadcast game state to all clients
-    void BroadcastGameState(const NetPlayerState* players, uint8_t playerCount);
+    void BroadcastGameState(const GameStatePacket& packet);
 
     // Broadcast effects
     void BroadcastPlayerHit(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos);
@@ -79,6 +79,7 @@ public:
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
     void BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType);
     void BroadcastGameStart();
+    void BroadcastReturnToLobby();
 
     // Get pending inputs from clients (for host to process)
     std::vector<PendingInput> GetPendingInputs();

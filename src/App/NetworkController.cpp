@@ -11,13 +11,15 @@ void NetworkController::SetupCallbacks(
     Entity::Player& player,
     std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
     StateManager& stateManager,
-    BulletEffectCallback bulletEffectCallback) {
+    BulletEffectCallback bulletEffectCallback,
+    AuthoritativeKillCallback authoritativeKillCallback) {
 
     network.SetOnPlayerJoined([&scene, &remotePlayers](uint8_t playerId, const std::string& name) {
         LOG_INFO("Player {} ({}) joined the game", name, playerId);
 
         auto& remote = remotePlayers[playerId];
         remote.SetPlayerId(playerId);
+        remote.SetTeamId(1);
         remote.Init(scene, Entity::CharacterType::TERRORIST);
     });
 
@@ -26,7 +28,7 @@ void NetworkController::SetupCallbacks(
 
         auto it = remotePlayers.find(playerId);
         if (it != remotePlayers.end()) {
-            it->second.SetVisible(false);
+            it->second.Cleanup();
             remotePlayers.erase(it);
         }
     });
@@ -38,6 +40,9 @@ void NetworkController::SetupCallbacks(
 
     network.SetOnDisconnected([&stateManager, &remotePlayers]() {
         LOG_INFO("Disconnected from server");
+        for (auto& [playerId, remote] : remotePlayers) {
+            remote.Cleanup();
+        }
         remotePlayers.clear();
         stateManager.SetState(GameState::MAIN_MENU);
     });
@@ -55,6 +60,7 @@ void NetworkController::SetupCallbacks(
         if (it != remotePlayers.end()) {
             auto type = (characterType == 0) ? Entity::CharacterType::FBI
                                               : Entity::CharacterType::TERRORIST;
+            it->second.SetTeamId((characterType == 0) ? 0 : 1);
             it->second.Init(scene, type);
 
             // Update gun model if gunType is valid
@@ -72,7 +78,7 @@ void NetworkController::SetupCallbacks(
     });
 
     // Host receives hit reports from clients
-    network.SetOnClientPlayerHit([&player, &remotePlayers, &network](
+    network.SetOnClientPlayerHit([&player, &remotePlayers, &network, authoritativeKillCallback](
         uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos) {
 
         LOG_INFO("Server received hit report: player {} hit player {} for {} damage",
@@ -86,6 +92,9 @@ void NetworkController::SetupCallbacks(
 
             if (!stillAlive) {
                 LOG_INFO("Host (player 0) was killed by player {}!", attackerId);
+                if (authoritativeKillCallback) {
+                    authoritativeKillCallback(attackerId, victimId);
+                }
                 network.BroadcastPlayerDeath(victimId, attackerId);
             }
         } else {
@@ -98,6 +107,9 @@ void NetworkController::SetupCallbacks(
 
                 if (!stillAlive) {
                     LOG_INFO("Player {} was killed by player {}!", victimId, attackerId);
+                    if (authoritativeKillCallback) {
+                        authoritativeKillCallback(attackerId, victimId);
+                    }
                     network.BroadcastPlayerDeath(victimId, attackerId);
                 }
             }
@@ -142,7 +154,8 @@ void NetworkController::UpdateHost(
     Network::NetworkManager& network,
     const Entity::Player& player,
     const Core3D::Camera& camera,
-    std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers) {
+    std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
+    const Network::MatchStateView& matchState) {
 
     network.Update(dt);
     ProcessRemoteInputs(network, remotePlayers);
@@ -151,7 +164,33 @@ void NetworkController::UpdateHost(
         remote.Update(dt);
     }
 
-    BuildAndBroadcastGameState(network, player, camera, remotePlayers);
+    BuildAndBroadcastGameState(network, player, camera, remotePlayers, matchState);
+}
+
+void NetworkController::SyncPaused(
+    float dt,
+    Network::NetworkManager& network,
+    const Entity::Player& player,
+    const Core3D::Camera& camera,
+    std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
+    const Network::MatchStateView& matchState) {
+
+    network.Update(dt);
+
+    if (network.IsHost()) {
+        for (auto& [playerId, remote] : remotePlayers) {
+            remote.Update(dt);
+        }
+        BuildAndBroadcastGameState(network, player, camera, remotePlayers, matchState);
+        return;
+    }
+
+    for (auto& [playerId, remote] : remotePlayers) {
+        auto state = network.GetInterpolatedState(playerId);
+        if (state) {
+            remote.UpdateFromNetworkState(*state, dt);
+        }
+    }
 }
 
 void NetworkController::UpdateClient(
@@ -191,14 +230,25 @@ void NetworkController::BuildAndBroadcastGameState(
     Network::NetworkManager& network,
     const Entity::Player& player,
     const Core3D::Camera& camera,
-    const std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers) {
+    const std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
+    const Network::MatchStateView& matchState) {
 
     if (!network.IsHost()) return;
 
-    std::vector<Network::NetPlayerState> states;
+    Network::GameStatePacket packet{};
+    packet.ctKills = matchState.ctKills;
+    packet.tKills = matchState.tKills;
+    packet.matchPhase = matchState.phase;
+    packet.winningTeam = matchState.winningTeam;
+    packet.phaseTimeRemaining = matchState.phaseTimeRemaining;
+    packet.participantCount = matchState.participantCount;
+
+    for (uint8_t i = 0; i < matchState.participantCount && i < Network::MAX_MATCH_PARTICIPANTS; ++i) {
+        packet.participants[i] = matchState.participants[i];
+    }
 
     // Host player (player 0)
-    Network::NetPlayerState hostState;
+    Network::NetPlayerState hostState{};
     hostState.playerId = 0;
     hostState.SetPosition(player.GetPosition());
     hostState.yaw = camera.GetYaw();
@@ -206,29 +256,37 @@ void NetworkController::BuildAndBroadcastGameState(
     hostState.velocityY = player.GetVelocityY();
     hostState.health = static_cast<uint8_t>(player.GetHealth());
     hostState.currentAmmo = player.GetWeapon() ? player.GetWeapon()->GetCurrentAmmo() : 0;
+    hostState.money = player.GetMoney();
+    hostState.teamId = (player.GetCharacterModel().GetCharacterType() == Entity::CharacterType::FBI) ? 0 : 1;
 
     hostState.flags = 0;
     if (player.IsOnGround())  hostState.flags |= Network::FLAG_ON_GROUND;
     if (player.GetWeapon() && player.GetWeapon()->IsReloading()) hostState.flags |= Network::FLAG_IS_RELOADING;
-    hostState.flags |= Network::FLAG_IS_ALIVE;
+    if (player.IsAlive()) hostState.flags |= Network::FLAG_IS_ALIVE;
     if (player.IsWalking())   hostState.flags |= Network::FLAG_IS_WALKING;
     if (player.IsCrouching()) hostState.flags |= Network::FLAG_IS_CROUCHING;
 
-    states.push_back(hostState);
+    packet.players[packet.playerCount++] = hostState;
 
     // Remote players
     for (const auto& [playerId, remote] : remotePlayers) {
-        Network::NetPlayerState state;
+        Network::NetPlayerState state{};
         state.playerId = playerId;
         state.SetPosition(remote.GetPosition());
         state.yaw = remote.GetYaw();
         state.pitch = remote.GetPitch();
+        state.velocityY = 0.0f;
         state.health = static_cast<uint8_t>(remote.GetHealth());
+        state.currentAmmo = 0;
+        state.money = remote.GetMoney();
+        state.teamId = remote.GetTeamId();
         state.flags = remote.IsAlive() ? Network::FLAG_IS_ALIVE : 0;
-        states.push_back(state);
+        if (remote.IsWalking()) state.flags |= Network::FLAG_IS_WALKING;
+        if (remote.IsCrouching()) state.flags |= Network::FLAG_IS_CROUCHING;
+        packet.players[packet.playerCount++] = state;
     }
 
-    network.BroadcastGameState(states.data(), static_cast<uint8_t>(states.size()));
+    network.BroadcastGameState(packet);
 }
 
 void NetworkController::ProcessRemoteInputs(

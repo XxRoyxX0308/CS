@@ -26,6 +26,10 @@ GameManager::GameManager() = default;
 void GameManager::Initialize() {
     LOG_TRACE("GameManager::Initialize");
 
+    if (m_Initialized) {
+        ResetSceneResources();
+    }
+
     auto& camera = m_Scene.GetCamera();
 
     // ── 1. Camera & Player Setup ──
@@ -79,6 +83,15 @@ void GameManager::Initialize() {
     // ── 8. Initialize Bullet Hole Effects ──
     m_BulletHoles.Init();
 
+    for (auto& [playerId, remote] : m_RemotePlayers) {
+        auto type = (remote.GetTeamId() == 0)
+                        ? Entity::CharacterType::FBI
+                        : Entity::CharacterType::TERRORIST;
+        remote.Init(m_Scene, type);
+    }
+
+    m_Initialized = true;
+
     LOG_TRACE("GameManager::Initialize complete");
 }
 
@@ -108,7 +121,29 @@ void GameManager::SpawnBulletHole(const glm::vec3& pos, const glm::vec3& normal)
 
 void GameManager::Cleanup() {
     LOG_TRACE("GameManager::Cleanup");
+    ResetSceneResources();
     SDL_SetRelativeMouseMode(SDL_FALSE);
+    m_Initialized = false;
+}
+
+void GameManager::ResetSceneResources() {
+    CleanupBots();
+
+    for (auto& [playerId, remote] : m_RemotePlayers) {
+        remote.Cleanup();
+    }
+
+    m_Player.Cleanup(m_Scene);
+
+    if (m_MapNode) {
+        m_Scene.GetRoot()->RemoveChild(m_MapNode);
+        m_MapNode.reset();
+        m_MapModel.reset();
+    }
+
+    m_BulletHoles.Clear();
+    m_Scene.ClearPointLights();
+    m_Scene.ClearSpotLights();
 }
 
 void GameManager::SwitchPlayerCharacter(Entity::CharacterType type) {

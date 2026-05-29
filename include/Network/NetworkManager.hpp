@@ -42,6 +42,7 @@ public:
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnClientPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
     using OnGameStartCallback = std::function<void()>;
+    using OnReturnToLobbyCallback = std::function<void()>;
 
     NetworkManager();
     ~NetworkManager();
@@ -81,6 +82,8 @@ public:
     // For client: get local player state from server
     std::optional<NetPlayerState> GetLocalPlayerState() const;
 
+    std::optional<MatchStateView> GetLatestMatchState() const;
+
     // For client: get last acknowledged input sequence
     uint32_t GetLastAckedInput() const;
 
@@ -92,11 +95,12 @@ public:
 
     // Broadcast (Host mode)
 
-    void BroadcastGameState(const NetPlayerState* players, uint8_t playerCount);
+    void BroadcastGameState(const GameStatePacket& packet);
     void BroadcastPlayerHit(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos);
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
     void BroadcastGameStart();
+    void BroadcastReturnToLobby();
 
     // Send Effects (Client mode)
 
@@ -127,6 +131,7 @@ public:
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnClientPlayerHit(OnClientPlayerHitCallback cb) { m_OnClientPlayerHit = std::move(cb); }
     void SetOnGameStart(OnGameStartCallback cb) { m_OnGameStart = std::move(cb); }
+    void SetOnReturnToLobby(OnReturnToLobbyCallback cb) { m_OnReturnToLobby = std::move(cb); }
 
     // Server Info
 
@@ -163,6 +168,7 @@ private:
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnClientPlayerHitCallback m_OnClientPlayerHit;
     OnGameStartCallback m_OnGameStart;
+    OnReturnToLobbyCallback m_OnReturnToLobby;
 };
 
 } // namespace Network

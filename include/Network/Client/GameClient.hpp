@@ -33,6 +33,7 @@ public:
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnGameStartCallback = std::function<void()>;
+    using OnReturnToLobbyCallback = std::function<void()>;
 
     GameClient();
     ~GameClient();
@@ -73,6 +74,8 @@ public:
     // Get render time (current time - interpolation delay)
     float GetRenderTime() const { return m_LocalTime - INTERP_DELAY; }
 
+    std::optional<MatchStateView> GetLatestMatchState() const;
+
     // Get last acknowledged input sequence
     uint32_t GetLastAckedInput() const { return m_LastAckedInput; }
 
@@ -92,6 +95,7 @@ public:
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnGameStart(OnGameStartCallback cb) { m_OnGameStart = std::move(cb); }
+    void SetOnReturnToLobby(OnReturnToLobbyCallback cb) { m_OnReturnToLobby = std::move(cb); }
 
 private:
     void HandlePacket(const std::vector<uint8_t>& data);
@@ -105,6 +109,7 @@ private:
     void HandleBulletEffect(const BulletEffectPacket& packet);
     void HandlePlayerConfig(const PlayerConfigPacket& packet);
     void HandleGameStart(const GameStartPacket& packet);
+    void HandleReturnToLobby(const ReturnToLobbyPacket& packet);
 
     Socket m_Socket;
     LANDiscovery m_Discovery;
@@ -121,6 +126,8 @@ private:
     // State buffer for interpolation
     StateBuffer m_StateBuffer;
     uint32_t m_LastAckedInput = 0;
+    MatchStateView m_LatestMatchState{};
+    bool m_HasMatchState = false;
 
     // Connection timeout
     float m_ConnectionTimeout = 5.0f;
@@ -137,6 +144,7 @@ private:
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnGameStartCallback m_OnGameStart;
+    OnReturnToLobbyCallback m_OnReturnToLobby;
 };
 
 } // namespace Network

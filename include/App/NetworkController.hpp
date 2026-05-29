@@ -18,6 +18,7 @@ class StateManager;
  * @brief Callback for bullet effect.
  */
 using BulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
+using AuthoritativeKillCallback = std::function<void(uint8_t killerId, uint8_t victimId)>;
 
 /**
  * @brief Bridges network callbacks to game logic.
@@ -40,7 +41,8 @@ public:
                         Entity::Player& player,
                         std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
                         StateManager& stateManager,
-                        BulletEffectCallback bulletEffectCallback);
+                        BulletEffectCallback bulletEffectCallback,
+                        AuthoritativeKillCallback authoritativeKillCallback);
 
     /**
      * @brief Update network as host: process inputs, update remotes, broadcast state.
@@ -54,7 +56,15 @@ public:
                     Network::NetworkManager& network,
                     const Entity::Player& player,
                     const Core3D::Camera& camera,
-                    std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers);
+                    std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
+                    const Network::MatchStateView& matchState);
+
+    void SyncPaused(float dt,
+                    Network::NetworkManager& network,
+                    const Entity::Player& player,
+                    const Core3D::Camera& camera,
+                    std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
+                    const Network::MatchStateView& matchState);
 
     /**
      * @brief Update network as client: send input, receive state.
@@ -89,7 +99,8 @@ private:
     void BuildAndBroadcastGameState(Network::NetworkManager& network,
                                     const Entity::Player& player,
                                     const Core3D::Camera& camera,
-                                    const std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers);
+                                    const std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
+                                    const Network::MatchStateView& matchState);
 
     /**
      * @brief Process remote player inputs (Host only).

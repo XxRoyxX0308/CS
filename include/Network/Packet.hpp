@@ -174,6 +174,16 @@ inline std::vector<uint8_t> GameStart() {
     );
 }
 
+inline std::vector<uint8_t> ReturnToLobby() {
+    ReturnToLobbyPacket packet{};
+    packet.header.type = static_cast<uint8_t>(PacketType::S2C_RETURN_TO_LOBBY);
+
+    return std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t*>(&packet) + sizeof(packet)
+    );
+}
+
 inline std::vector<uint8_t> Input(uint32_t sequence, const InputState& input) {
     InputPacket packet{};
     packet.header.type = static_cast<uint8_t>(PacketType::C2S_INPUT);
@@ -218,21 +228,25 @@ inline std::vector<uint8_t> ClientPlayerConfig(uint8_t characterType, uint8_t gu
     );
 }
 
-inline std::vector<uint8_t> GameState(uint32_t serverTick, uint32_t lastAckedInput,
-                                       const NetPlayerState* players, uint8_t playerCount) {
-    GameStatePacket packet{};
+inline std::vector<uint8_t> GameState(uint32_t serverTick,
+                                      uint32_t lastAckedInput,
+                                      const GameStatePacket& source) {
+    GameStatePacket packet = source;
     packet.header.type = static_cast<uint8_t>(PacketType::S2C_GAME_STATE);
     packet.serverTick = serverTick;
     packet.lastAckedInput = lastAckedInput;
-    packet.playerCount = playerCount;
 
-    for (uint8_t i = 0; i < playerCount && i < MAX_PLAYERS; ++i) {
-        packet.players[i] = players[i];
-    }
-
-    // Only send the actual number of players
-    size_t packetSize = sizeof(PacketHeader) + sizeof(uint32_t) * 2 + sizeof(uint8_t)
-                       + sizeof(NetPlayerState) * playerCount;
+    size_t packetSize = sizeof(PacketHeader)
+                       + sizeof(uint32_t) * 2
+                       + sizeof(packet.playerCount)
+                       + sizeof(packet.ctKills)
+                       + sizeof(packet.tKills)
+                       + sizeof(packet.matchPhase)
+                       + sizeof(packet.winningTeam)
+                       + sizeof(packet.phaseTimeRemaining)
+                       + sizeof(packet.participantCount)
+                       + sizeof(NetPlayerState) * packet.playerCount
+                       + sizeof(NetMatchParticipantState) * packet.participantCount;
 
     return std::vector<uint8_t>(
         reinterpret_cast<uint8_t*>(&packet),
@@ -373,6 +387,13 @@ inline std::optional<GameStartPacket> ParseGameStart(const std::vector<uint8_t>&
     return packet;
 }
 
+inline std::optional<ReturnToLobbyPacket> ParseReturnToLobby(const std::vector<uint8_t>& data) {
+    if (data.size() < sizeof(ReturnToLobbyPacket)) return std::nullopt;
+    ReturnToLobbyPacket packet;
+    std::memcpy(&packet, data.data(), sizeof(packet));
+    return packet;
+}
+
 inline std::optional<InputPacket> ParseInput(const std::vector<uint8_t>& data) {
     if (data.size() < sizeof(InputPacket)) return std::nullopt;
     InputPacket packet;
@@ -382,7 +403,10 @@ inline std::optional<InputPacket> ParseInput(const std::vector<uint8_t>& data) {
 
 inline std::optional<GameStatePacket> ParseGameState(const std::vector<uint8_t>& data) {
     // Minimum size check
-    size_t minSize = sizeof(PacketHeader) + sizeof(uint32_t) * 2 + sizeof(uint8_t);
+    size_t minSize = sizeof(PacketHeader)
+                   + sizeof(uint32_t) * 2
+                   + sizeof(uint8_t) * 6
+                   + sizeof(float);
     if (data.size() < minSize) return std::nullopt;
 
     GameStatePacket packet{};

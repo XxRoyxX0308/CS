@@ -406,6 +406,10 @@ void BotPlayer::Cleanup(Scene::SceneGraph& scene) {
         m_GunNode.reset();
         m_GunModel.reset();
     }
+    auto modelNode = m_CharacterModel.GetNode();
+    if (modelNode) {
+        scene.GetRoot()->RemoveChild(modelNode);
+    }
     m_CharacterModel.SetVisible(false);
     m_ModelInitialized = false;
 }

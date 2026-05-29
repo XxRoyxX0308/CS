@@ -72,6 +72,9 @@ public:
      */
     void EquipWeapon(std::unique_ptr<Weapon::Weapon> weapon, Scene::SceneGraph &scene);
 
+    /** @brief Remove weapon and character scene resources. */
+    void Cleanup(Scene::SceneGraph& scene);
+
     /** @brief Get the currently equipped weapon (may be nullptr). */
     Weapon::Weapon *GetWeapon() const { return m_Weapon.get(); }
 

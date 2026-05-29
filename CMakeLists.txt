@@ -26,6 +26,9 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/main.cpp
     # App Module (Refactored)
     ${CS_SRC_DIR}/App/App.cpp
+    ${CS_SRC_DIR}/App/AppSetup.cpp
+    ${CS_SRC_DIR}/App/AppGameplay.cpp
+    ${CS_SRC_DIR}/App/AppMatch.cpp
     ${CS_SRC_DIR}/App/StateManager.cpp
     ${CS_SRC_DIR}/App/InputManager.cpp
     ${CS_SRC_DIR}/App/UIManager.cpp

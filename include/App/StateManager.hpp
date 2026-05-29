@@ -13,6 +13,8 @@ enum class GameState {
     LOBBY,        // Waiting for connection/players
     GAME_START,   // Game initialization
     GAME_UPDATE,  // Game in progress
+    MATCH_RESULT, // Post-match Win/Loss overlay
+    MATCH_SUMMARY,// Post-match scoreboard summary
     GAME_END,     // Cleanup
 };
 

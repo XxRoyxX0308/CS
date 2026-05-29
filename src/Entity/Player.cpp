@@ -108,6 +108,18 @@ void Player::EquipWeapon(std::unique_ptr<Weapon::Weapon> weapon,
     m_Weapon->Init(scene);
 }
 
+void Player::Cleanup(Scene::SceneGraph& scene) {
+    if (m_Weapon) {
+        m_Weapon->Cleanup(scene);
+        m_Weapon.reset();
+    }
+
+    auto node = m_CharacterModel.GetNode();
+    if (node) {
+        scene.GetRoot()->RemoveChild(node);
+    }
+}
+
 // ============================================================================
 //  Update - Input, movement, physics, camera sync, weapon, model
 // ============================================================================

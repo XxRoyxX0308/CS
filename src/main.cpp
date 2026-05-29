@@ -30,6 +30,14 @@ int main(int, char **) {
             app.Update();
             break;
 
+        case App::GameState::MATCH_RESULT:
+            app.MatchResult();
+            break;
+
+        case App::GameState::MATCH_SUMMARY:
+            app.MatchSummary();
+            break;
+
         case App::GameState::GAME_END:
             app.End();
             context->SetExit(true);

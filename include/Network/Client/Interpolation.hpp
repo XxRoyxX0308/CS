@@ -83,6 +83,8 @@ inline NetPlayerState Lerp(const NetPlayerState& a, const NetPlayerState& b, flo
     result.velocityY = b.velocityY;
     result.health = b.health;
     result.currentAmmo = b.currentAmmo;
+    result.money = b.money;
+    result.teamId = b.teamId;
     result.flags = b.flags;
 
     return result;
