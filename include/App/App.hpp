@@ -121,13 +121,14 @@ private:
     void SyncClientAuthoritativeState();
     void SyncClientMatchState();
     void UpdatePassiveNetwork(float dt);
+    void RefreshMatchParticipantMetadata();
     uint8_t GetLocalTeamId() const;
     bool IsLocalWinner() const;
     MatchParticipantStats* FindMatchParticipant(uint8_t participantId);
     const MatchParticipantStats* FindMatchParticipant(uint8_t participantId) const;
     void RecordKill(uint8_t killerId, uint8_t victimId);
-    Network::MatchStateView BuildNetworkMatchStateView() const;
-    std::vector<UIManager::MatchSummaryRow> BuildMatchSummaryRows() const;
+    Network::MatchStateView BuildNetworkMatchStateView();
+    std::vector<UIManager::MatchSummaryRow> BuildMatchSummaryRows();
     static uint8_t MakeBotParticipantId(size_t botIndex);
 };
 

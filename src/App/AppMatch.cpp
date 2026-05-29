@@ -79,6 +79,52 @@ void Application::InitializeMatchState() {
             0,
         });
     }
+
+    RefreshMatchParticipantMetadata();
+}
+
+void Application::RefreshMatchParticipantMetadata() {
+    if (!m_Network.IsHost()) {
+        return;
+    }
+
+    const auto lobbyPlayers = m_Network.GetLobbyPlayers();
+    for (const auto& playerInfo : lobbyPlayers) {
+        auto* participant = FindMatchParticipant(playerInfo.playerId);
+        if (!participant) {
+            m_MatchState.participants.push_back(MatchParticipantStats{});
+            participant = &m_MatchState.participants.back();
+            participant->participantId = playerInfo.playerId;
+        }
+
+        participant->name = playerInfo.name;
+        participant->isBot = false;
+
+        if (playerInfo.playerId == m_Network.GetLocalPlayerId()) {
+            participant->teamId = m_GameManager.GetCharacterTypeId();
+            continue;
+        }
+
+        auto remoteIt = m_GameManager.GetRemotePlayers().find(playerInfo.playerId);
+        participant->teamId = (remoteIt != m_GameManager.GetRemotePlayers().end())
+                                  ? remoteIt->second.GetTeamId()
+                                  : playerInfo.teamId;
+    }
+
+    const auto& bots = m_GameManager.GetBotPlayers();
+    for (size_t i = 0; i < bots.size(); ++i) {
+        const uint8_t participantId = MakeBotParticipantId(i);
+        auto* participant = FindMatchParticipant(participantId);
+        if (!participant) {
+            m_MatchState.participants.push_back(MatchParticipantStats{});
+            participant = &m_MatchState.participants.back();
+            participant->participantId = participantId;
+        }
+
+        participant->name = bots[i].GetName();
+        participant->teamId = bots[i].GetTeamId();
+        participant->isBot = true;
+    }
 }
 
 void Application::StartMatchResult(uint8_t winningTeam) {
@@ -226,6 +272,8 @@ const MatchParticipantStats* Application::FindMatchParticipant(uint8_t participa
 }
 
 void Application::RecordKill(uint8_t killerId, uint8_t victimId) {
+    RefreshMatchParticipantMetadata();
+
     auto* killer = FindMatchParticipant(killerId);
     auto* victim = FindMatchParticipant(victimId);
 
@@ -267,7 +315,9 @@ void Application::RecordKill(uint8_t killerId, uint8_t victimId) {
     }
 }
 
-Network::MatchStateView Application::BuildNetworkMatchStateView() const {
+Network::MatchStateView Application::BuildNetworkMatchStateView() {
+    RefreshMatchParticipantMetadata();
+
     Network::MatchStateView view{};
     view.ctKills = m_MatchState.ctKills;
     view.tKills = m_MatchState.tKills;
@@ -294,7 +344,9 @@ Network::MatchStateView Application::BuildNetworkMatchStateView() const {
     return view;
 }
 
-std::vector<UIManager::MatchSummaryRow> Application::BuildMatchSummaryRows() const {
+std::vector<UIManager::MatchSummaryRow> Application::BuildMatchSummaryRows() {
+    RefreshMatchParticipantMetadata();
+
     std::vector<UIManager::MatchSummaryRow> rows;
     rows.reserve(m_MatchState.participants.size());
 
