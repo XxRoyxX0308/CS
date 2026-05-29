@@ -14,6 +14,12 @@
 
 namespace Network {
 
+namespace {
+constexpr uint32_t PEER_TIMEOUT_LIMIT = 32;
+constexpr uint32_t PEER_TIMEOUT_MIN_MS = 15000;
+constexpr uint32_t PEER_TIMEOUT_MAX_MS = 60000;
+}
+
 bool Socket::s_ENetInitialized = false;
 
 Socket::Socket() = default;
@@ -100,6 +106,9 @@ bool Socket::Connect(const std::string& address, uint16_t port) {
         return false;
     }
 
+    enet_peer_timeout(m_ServerPeer, PEER_TIMEOUT_LIMIT,
+                      PEER_TIMEOUT_MIN_MS, PEER_TIMEOUT_MAX_MS);
+
     LOG_INFO("Connecting to {}:{}...", address, port);
     return true;
 }
@@ -144,6 +153,9 @@ bool Socket::PollEvent(SocketEvent& event, uint32_t timeoutMs) {
     switch (enetEvent.type) {
         case ENET_EVENT_TYPE_CONNECT: {
             event.type = SocketEventType::Connect;
+
+            enet_peer_timeout(enetEvent.peer, PEER_TIMEOUT_LIMIT,
+                              PEER_TIMEOUT_MIN_MS, PEER_TIMEOUT_MAX_MS);
 
             // Assign peer ID (use array index)
             bool found = false;

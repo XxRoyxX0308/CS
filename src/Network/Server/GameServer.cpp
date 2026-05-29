@@ -361,11 +361,13 @@ void GameServer::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, 
 void GameServer::BroadcastGameStart() {
     auto packet = PacketBuilder::GameStart();
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+    m_Socket.Flush();
 }
 
 void GameServer::BroadcastReturnToLobby() {
     auto packet = PacketBuilder::ReturnToLobby();
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+    m_Socket.Flush();
 }
 
 void GameServer::HandlePlayerConfig(uint32_t peerId, const PlayerConfigPacket& packet) {
