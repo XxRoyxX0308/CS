@@ -231,27 +231,30 @@ inline std::vector<uint8_t> ClientPlayerConfig(uint8_t characterType, uint8_t gu
 inline std::vector<uint8_t> GameState(uint32_t serverTick,
                                       uint32_t lastAckedInput,
                                       const GameStatePacket& source) {
-    GameStatePacket packet = source;
-    packet.header.type = static_cast<uint8_t>(PacketType::S2C_GAME_STATE);
-    packet.serverTick = serverTick;
-    packet.lastAckedInput = lastAckedInput;
+    PacketWriter writer;
 
-    size_t packetSize = sizeof(PacketHeader)
-                       + sizeof(uint32_t) * 2
-                       + sizeof(packet.playerCount)
-                       + sizeof(packet.ctKills)
-                       + sizeof(packet.tKills)
-                       + sizeof(packet.matchPhase)
-                       + sizeof(packet.winningTeam)
-                       + sizeof(packet.phaseTimeRemaining)
-                       + sizeof(packet.participantCount)
-                       + sizeof(NetPlayerState) * packet.playerCount
-                       + sizeof(NetMatchParticipantState) * packet.participantCount;
+    PacketHeader header{};
+    header.type = static_cast<uint8_t>(PacketType::S2C_GAME_STATE);
+    writer.Write(header);
+    writer.Write(serverTick);
+    writer.Write(lastAckedInput);
+    writer.Write(source.playerCount);
+    writer.Write(source.ctKills);
+    writer.Write(source.tKills);
+    writer.Write(source.matchPhase);
+    writer.Write(source.winningTeam);
+    writer.Write(source.phaseTimeRemaining);
+    writer.Write(source.participantCount);
 
-    return std::vector<uint8_t>(
-        reinterpret_cast<uint8_t*>(&packet),
-        reinterpret_cast<uint8_t*>(&packet) + packetSize
-    );
+    for (uint8_t i = 0; i < source.playerCount && i < MAX_PLAYERS; ++i) {
+        writer.Write(source.players[i]);
+    }
+
+    for (uint8_t i = 0; i < source.participantCount && i < MAX_MATCH_PARTICIPANTS; ++i) {
+        writer.Write(source.participants[i]);
+    }
+
+    return writer.GetBuffer();
 }
 
 inline std::vector<uint8_t> PlayerHit(uint8_t victimId, uint8_t attackerId,
@@ -414,16 +417,39 @@ inline std::optional<InputPacket> ParseInput(const std::vector<uint8_t>& data) {
 }
 
 inline std::optional<GameStatePacket> ParseGameState(const std::vector<uint8_t>& data) {
-    // Minimum size check
-    size_t minSize = sizeof(PacketHeader)
-                   + sizeof(uint32_t) * 2
-                   + sizeof(uint8_t) * 6
-                   + sizeof(float);
-    if (data.size() < minSize) return std::nullopt;
-
+    PacketReader reader(data);
     GameStatePacket packet{};
-    size_t copySize = data.size() < sizeof(packet) ? data.size() : sizeof(packet);
-    std::memcpy(&packet, data.data(), copySize);
+
+    if (!reader.Read(packet.header) ||
+        !reader.Read(packet.serverTick) ||
+        !reader.Read(packet.lastAckedInput) ||
+        !reader.Read(packet.playerCount) ||
+        !reader.Read(packet.ctKills) ||
+        !reader.Read(packet.tKills) ||
+        !reader.Read(packet.matchPhase) ||
+        !reader.Read(packet.winningTeam) ||
+        !reader.Read(packet.phaseTimeRemaining) ||
+        !reader.Read(packet.participantCount)) {
+        return std::nullopt;
+    }
+
+    if (packet.playerCount > MAX_PLAYERS ||
+        packet.participantCount > MAX_MATCH_PARTICIPANTS) {
+        return std::nullopt;
+    }
+
+    for (uint8_t i = 0; i < packet.playerCount; ++i) {
+        if (!reader.Read(packet.players[i])) {
+            return std::nullopt;
+        }
+    }
+
+    for (uint8_t i = 0; i < packet.participantCount; ++i) {
+        if (!reader.Read(packet.participants[i])) {
+            return std::nullopt;
+        }
+    }
+
     return packet;
 }
 
