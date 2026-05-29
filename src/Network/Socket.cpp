@@ -17,7 +17,7 @@ namespace Network {
 namespace {
 constexpr uint32_t PEER_TIMEOUT_LIMIT = 32;
 constexpr uint32_t PEER_TIMEOUT_MIN_MS = 15000;
-constexpr uint32_t PEER_TIMEOUT_MAX_MS = 60000;
+constexpr uint32_t PEER_TIMEOUT_MAX_MS = 100000;
 }
 
 bool Socket::s_ENetInitialized = false;

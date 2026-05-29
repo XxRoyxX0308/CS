@@ -137,7 +137,7 @@ private:
     bool m_IsWalking = false;
     bool m_IsCrouching = false;
     uint8_t m_TeamId = 1;
-    int m_Money = 5000;
+    int m_Money = 1200;
 
     // ── Character Model ───────────────────────────────────────────────────
     CharacterModel m_Model;
