@@ -233,10 +233,6 @@ void Application::RecordKill(uint8_t killerId, uint8_t victimId) {
         ++victim->deaths;
     }
 
-    if (killer && killerId != victimId) {
-        ++killer->kills;
-    }
-
     if (!killer || !victim || killerId == victimId) {
         return;
     }
@@ -244,6 +240,8 @@ void Application::RecordKill(uint8_t killerId, uint8_t victimId) {
     if (killer->teamId == victim->teamId) {
         return;
     }
+
+    ++killer->kills;
 
     if (killer->teamId == TEAM_CT) {
         ++m_MatchState.ctKills;

@@ -319,6 +319,10 @@ void GameClient::HandleGameStart(const GameStartPacket& /*packet*/) {
 }
 
 void GameClient::HandleReturnToLobby(const ReturnToLobbyPacket& /*packet*/) {
+    m_StateBuffer.Clear();
+    m_LatestMatchState = {};
+    m_HasMatchState = false;
+
     if (m_OnReturnToLobby) {
         m_OnReturnToLobby();
     }
@@ -347,6 +351,15 @@ void GameClient::SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& 
     m_Socket.SendToServer(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
 
     LOG_INFO("Sent player hit: victim={}, damage={}", victimId, damage);
+}
+
+void GameClient::SendMatchKill(uint8_t killerId, uint8_t victimId) {
+    if (m_ConnectionState != ConnectionState::Connected) return;
+
+    auto packet = PacketBuilder::ClientMatchKill(killerId, victimId);
+    m_Socket.SendToServer(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+
+    LOG_INFO("Sent match kill: killer={}, victim={}", killerId, victimId);
 }
 
 void GameClient::SendPlayerConfig(uint8_t characterType, uint8_t gunType) {

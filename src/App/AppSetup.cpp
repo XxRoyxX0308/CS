@@ -145,6 +145,10 @@ void Application::SetupNetworkCallbacks() {
         authoritativeKillCallback
     );
 
+    m_Network.SetOnClientMatchKill([this](uint8_t killerId, uint8_t victimId) {
+        RecordKill(killerId, victimId);
+    });
+
     m_Network.SetOnReturnToLobby([this]() {
         ReturnToLobby(false);
     });

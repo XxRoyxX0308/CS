@@ -41,6 +41,7 @@ public:
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnClientPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
+    using OnClientMatchKillCallback = std::function<void(uint8_t killerId, uint8_t victimId)>;
     using OnGameStartCallback = std::function<void()>;
     using OnReturnToLobbyCallback = std::function<void()>;
 
@@ -107,6 +108,7 @@ public:
     void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
     void SendPlayerConfig(uint8_t characterType, uint8_t gunType);
     void SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos);
+    void SendMatchKill(uint8_t killerId, uint8_t victimId);
 
     // Broadcast (Host mode)
 
@@ -130,6 +132,7 @@ public:
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnClientPlayerHit(OnClientPlayerHitCallback cb) { m_OnClientPlayerHit = std::move(cb); }
+    void SetOnClientMatchKill(OnClientMatchKillCallback cb) { m_OnClientMatchKill = std::move(cb); }
     void SetOnGameStart(OnGameStartCallback cb) { m_OnGameStart = std::move(cb); }
     void SetOnReturnToLobby(OnReturnToLobbyCallback cb) { m_OnReturnToLobby = std::move(cb); }
 
@@ -167,6 +170,7 @@ private:
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnClientPlayerHitCallback m_OnClientPlayerHit;
+    OnClientMatchKillCallback m_OnClientMatchKill;
     OnGameStartCallback m_OnGameStart;
     OnReturnToLobbyCallback m_OnReturnToLobby;
 };

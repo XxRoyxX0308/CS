@@ -225,6 +225,12 @@ void NetworkManager::SendPlayerHit(uint8_t victimId, float damage, const glm::ve
     }
 }
 
+void NetworkManager::SendMatchKill(uint8_t killerId, uint8_t victimId) {
+    if (m_Client) {
+        m_Client->SendMatchKill(killerId, victimId);
+    }
+}
+
 void NetworkManager::BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType) {
     if (m_Server) {
         if (playerId == 0) {
@@ -338,6 +344,12 @@ void NetworkManager::SetupServerCallbacks() {
     m_Server->SetOnPlayerHit([this](uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos) {
         if (m_OnClientPlayerHit) {
             m_OnClientPlayerHit(attackerId, victimId, damage, hitPos);
+        }
+    });
+
+    m_Server->SetOnMatchKill([this](uint8_t killerId, uint8_t victimId) {
+        if (m_OnClientMatchKill) {
+            m_OnClientMatchKill(killerId, victimId);
         }
     });
 }

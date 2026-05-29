@@ -56,6 +56,9 @@ public:
     // Send player hit to server (client detected hitting another player)
     void SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos);
 
+    // Send a confirmed kill event to server for bot/local stat replication.
+    void SendMatchKill(uint8_t killerId, uint8_t victimId);
+
     // Send player config to server (character/gun type)
     void SendPlayerConfig(uint8_t characterType, uint8_t gunType);
 

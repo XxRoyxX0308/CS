@@ -191,7 +191,12 @@ void Application::HandleBulletHit() {
                 if (m_CombatManager.HandleBotDamage(
                         botHit.playerId, gun->GetDamage(),
                         m_GameManager.GetBotPlayers())) {
-                    RecordKill(m_Network.GetLocalPlayerId(), MakeBotParticipantId(botHit.playerId));
+                    const uint8_t victimId = MakeBotParticipantId(botHit.playerId);
+                    if (m_Network.IsHost()) {
+                        RecordKill(m_Network.GetLocalPlayerId(), victimId);
+                    } else if (m_Network.IsClient()) {
+                        m_Network.SendMatchKill(m_Network.GetLocalPlayerId(), victimId);
+                    }
                 }
             } else {
                 if (m_CombatManager.HandleDamage(
@@ -212,7 +217,12 @@ void Application::HandleBulletHit() {
                 if (m_CombatManager.HandleBotDamage(
                         botHit.playerId, gun->GetDamage(),
                         m_GameManager.GetBotPlayers())) {
-                    RecordKill(m_Network.GetLocalPlayerId(), MakeBotParticipantId(botHit.playerId));
+                    const uint8_t victimId = MakeBotParticipantId(botHit.playerId);
+                    if (m_Network.IsHost()) {
+                        RecordKill(m_Network.GetLocalPlayerId(), victimId);
+                    } else if (m_Network.IsClient()) {
+                        m_Network.SendMatchKill(m_Network.GetLocalPlayerId(), victimId);
+                    }
                 }
             } else {
                 m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
@@ -252,7 +262,13 @@ void Application::HandleBotGunfire() {
 
         if (playerHit.hit && playerHit.distance <= maxDist) {
             if (m_CombatManager.HandleLocalPlayerDamage(player, gun->GetDamage())) {
-                RecordKill(MakeBotParticipantId(bot.GetBotId()), m_Network.GetLocalPlayerId());
+                const uint8_t killerId = MakeBotParticipantId(bot.GetBotId());
+                const uint8_t victimId = m_Network.GetLocalPlayerId();
+                if (m_Network.IsHost()) {
+                    RecordKill(killerId, victimId);
+                } else if (m_Network.IsClient()) {
+                    m_Network.SendMatchKill(killerId, victimId);
+                }
             }
             continue;
         }

@@ -58,6 +58,7 @@ public:
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
+    using OnMatchKillCallback = std::function<void(uint8_t killerId, uint8_t victimId)>;
 
     GameServer();
     ~GameServer();
@@ -99,6 +100,7 @@ public:
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
+    void SetOnMatchKill(OnMatchKillCallback cb) { m_OnMatchKill = std::move(cb); }
 
     // Server info
     const std::string& GetGameName() const { return m_GameName; }
@@ -113,6 +115,7 @@ private:
     void HandleClientBulletEffect(uint32_t peerId, const BulletEffectPacket& packet);
     void HandlePlayerConfig(uint32_t peerId, const PlayerConfigPacket& packet);
     void HandleClientPlayerHit(uint32_t peerId, const ClientPlayerHitPacket& packet);
+    void HandleClientMatchKill(uint32_t peerId, const ClientMatchKillPacket& packet);
 
     uint8_t AllocatePlayerId();
     void FreePlayerId(uint8_t playerId);
@@ -144,6 +147,7 @@ private:
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnPlayerHitCallback m_OnPlayerHit;
+    OnMatchKillCallback m_OnMatchKill;
 
     // State broadcast rate limiting
     float m_BroadcastTimer = 0.0f;

@@ -160,6 +160,14 @@ void GameServer::HandlePacket(uint32_t peerId, const std::vector<uint8_t>& data)
             break;
         }
 
+        case PacketType::C2S_MATCH_KILL: {
+            auto packet = PacketParser::ParseClientMatchKill(data);
+            if (packet) {
+                HandleClientMatchKill(peerId, *packet);
+            }
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -436,6 +444,27 @@ void GameServer::HandleClientPlayerHit(uint32_t peerId, const ClientPlayerHitPac
     // Notify the host (App) via callback so it can apply damage and broadcast
     if (m_OnPlayerHit) {
         m_OnPlayerHit(attackerId, victimId, packet.damage, hitPos);
+    }
+}
+
+void GameServer::HandleClientMatchKill(uint32_t peerId, const ClientMatchKillPacket& packet) {
+    auto it = m_PeerToPlayer.find(peerId);
+    if (it == m_PeerToPlayer.end()) return;
+
+    const uint8_t reporterId = it->second;
+    const bool reporterInvolved = packet.killerId == reporterId || packet.victimId == reporterId;
+    const bool validIds = packet.killerId < MAX_MATCH_PARTICIPANTS && packet.victimId < MAX_MATCH_PARTICIPANTS;
+    if (!reporterInvolved || !validIds) {
+        LOG_WARN("Rejected client kill report from {}: killer={}, victim={}",
+                 reporterId, packet.killerId, packet.victimId);
+        return;
+    }
+
+    LOG_INFO("Client {} reported match kill: killer={}, victim={}",
+             reporterId, packet.killerId, packet.victimId);
+
+    if (m_OnMatchKill) {
+        m_OnMatchKill(packet.killerId, packet.victimId);
     }
 }
 
