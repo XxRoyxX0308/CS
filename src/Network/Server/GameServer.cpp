@@ -240,6 +240,10 @@ void GameServer::HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& pac
     // Notify everyone about the new player's assigned team/character
     BroadcastPlayerConfig(playerId, client.characterType, client.gunType);
 
+    // Push the initial handshake packets out before host-side callbacks do
+    // synchronous model loading for the new remote player.
+    m_Socket.Flush();
+
     LOG_INFO("Player {} ({}) joined with ID {}", packet.playerName, peerId, playerId);
 
     // Callback
@@ -379,6 +383,9 @@ void GameServer::HandlePlayerConfig(uint32_t peerId, const PlayerConfigPacket& p
 
     // Broadcast to all clients (including the sender, so they know server received it)
     BroadcastPlayerConfig(playerId, packet.characterType, packet.gunType);
+
+    // Flush before host-side callbacks potentially reload character or weapon assets.
+    m_Socket.Flush();
 
     // Notify host via callback
     if (m_OnPlayerConfig) {

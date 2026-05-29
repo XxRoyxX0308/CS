@@ -227,6 +227,12 @@ void Socket::SendToServer(const void* data, size_t size, uint8_t channel, bool r
     enet_peer_send(m_ServerPeer, channel, packet);
 }
 
+void Socket::Flush() {
+    if (!m_Host) return;
+
+    enet_host_flush(m_Host);
+}
+
 void Socket::DisconnectPeer(uint32_t peerId) {
     if (peerId >= m_Peers.size() || !m_Peers[peerId]) return;
 

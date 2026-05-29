@@ -102,6 +102,7 @@ public:
     void SendToAll(const void* data, size_t size, uint8_t channel, bool reliable);
     void SendToPeer(uint32_t peerId, const void* data, size_t size, uint8_t channel, bool reliable);
     void SendToServer(const void* data, size_t size, uint8_t channel, bool reliable);
+    void Flush();
 
     // Peer management
     void DisconnectPeer(uint32_t peerId);
