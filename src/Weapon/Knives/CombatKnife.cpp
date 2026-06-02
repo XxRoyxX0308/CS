@@ -13,7 +13,7 @@ void CombatKnife::Configure() {
     m_MagSize        = 1;       // melee — infinite use, 1 "ammo"
     m_ReloadTime     = 0.0f;
     m_BulletRange    = 2.0f;    // melee range
-    m_Damage         = 90.0f;
+    m_Damage         = 100.0f;
     m_Price          = 200;
 
     // Knives have no spread

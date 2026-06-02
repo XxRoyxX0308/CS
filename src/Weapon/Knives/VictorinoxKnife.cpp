@@ -4,8 +4,8 @@ namespace Weapon {
 
 void VictorinoxKnife::Configure() {
     m_ModelPath      = std::string(ASSETS_DIR) + "/weapons/Knives/victorinox_multitool_knife/scene.gltf";
-    m_WeaponScale    = glm::vec3(0.002f);
-    m_WeaponOffset   = glm::vec3(0.2f, -0.2f, 0.4f);
+    m_WeaponScale    = glm::vec3(0.5f);
+    m_WeaponOffset   = glm::vec3(0.33f, -0.28f, 0.4f);
 
     m_FireRate       = 2.5f;
     m_RecoilStrength = 0.0f;
