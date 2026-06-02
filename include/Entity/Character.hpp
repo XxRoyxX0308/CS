@@ -99,6 +99,7 @@ public:
     void SetMoney(int money) { m_Money = money; }
     void AddMoney(int amount) { m_Money += amount; }
     void SpendMoney(int amount) { m_Money -= amount; }
+    void ResetMoney() { m_Money = m_StartingMoney; }
 
 protected:
     glm::vec3 m_Position = glm::vec3(0.0f);
@@ -121,6 +122,7 @@ protected:
 
     // ── Economy ──
     int m_Money = 1200;             ///< Current money for buy menu
+    int m_StartingMoney = 1200;     ///< Starting money for new rounds
 };
 
 } // namespace Entity

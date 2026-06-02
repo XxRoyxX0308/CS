@@ -21,6 +21,7 @@ void Player::Init(Core3D::Camera &camera) {
     camera.UpdateVectors();
 
     m_Position = camera.GetPosition();
+    ResetMoney();
 }
 
 // ============================================================================
