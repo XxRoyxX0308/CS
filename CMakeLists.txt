@@ -34,6 +34,7 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/App/UIManager.cpp
     ${CS_SRC_DIR}/App/CombatManager.cpp
     ${CS_SRC_DIR}/App/NetworkController.cpp
+    ${CS_SRC_DIR}/App/AudioManager.cpp
     ${CS_SRC_DIR}/App/GameManager.cpp
     # Physics
     ${CS_SRC_DIR}/Physics/CollisionMesh.cpp
@@ -85,6 +86,7 @@ set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/App/UIManager.hpp
     ${CS_INCLUDE_DIR}/App/CombatManager.hpp
     ${CS_INCLUDE_DIR}/App/NetworkController.hpp
+    ${CS_INCLUDE_DIR}/App/AudioManager.hpp
     ${CS_INCLUDE_DIR}/App/GameManager.hpp
     # Core
     ${CS_INCLUDE_DIR}/Core/Types.hpp

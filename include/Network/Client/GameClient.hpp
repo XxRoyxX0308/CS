@@ -30,6 +30,7 @@ public:
     using OnPlayerLeftCallback = std::function<void(uint8_t playerId)>;
     using OnPlayerHitCallback = std::function<void(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos)>;
     using OnPlayerDeathCallback = std::function<void(uint8_t victimId, uint8_t killerId)>;
+    using OnGunshotCallback = std::function<void(uint8_t sourceId, const glm::vec3& pos)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnGameStartCallback = std::function<void()>;
@@ -52,6 +53,9 @@ public:
 
     // Send bullet effect to server (client hit detection)
     void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+
+    // Send a gunshot event to server for positional audio.
+    void SendGunshot(const glm::vec3& pos);
 
     // Send player hit to server (client detected hitting another player)
     void SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos);
@@ -95,6 +99,7 @@ public:
     void SetOnPlayerLeft(OnPlayerLeftCallback cb) { m_OnPlayerLeft = std::move(cb); }
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
     void SetOnPlayerDeath(OnPlayerDeathCallback cb) { m_OnPlayerDeath = std::move(cb); }
+    void SetOnGunshot(OnGunshotCallback cb) { m_OnGunshot = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnGameStart(OnGameStartCallback cb) { m_OnGameStart = std::move(cb); }
@@ -109,6 +114,7 @@ private:
     void HandleGameState(const GameStatePacket& packet);
     void HandlePlayerHit(const PlayerHitPacket& packet);
     void HandlePlayerDeath(const PlayerDeathPacket& packet);
+    void HandleGunshot(const GunshotPacket& packet);
     void HandleBulletEffect(const BulletEffectPacket& packet);
     void HandlePlayerConfig(const PlayerConfigPacket& packet);
     void HandleGameStart(const GameStartPacket& packet);
@@ -144,6 +150,7 @@ private:
     OnPlayerLeftCallback m_OnPlayerLeft;
     OnPlayerHitCallback m_OnPlayerHit;
     OnPlayerDeathCallback m_OnPlayerDeath;
+    OnGunshotCallback m_OnGunshot;
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnGameStartCallback m_OnGameStart;

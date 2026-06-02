@@ -95,6 +95,7 @@ public:
     float GetYaw() const { return m_Yaw; }
     float GetPitch() const { return m_Pitch; }
     glm::vec3 GetEyePosition() const;
+    bool IsWalking() const { return m_IsWalking; }
     bool ConsumeShotThisFrame();
     const Weapon::Weapon* GetGameplayWeapon() const { return m_Weapon.get(); }
     void SetDebugFollowPlayerNoAttack(bool enabled);

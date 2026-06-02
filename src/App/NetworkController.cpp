@@ -12,7 +12,9 @@ void NetworkController::SetupCallbacks(
     std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
     StateManager& stateManager,
     BulletEffectCallback bulletEffectCallback,
-    AuthoritativeKillCallback authoritativeKillCallback) {
+    AuthoritativeKillCallback authoritativeKillCallback,
+    GunshotCallback gunshotCallback,
+    PlayerDeathCallback playerDeathCallback) {
 
     network.SetOnPlayerJoined([&scene, &remotePlayers](uint8_t playerId, const std::string& name) {
         LOG_INFO("Player {} ({}) joined the game", name, playerId);
@@ -53,6 +55,12 @@ void NetworkController::SetupCallbacks(
         }
     });
 
+    network.SetOnGunshot([gunshotCallback](uint8_t sourceId, const glm::vec3& pos) {
+        if (gunshotCallback) {
+            gunshotCallback(sourceId, pos);
+        }
+    });
+
     network.SetOnPlayerConfig([&scene, &remotePlayers](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
         LOG_INFO("Player {} changed to character type {}, gun type {}", playerId, characterType, gunType);
 
@@ -78,7 +86,7 @@ void NetworkController::SetupCallbacks(
     });
 
     // Host receives hit reports from clients
-    network.SetOnClientPlayerHit([&player, &remotePlayers, &network, authoritativeKillCallback](
+    network.SetOnClientPlayerHit([&player, &remotePlayers, &network, authoritativeKillCallback, playerDeathCallback](
         uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos) {
 
         LOG_INFO("Server received hit report: player {} hit player {} for {} damage",
@@ -95,6 +103,9 @@ void NetworkController::SetupCallbacks(
                 if (authoritativeKillCallback) {
                     authoritativeKillCallback(attackerId, victimId);
                 }
+                if (playerDeathCallback) {
+                    playerDeathCallback(victimId);
+                }
                 network.BroadcastPlayerDeath(victimId, attackerId);
             }
         } else {
@@ -109,6 +120,9 @@ void NetworkController::SetupCallbacks(
                     LOG_INFO("Player {} was killed by player {}!", victimId, attackerId);
                     if (authoritativeKillCallback) {
                         authoritativeKillCallback(attackerId, victimId);
+                    }
+                    if (playerDeathCallback) {
+                        playerDeathCallback(victimId);
                     }
                     network.BroadcastPlayerDeath(victimId, attackerId);
                 }
@@ -134,7 +148,7 @@ void NetworkController::SetupCallbacks(
     });
 
     // Client receives death notifications
-    network.SetOnPlayerDeath([&player, &remotePlayers, &network](uint8_t victimId, uint8_t killerId) {
+    network.SetOnPlayerDeath([&player, &remotePlayers, &network, playerDeathCallback](uint8_t victimId, uint8_t killerId) {
         LOG_INFO("Player {} was killed by player {}!", victimId, killerId);
 
         if (victimId == network.GetLocalPlayerId()) {
@@ -145,6 +159,10 @@ void NetworkController::SetupCallbacks(
             if (it != remotePlayers.end()) {
                 it->second.SetHealth(0.0f);
             }
+        }
+
+        if (playerDeathCallback) {
+            playerDeathCallback(victimId);
         }
     });
 }

@@ -135,6 +135,18 @@ void Application::SetupNetworkCallbacks() {
         RecordKill(killerId, victimId);
     };
 
+    auto gunshotCallback = [this](uint8_t sourceId, const glm::vec3& pos) {
+        if (sourceId == m_Network.GetLocalPlayerId()) {
+            return;
+        }
+
+        m_AudioManager.PlayOneShot(AudioManager::SoundType::Gunshot, pos);
+    };
+
+    auto playerDeathCallback = [this](uint8_t victimId) {
+        PlayDeathSoundForParticipant(victimId);
+    };
+
     m_NetworkController.SetupCallbacks(
         m_Network,
         m_GameManager.GetScene(),
@@ -142,7 +154,9 @@ void Application::SetupNetworkCallbacks() {
         m_GameManager.GetRemotePlayers(),
         m_StateManager,
         bulletEffectCallback,
-        authoritativeKillCallback
+        authoritativeKillCallback,
+        gunshotCallback,
+        playerDeathCallback
     );
 
     m_Network.SetOnClientMatchKill([this](uint8_t killerId, uint8_t victimId) {
@@ -206,6 +220,9 @@ void Application::Lobby() {
 void Application::Start() {
     LOG_TRACE("Application::Start");
 
+    m_AudioManager.Initialize();
+    m_AudioManager.Reset();
+
     m_GameManager.SetLocalCharacterType(
         (m_Network.GetLocalCharacterType() == 0)
             ? Entity::CharacterType::FBI
@@ -226,6 +243,7 @@ void Application::Start() {
 void Application::End() {
     LOG_TRACE("Application::End");
     m_Network.Disconnect();
+    m_AudioManager.Reset();
     m_GameManager.Cleanup();
     ResetMatchState();
 }

@@ -19,6 +19,8 @@ class StateManager;
  */
 using BulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
 using AuthoritativeKillCallback = std::function<void(uint8_t killerId, uint8_t victimId)>;
+using GunshotCallback = std::function<void(uint8_t sourceId, const glm::vec3& pos)>;
+using PlayerDeathCallback = std::function<void(uint8_t victimId)>;
 
 /**
  * @brief Bridges network callbacks to game logic.
@@ -42,7 +44,9 @@ public:
                         std::unordered_map<uint8_t, Entity::RemotePlayer>& remotePlayers,
                         StateManager& stateManager,
                         BulletEffectCallback bulletEffectCallback,
-                        AuthoritativeKillCallback authoritativeKillCallback);
+                        AuthoritativeKillCallback authoritativeKillCallback,
+                        GunshotCallback gunshotCallback,
+                        PlayerDeathCallback playerDeathCallback);
 
     /**
      * @brief Update network as host: process inputs, update remotes, broadcast state.

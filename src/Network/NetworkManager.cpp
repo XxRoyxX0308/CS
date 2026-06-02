@@ -188,6 +188,12 @@ void NetworkManager::BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId) {
     }
 }
 
+void NetworkManager::BroadcastGunshot(uint8_t sourceId, const glm::vec3& pos) {
+    if (m_Server) {
+        m_Server->BroadcastGunshot(sourceId, pos);
+    }
+}
+
 void NetworkManager::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     if (m_Server) {
         m_Server->BroadcastBulletEffect(pos, normal);
@@ -209,6 +215,12 @@ void NetworkManager::BroadcastReturnToLobby() {
 void NetworkManager::SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     if (m_Client) {
         m_Client->SendBulletEffect(pos, normal);
+    }
+}
+
+void NetworkManager::SendGunshot(const glm::vec3& pos) {
+    if (m_Client) {
+        m_Client->SendGunshot(pos);
     }
 }
 
@@ -332,6 +344,12 @@ void NetworkManager::SetupServerCallbacks() {
         }
     });
 
+    m_Server->SetOnGunshot([this](uint8_t sourceId, const glm::vec3& pos) {
+        if (m_OnGunshot) {
+            m_OnGunshot(sourceId, pos);
+        }
+    });
+
     m_Server->SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
         if (playerId == 0) {
             m_LocalCharacterType = characterType;
@@ -404,6 +422,12 @@ void NetworkManager::SetupClientCallbacks() {
     m_Client->SetOnPlayerDeath([this](uint8_t victimId, uint8_t killerId) {
         if (m_OnPlayerDeath) {
             m_OnPlayerDeath(victimId, killerId);
+        }
+    });
+
+    m_Client->SetOnGunshot([this](uint8_t sourceId, const glm::vec3& pos) {
+        if (m_OnGunshot) {
+            m_OnGunshot(sourceId, pos);
         }
     });
 

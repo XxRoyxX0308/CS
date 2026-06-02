@@ -168,6 +168,14 @@ void GameServer::HandlePacket(uint32_t peerId, const std::vector<uint8_t>& data)
             break;
         }
 
+        case PacketType::C2S_GUNSHOT: {
+            auto packet = PacketParser::ParseGunshot(data);
+            if (packet) {
+                HandleClientGunshot(peerId, *packet);
+            }
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -345,6 +353,11 @@ void GameServer::BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId) {
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
 }
 
+void GameServer::BroadcastGunshot(uint8_t sourceId, const glm::vec3& pos) {
+    auto packet = PacketBuilder::Gunshot(sourceId, pos);
+    m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
+}
+
 void GameServer::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     auto packet = PacketBuilder::BulletEffect(pos, normal);
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
@@ -426,6 +439,28 @@ void GameServer::HandleClientBulletEffect(uint32_t peerId, const BulletEffectPac
     // Notify host via callback
     if (m_OnBulletEffect) {
         m_OnBulletEffect(pos, normal);
+    }
+}
+
+void GameServer::HandleClientGunshot(uint32_t peerId, const GunshotPacket& packet) {
+    auto it = m_PeerToPlayer.find(peerId);
+    if (it == m_PeerToPlayer.end()) return;
+
+    const uint8_t sourceId = it->second;
+    const glm::vec3 pos(packet.x, packet.y, packet.z);
+    const auto broadcastPacket = PacketBuilder::Gunshot(sourceId, pos);
+
+    for (const auto& [playerId, client] : m_Clients) {
+        if (playerId == sourceId) {
+            continue;
+        }
+
+        m_Socket.SendToPeer(client.peerId, broadcastPacket.data(), broadcastPacket.size(),
+                            CHANNEL_UNRELIABLE, false);
+    }
+
+    if (m_OnGunshot) {
+        m_OnGunshot(sourceId, pos);
     }
 }
 

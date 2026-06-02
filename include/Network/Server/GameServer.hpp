@@ -55,6 +55,7 @@ public:
     using OnPlayerJoinedCallback = std::function<void(uint8_t playerId, const std::string& name)>;
     using OnPlayerLeftCallback = std::function<void(uint8_t playerId)>;
     using OnInputReceivedCallback = std::function<void(uint8_t playerId, const InputPacket& input)>;
+    using OnGunshotCallback = std::function<void(uint8_t sourceId, const glm::vec3& pos)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
@@ -77,6 +78,7 @@ public:
     // Broadcast effects
     void BroadcastPlayerHit(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos);
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
+    void BroadcastGunshot(uint8_t sourceId, const glm::vec3& pos);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
     void BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType);
     void BroadcastGameStart();
@@ -97,6 +99,7 @@ public:
     void SetOnPlayerJoined(OnPlayerJoinedCallback cb) { m_OnPlayerJoined = std::move(cb); }
     void SetOnPlayerLeft(OnPlayerLeftCallback cb) { m_OnPlayerLeft = std::move(cb); }
     void SetOnInputReceived(OnInputReceivedCallback cb) { m_OnInputReceived = std::move(cb); }
+    void SetOnGunshot(OnGunshotCallback cb) { m_OnGunshot = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
@@ -112,6 +115,7 @@ private:
     void HandleJoinRequest(uint32_t peerId, const JoinRequestPacket& packet);
     void HandleDisconnect(uint32_t peerId);
     void HandleInput(uint32_t peerId, const InputPacket& packet);
+    void HandleClientGunshot(uint32_t peerId, const GunshotPacket& packet);
     void HandleClientBulletEffect(uint32_t peerId, const BulletEffectPacket& packet);
     void HandlePlayerConfig(uint32_t peerId, const PlayerConfigPacket& packet);
     void HandleClientPlayerHit(uint32_t peerId, const ClientPlayerHitPacket& packet);
@@ -144,6 +148,7 @@ private:
     OnPlayerJoinedCallback m_OnPlayerJoined;
     OnPlayerLeftCallback m_OnPlayerLeft;
     OnInputReceivedCallback m_OnInputReceived;
+    OnGunshotCallback m_OnGunshot;
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnPlayerHitCallback m_OnPlayerHit;

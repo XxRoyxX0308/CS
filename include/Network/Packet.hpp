@@ -345,6 +345,34 @@ inline std::vector<uint8_t> ClientMatchKill(uint8_t killerId, uint8_t victimId) 
     );
 }
 
+inline std::vector<uint8_t> Gunshot(uint8_t sourceId, const glm::vec3& pos) {
+    GunshotPacket packet{};
+    packet.header.type = static_cast<uint8_t>(PacketType::S2C_GUNSHOT);
+    packet.sourceId = sourceId;
+    packet.x = pos.x;
+    packet.y = pos.y;
+    packet.z = pos.z;
+
+    return std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t*>(&packet) + sizeof(packet)
+    );
+}
+
+inline std::vector<uint8_t> ClientGunshot(const glm::vec3& pos) {
+    GunshotPacket packet{};
+    packet.header.type = static_cast<uint8_t>(PacketType::C2S_GUNSHOT);
+    packet.sourceId = 0;
+    packet.x = pos.x;
+    packet.y = pos.y;
+    packet.z = pos.z;
+
+    return std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(&packet),
+        reinterpret_cast<uint8_t*>(&packet) + sizeof(packet)
+    );
+}
+
 inline std::vector<uint8_t> DiscoveryQuery() {
     DiscoveryQueryPacket packet{};
     std::memcpy(packet.magic, DISCOVERY_MAGIC, 4);
@@ -484,6 +512,13 @@ inline std::optional<ClientPlayerHitPacket> ParseClientPlayerHit(const std::vect
 inline std::optional<ClientMatchKillPacket> ParseClientMatchKill(const std::vector<uint8_t>& data) {
     if (data.size() < sizeof(ClientMatchKillPacket)) return std::nullopt;
     ClientMatchKillPacket packet;
+    std::memcpy(&packet, data.data(), sizeof(packet));
+    return packet;
+}
+
+inline std::optional<GunshotPacket> ParseGunshot(const std::vector<uint8_t>& data) {
+    if (data.size() < sizeof(GunshotPacket)) return std::nullopt;
+    GunshotPacket packet;
     std::memcpy(&packet, data.data(), sizeof(packet));
     return packet;
 }

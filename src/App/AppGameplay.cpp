@@ -66,6 +66,7 @@ void Application::Update() {
 
     m_GameManager.UpdatePlayer(dt);
     m_GameManager.UpdateBots(dt);
+    UpdateAudio();
 
     HandleBotGunfire();
     if (!m_StateManager.IsInState(GameState::GAME_UPDATE)) {
@@ -172,6 +173,14 @@ void Application::HandleBulletHit() {
     m_LastProcessedLocalShotSequence = shotSequence;
 
     auto& camera = m_GameManager.GetCamera();
+    const glm::vec3 shotOrigin = camera.GetPosition();
+    m_AudioManager.PlayOneShot(AudioManager::SoundType::Gunshot, shotOrigin);
+    if (m_Network.IsHost()) {
+        m_Network.BroadcastGunshot(m_Network.GetLocalPlayerId(), shotOrigin);
+    } else if (m_Network.IsClient()) {
+        m_Network.SendGunshot(shotOrigin);
+    }
+
     const float damagePerProjectile = gun->GetDamagePerProjectile();
 
     for (const auto& projectile : gun->GetProjectileResults()) {
@@ -196,6 +205,7 @@ void Application::HandleBulletHit() {
             if (m_CombatManager.HandleDamage(
                     playerHit.playerId, damagePerProjectile, playerHit.point,
                     m_Network, m_GameManager.GetRemotePlayers())) {
+                PlayDeathSoundForParticipant(playerHit.playerId);
                 RecordKill(m_Network.GetLocalPlayerId(), playerHit.playerId);
             }
             continue;
@@ -206,6 +216,7 @@ void Application::HandleBulletHit() {
                     botHit.playerId, damagePerProjectile,
                     m_GameManager.GetBotPlayers())) {
                 const uint8_t victimId = MakeBotParticipantId(botHit.playerId);
+                PlayDeathSoundForParticipant(victimId);
                 if (m_Network.IsHost()) {
                     RecordKill(m_Network.GetLocalPlayerId(), victimId);
                 } else if (m_Network.IsClient()) {
@@ -235,6 +246,12 @@ void Application::HandleBotGunfire() {
             continue;
         }
 
+        const glm::vec3 shotOrigin = bot.GetEyePosition();
+        m_AudioManager.PlayOneShot(AudioManager::SoundType::Gunshot, shotOrigin);
+        if (m_Network.IsHost()) {
+            m_Network.BroadcastGunshot(MakeBotParticipantId(bot.GetBotId()), shotOrigin);
+        }
+
         const auto* gun = bot.GetGameplayWeapon();
         if (!gun) {
             continue;
@@ -255,6 +272,7 @@ void Application::HandleBotGunfire() {
 
             if (playerHit.hit && playerHit.distance <= maxDist) {
                 if (m_CombatManager.HandleLocalPlayerDamage(player, damagePerProjectile)) {
+                    m_AudioManager.PlayOneShot(AudioManager::SoundType::Death, player.GetPosition());
                     const uint8_t killerId = MakeBotParticipantId(bot.GetBotId());
                     const uint8_t victimId = m_Network.GetLocalPlayerId();
                     if (m_Network.IsHost()) {
@@ -275,6 +293,78 @@ void Application::HandleBotGunfire() {
             }
         }
     }
+}
+
+void Application::UpdateAudio() {
+    auto& camera = m_GameManager.GetCamera();
+    m_AudioManager.UpdateListener(camera.GetPosition(), camera.GetFront(), camera.GetRight());
+
+    std::vector<uint32_t> activeLoopEmitters;
+    const auto& remotePlayers = m_GameManager.GetRemotePlayers();
+    const auto& bots = m_GameManager.GetBotPlayers();
+    activeLoopEmitters.reserve(remotePlayers.size() + bots.size());
+
+    for (const auto& [playerId, remote] : remotePlayers) {
+        const uint32_t emitterId = MakeRemoteFootstepEmitterId(playerId);
+        activeLoopEmitters.push_back(emitterId);
+        m_AudioManager.UpdateLoopEmitter(
+            emitterId,
+            AudioManager::SoundType::Footstep,
+            remote.GetPosition(),
+            remote.IsAlive() && remote.IsWalking() && !remote.IsCrouching());
+    }
+
+    for (const auto& bot : bots) {
+        const uint32_t emitterId = MakeBotFootstepEmitterId(bot.GetBotId());
+        activeLoopEmitters.push_back(emitterId);
+        m_AudioManager.UpdateLoopEmitter(
+            emitterId,
+            AudioManager::SoundType::Footstep,
+            bot.GetPosition(),
+            bot.IsAlive() && bot.IsWalking() && !bot.IsCrouching());
+    }
+
+    m_AudioManager.StopAllLoopEmittersExcept(activeLoopEmitters);
+}
+
+void Application::PlayDeathSoundForParticipant(uint8_t participantId) {
+    auto position = GetParticipantPosition(participantId);
+    if (!position) {
+        return;
+    }
+
+    m_AudioManager.PlayOneShot(AudioManager::SoundType::Death, *position);
+}
+
+std::optional<glm::vec3> Application::GetParticipantPosition(uint8_t participantId) const {
+    if (participantId >= Network::MAX_PLAYERS) {
+        const size_t botIndex = static_cast<size_t>(participantId - Network::MAX_PLAYERS);
+        const auto& bots = m_GameManager.GetBotPlayers();
+        if (botIndex < bots.size()) {
+            return bots[botIndex].GetPosition();
+        }
+        return std::nullopt;
+    }
+
+    if (participantId == m_Network.GetLocalPlayerId()) {
+        return m_GameManager.GetPlayer().GetPosition();
+    }
+
+    const auto& remotePlayers = m_GameManager.GetRemotePlayers();
+    auto it = remotePlayers.find(participantId);
+    if (it != remotePlayers.end()) {
+        return it->second.GetPosition();
+    }
+
+    return std::nullopt;
+}
+
+uint32_t Application::MakeRemoteFootstepEmitterId(uint8_t playerId) {
+    return 0x10000u | static_cast<uint32_t>(playerId);
+}
+
+uint32_t Application::MakeBotFootstepEmitterId(uint8_t botId) {
+    return 0x20000u | static_cast<uint32_t>(botId);
 }
 
 void Application::UpdatePassiveNetwork(float dt) {

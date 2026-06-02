@@ -38,6 +38,7 @@ public:
     using OnDisconnectedCallback = std::function<void()>;
     using OnPlayerHitCallback = std::function<void(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos)>;
     using OnPlayerDeathCallback = std::function<void(uint8_t victimId, uint8_t killerId)>;
+    using OnGunshotCallback = std::function<void(uint8_t sourceId, const glm::vec3& pos)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnClientPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
@@ -99,6 +100,7 @@ public:
     void BroadcastGameState(const GameStatePacket& packet);
     void BroadcastPlayerHit(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos);
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
+    void BroadcastGunshot(uint8_t sourceId, const glm::vec3& pos);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
     void BroadcastGameStart();
     void BroadcastReturnToLobby();
@@ -106,6 +108,7 @@ public:
     // Send Effects (Client mode)
 
     void SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
+    void SendGunshot(const glm::vec3& pos);
     void SendPlayerConfig(uint8_t characterType, uint8_t gunType);
     void SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos);
     void SendMatchKill(uint8_t killerId, uint8_t victimId);
@@ -129,6 +132,7 @@ public:
     void SetOnDisconnected(OnDisconnectedCallback cb) { m_OnDisconnected = std::move(cb); }
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
     void SetOnPlayerDeath(OnPlayerDeathCallback cb) { m_OnPlayerDeath = std::move(cb); }
+    void SetOnGunshot(OnGunshotCallback cb) { m_OnGunshot = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnClientPlayerHit(OnClientPlayerHitCallback cb) { m_OnClientPlayerHit = std::move(cb); }
@@ -167,6 +171,7 @@ private:
     OnDisconnectedCallback m_OnDisconnected;
     OnPlayerHitCallback m_OnPlayerHit;
     OnPlayerDeathCallback m_OnPlayerDeath;
+    OnGunshotCallback m_OnGunshot;
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnClientPlayerHitCallback m_OnClientPlayerHit;

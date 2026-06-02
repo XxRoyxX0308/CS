@@ -180,6 +180,12 @@ void GameClient::HandlePacket(const std::vector<uint8_t>& data) {
             break;
         }
 
+        case PacketType::S2C_GUNSHOT: {
+            auto packet = PacketParser::ParseGunshot(data);
+            if (packet) HandleGunshot(*packet);
+            break;
+        }
+
         case PacketType::S2C_BULLET_EFFECT: {
             auto packet = PacketParser::ParseBulletEffect(data);
             if (packet) HandleBulletEffect(*packet);
@@ -303,6 +309,12 @@ void GameClient::HandlePlayerDeath(const PlayerDeathPacket& packet) {
     }
 }
 
+void GameClient::HandleGunshot(const GunshotPacket& packet) {
+    if (m_OnGunshot) {
+        m_OnGunshot(packet.sourceId, glm::vec3(packet.x, packet.y, packet.z));
+    }
+}
+
 void GameClient::HandlePlayerConfig(const PlayerConfigPacket& packet) {
     LOG_INFO("Received config for player {}: character={}, gun={}",
              packet.playerId, packet.characterType, packet.gunType);
@@ -342,6 +354,13 @@ void GameClient::SendBulletEffect(const glm::vec3& pos, const glm::vec3& normal)
 
     auto packet = PacketBuilder::ClientBulletEffect(pos, normal);
     m_Socket.SendToServer(packet.data(), packet.size(), CHANNEL_RELIABLE, true);
+}
+
+void GameClient::SendGunshot(const glm::vec3& pos) {
+    if (m_ConnectionState != ConnectionState::Connected) return;
+
+    auto packet = PacketBuilder::ClientGunshot(pos);
+    m_Socket.SendToServer(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
 }
 
 void GameClient::SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos) {

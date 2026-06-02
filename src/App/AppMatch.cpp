@@ -86,6 +86,7 @@ void Application::StartMatchResult(uint8_t winningTeam) {
         return;
     }
 
+    m_AudioManager.Reset();
     m_MatchState.phase = MatchPhase::RESULT;
     m_MatchState.winningTeam = winningTeam;
     m_MatchState.phaseTimeRemaining = MATCH_RESULT_DURATION;
@@ -116,6 +117,7 @@ void Application::ReturnToLobby(bool broadcastToClients) {
         m_Network.BroadcastReturnToLobby();
     }
 
+    m_AudioManager.Reset();
     m_UIManager.SetBuyMenuVisible(false);
     m_UIManager.SetDebugPanelVisible(false);
     if (m_InputManager.IsCursorLocked()) {

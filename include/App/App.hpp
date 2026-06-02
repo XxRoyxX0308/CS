@@ -16,10 +16,12 @@
 #include "App/UIManager.hpp"
 #include "App/CombatManager.hpp"
 #include "App/NetworkController.hpp"
+#include "App/AudioManager.hpp"
 #include "App/GameManager.hpp"
 #include "Network/NetworkManager.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -93,6 +95,7 @@ private:
     UIManager m_UIManager;
     CombatManager m_CombatManager;
     NetworkController m_NetworkController;
+    AudioManager m_AudioManager;
     GameManager m_GameManager;
 
     // ── Network ──
@@ -113,6 +116,7 @@ private:
     void HandleCharacterSwitch();
     void HandleBulletHit();
     void HandleBotGunfire();
+    void UpdateAudio();
     void SendCharacterConfig();
     void ResetMatchState();
     void InitializeMatchState();
@@ -127,9 +131,13 @@ private:
     MatchParticipantStats* FindMatchParticipant(uint8_t participantId);
     const MatchParticipantStats* FindMatchParticipant(uint8_t participantId) const;
     void RecordKill(uint8_t killerId, uint8_t victimId);
+    void PlayDeathSoundForParticipant(uint8_t participantId);
+    std::optional<glm::vec3> GetParticipantPosition(uint8_t participantId) const;
     Network::MatchStateView BuildNetworkMatchStateView() const;
     std::vector<UIManager::MatchSummaryRow> BuildMatchSummaryRows() const;
     static uint8_t MakeBotParticipantId(size_t botIndex);
+    static uint32_t MakeRemoteFootstepEmitterId(uint8_t playerId);
+    static uint32_t MakeBotFootstepEmitterId(uint8_t botId);
 };
 
 } // namespace App
