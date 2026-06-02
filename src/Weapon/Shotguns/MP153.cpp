@@ -13,7 +13,8 @@ void MP153::Configure() {
     m_MagSize        = 5;
     m_ReloadTime     = 2.5f;
     m_BulletRange    = 40.0f;
-    m_Damage         = 80.0f;
+    m_Damage         = 120.0f;
+    m_ProjectilesPerShot = 10;
     m_Price          = 1800;
 
     // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult

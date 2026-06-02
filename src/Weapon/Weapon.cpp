@@ -17,10 +17,12 @@ void Weapon::ResetRuntimeState() {
     m_IsReloading = false;
     m_ReloadTimer = 0.0f;
     m_CurrentRecoil = 0.0f;
+    m_ShotSequence = 0;
     m_ReloadAnimAngle = 0.0f;
     m_Spread.Reset();
     m_LastHit = {};
     m_LastFireDir = glm::vec3(0.0f, 0.0f, 1.0f);
+    m_ProjectileResults.clear();
 }
 
 // ============================================================================
@@ -119,19 +121,32 @@ void Weapon::Fire(Core3D::Camera &camera, const Physics::CollisionMesh &mesh) {
 
     m_CurrentAmmo--;
     m_FireCooldown = 1.0f / m_FireRate;
+    ++m_ShotSequence;
 
-    // Apply spread to the fire direction, then notify spread system
-    glm::vec3 spreadDir = m_Spread.ApplySpread(camera.GetFront());
+    const int projectileCount = std::max(1, m_ProjectilesPerShot);
+    m_ProjectileResults.clear();
+    m_ProjectileResults.reserve(static_cast<size_t>(projectileCount));
+    m_LastHit = {};
+
+    for (int projectileIndex = 0; projectileIndex < projectileCount; ++projectileIndex) {
+        glm::vec3 spreadDir = m_Spread.ApplySpread(camera.GetFront());
+        auto hit = RayCast::Cast(camera.GetPosition(),
+                                 spreadDir,
+                                 mesh,
+                                 m_BulletRange);
+
+        m_ProjectileResults.push_back(ShotProjectileResult{hit, spreadDir});
+
+        if (projectileIndex == 0) {
+            m_LastFireDir = spreadDir;
+        }
+
+        if (hit.hit && (!m_LastHit.hit || hit.distance < m_LastHit.distance)) {
+            m_LastHit = hit;
+        }
+    }
+
     m_Spread.OnFire();
-
-    // Store the actual bullet direction before recoil modifies the camera
-    m_LastFireDir = spreadDir;
-
-    // Raycast using spread-deviated direction
-    m_LastHit = RayCast::Cast(camera.GetPosition(),
-                              spreadDir,
-                              mesh,
-                              m_BulletRange);
 
     // Then apply recoil kick
     camera.SetPitch(camera.GetPitch() + m_RecoilStrength);

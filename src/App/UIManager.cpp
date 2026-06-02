@@ -748,6 +748,7 @@ void UIManager::RenderDebugPanel(const Core3D::Camera& camera,
     if (auto *gun = player.GetWeapon()) {
         ImGui::Separator();
         ImGui::Text("Ammo: %d / %d", gun->GetCurrentAmmo(), gun->GetMagSize());
+        ImGui::Text("Projectiles/Shot: %d", gun->GetProjectilesPerShot());
         ImGui::Text("Reloading: %s", gun->IsReloading() ? "YES" : "no");
         const auto &hit = gun->GetLastHit();
         if (hit.hit) {

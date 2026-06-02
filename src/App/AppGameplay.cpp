@@ -165,73 +165,63 @@ void Application::HandleBulletHit() {
     auto* gun = player.GetWeapon();
     if (!gun) return;
 
-    const auto& mapHit = gun->GetLastHit();
-    static glm::vec3 lastHitPoint(0.0f);
+    const uint32_t shotSequence = gun->GetShotSequence();
+    if (shotSequence == 0 || shotSequence == m_LastProcessedLocalShotSequence) {
+        return;
+    }
+    m_LastProcessedLocalShotSequence = shotSequence;
 
-    if (mapHit.hit && mapHit.point != lastHitPoint) {
-        lastHitPoint = mapHit.point;
+    auto& camera = m_GameManager.GetCamera();
+    const float damagePerProjectile = gun->GetDamagePerProjectile();
 
-        auto& camera = m_GameManager.GetCamera();
+    for (const auto& projectile : gun->GetProjectileResults()) {
+        const auto& mapHit = projectile.mapHit;
+        const float maxDist = mapHit.hit ? mapHit.distance : gun->GetBulletRange();
+
         auto playerHit = m_CombatManager.CheckPlayerHit(
             camera.GetPosition(),
-            gun->GetLastFireDir(),
-            mapHit.distance,
+            projectile.fireDir,
+            maxDist,
             m_GameManager.GetRemotePlayers()
         );
 
-        if (playerHit.hit && playerHit.distance < mapHit.distance) {
-            auto botHit = m_CombatManager.CheckBotHit(
-                camera.GetPosition(),
-                gun->GetLastFireDir(),
-                mapHit.distance,
-                m_GameManager.GetBotPlayers()
-            );
+        auto botHit = m_CombatManager.CheckBotHit(
+            camera.GetPosition(),
+            projectile.fireDir,
+            maxDist,
+            m_GameManager.GetBotPlayers()
+        );
 
-            if (botHit.hit && botHit.distance < playerHit.distance) {
-                if (m_CombatManager.HandleBotDamage(
-                        botHit.playerId, gun->GetDamage(),
-                        m_GameManager.GetBotPlayers())) {
-                    const uint8_t victimId = MakeBotParticipantId(botHit.playerId);
-                    if (m_Network.IsHost()) {
-                        RecordKill(m_Network.GetLocalPlayerId(), victimId);
-                    } else if (m_Network.IsClient()) {
-                        m_Network.SendMatchKill(m_Network.GetLocalPlayerId(), victimId);
-                    }
-                }
-            } else {
-                if (m_CombatManager.HandleDamage(
-                        playerHit.playerId, gun->GetDamage(), playerHit.point,
-                        m_Network, m_GameManager.GetRemotePlayers())) {
-                    RecordKill(m_Network.GetLocalPlayerId(), playerHit.playerId);
+        if (playerHit.hit && (!botHit.hit || playerHit.distance <= botHit.distance)) {
+            if (m_CombatManager.HandleDamage(
+                    playerHit.playerId, damagePerProjectile, playerHit.point,
+                    m_Network, m_GameManager.GetRemotePlayers())) {
+                RecordKill(m_Network.GetLocalPlayerId(), playerHit.playerId);
+            }
+            continue;
+        }
+
+        if (botHit.hit) {
+            if (m_CombatManager.HandleBotDamage(
+                    botHit.playerId, damagePerProjectile,
+                    m_GameManager.GetBotPlayers())) {
+                const uint8_t victimId = MakeBotParticipantId(botHit.playerId);
+                if (m_Network.IsHost()) {
+                    RecordKill(m_Network.GetLocalPlayerId(), victimId);
+                } else if (m_Network.IsClient()) {
+                    m_Network.SendMatchKill(m_Network.GetLocalPlayerId(), victimId);
                 }
             }
-        } else {
-            auto botHit = m_CombatManager.CheckBotHit(
-                camera.GetPosition(),
-                gun->GetLastFireDir(),
-                mapHit.distance,
-                m_GameManager.GetBotPlayers()
-            );
+            continue;
+        }
 
-            if (botHit.hit && botHit.distance < mapHit.distance) {
-                if (m_CombatManager.HandleBotDamage(
-                        botHit.playerId, gun->GetDamage(),
-                        m_GameManager.GetBotPlayers())) {
-                    const uint8_t victimId = MakeBotParticipantId(botHit.playerId);
-                    if (m_Network.IsHost()) {
-                        RecordKill(m_Network.GetLocalPlayerId(), victimId);
-                    } else if (m_Network.IsClient()) {
-                        m_Network.SendMatchKill(m_Network.GetLocalPlayerId(), victimId);
-                    }
-                }
-            } else {
-                m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
+        if (mapHit.hit) {
+            m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
 
-                if (m_Network.IsHost()) {
-                    m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
-                } else if (m_Network.IsClient()) {
-                    m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
-                }
+            if (m_Network.IsHost()) {
+                m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
+            } else if (m_Network.IsClient()) {
+                m_Network.SendBulletEffect(mapHit.point, mapHit.normal);
             }
         }
     }
@@ -250,34 +240,38 @@ void Application::HandleBotGunfire() {
             continue;
         }
 
-        const auto& mapHit = gun->GetLastHit();
-        float maxDist = mapHit.hit ? mapHit.distance : gun->GetBulletRange();
+        const float damagePerProjectile = gun->GetDamagePerProjectile();
 
-        auto playerHit = m_CombatManager.CheckLocalPlayerHit(
-            bot.GetEyePosition(),
-            gun->GetLastFireDir(),
-            maxDist,
-            player
-        );
+        for (const auto& projectile : gun->GetProjectileResults()) {
+            const auto& mapHit = projectile.mapHit;
+            const float maxDist = mapHit.hit ? mapHit.distance : gun->GetBulletRange();
 
-        if (playerHit.hit && playerHit.distance <= maxDist) {
-            if (m_CombatManager.HandleLocalPlayerDamage(player, gun->GetDamage())) {
-                const uint8_t killerId = MakeBotParticipantId(bot.GetBotId());
-                const uint8_t victimId = m_Network.GetLocalPlayerId();
-                if (m_Network.IsHost()) {
-                    RecordKill(killerId, victimId);
-                } else if (m_Network.IsClient()) {
-                    m_Network.SendMatchKill(killerId, victimId);
+            auto playerHit = m_CombatManager.CheckLocalPlayerHit(
+                bot.GetEyePosition(),
+                projectile.fireDir,
+                maxDist,
+                player
+            );
+
+            if (playerHit.hit && playerHit.distance <= maxDist) {
+                if (m_CombatManager.HandleLocalPlayerDamage(player, damagePerProjectile)) {
+                    const uint8_t killerId = MakeBotParticipantId(bot.GetBotId());
+                    const uint8_t victimId = m_Network.GetLocalPlayerId();
+                    if (m_Network.IsHost()) {
+                        RecordKill(killerId, victimId);
+                    } else if (m_Network.IsClient()) {
+                        m_Network.SendMatchKill(killerId, victimId);
+                    }
                 }
+                continue;
             }
-            continue;
-        }
 
-        if (mapHit.hit) {
-            m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
+            if (mapHit.hit) {
+                m_GameManager.SpawnBulletHole(mapHit.point, mapHit.normal);
 
-            if (m_Network.IsHost()) {
-                m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
+                if (m_Network.IsHost()) {
+                    m_Network.BroadcastBulletEffect(mapHit.point, mapHit.normal);
+                }
             }
         }
     }

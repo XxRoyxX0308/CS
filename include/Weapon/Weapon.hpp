@@ -13,8 +13,14 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace Weapon {
+
+struct ShotProjectileResult {
+    RayHitResult mapHit;
+    glm::vec3 fireDir = glm::vec3(0.0f, 0.0f, 1.0f);
+};
 
 /**
  * @brief Abstract base class for all weapons.
@@ -63,6 +69,11 @@ public:
     bool IsReloading()    const { return m_IsReloading; }
     float GetDamage()     const { return m_Damage; }
     float GetBulletRange() const { return m_BulletRange; }
+    float GetDamagePerProjectile() const {
+        return m_Damage / static_cast<float>(m_ProjectilesPerShot > 0 ? m_ProjectilesPerShot : 1);
+    }
+    int GetProjectilesPerShot() const { return m_ProjectilesPerShot; }
+    uint32_t GetShotSequence() const { return m_ShotSequence; }
     int  GetPrice()       const { return m_Price; }
     const std::string& GetModelPath() const { return m_ModelPath; }
     const glm::vec3& GetWeaponScale() const { return m_WeaponScale; }
@@ -72,6 +83,9 @@ public:
 
     /** @brief Get the actual direction the last bullet traveled (spread-applied, pre-recoil). */
     const glm::vec3 &GetLastFireDir() const { return m_LastFireDir; }
+
+    /** @brief Get all projectile results produced by the most recent shot. */
+    const std::vector<ShotProjectileResult> &GetProjectileResults() const { return m_ProjectileResults; }
 
     /** @brief Get the weapon spread system (for UI visualization). */
     const WeaponSpread &GetSpread() const { return m_Spread; }
@@ -111,6 +125,7 @@ protected:
     float m_ReloadTime      = 2.0f;    // seconds to reload
     float m_BulletRange     = 200.0f;  // max hitscan range (meters)
     float m_Damage          = 25.0f;   // damage per hit
+    int   m_ProjectilesPerShot = 1;
     int   m_Price           = 0;       // buy menu price
 
     // ── Runtime state ──
@@ -119,6 +134,7 @@ protected:
     bool  m_IsReloading   = false;
     float m_ReloadTimer   = 0.0f;
     float m_CurrentRecoil = 0.0f;      // accumulated recoil to recover
+    uint32_t m_ShotSequence = 0;
 
     // ── Rendering ──
     std::shared_ptr<Core3D::Model>    m_Model;
@@ -127,6 +143,7 @@ protected:
     // ── Last hit result ──
     RayHitResult m_LastHit;
     glm::vec3    m_LastFireDir = glm::vec3(0.0f, 0.0f, 1.0f);
+    std::vector<ShotProjectileResult> m_ProjectileResults;
 
     // ── Spread system ──
     WeaponSpread m_Spread;

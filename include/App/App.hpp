@@ -105,6 +105,7 @@ private:
     int m_CTBotCount = 0;
     int m_TBotCount = 0;
     MatchState m_MatchState;
+    uint32_t m_LastProcessedLocalShotSequence = 0;
 
     // ── Helper Methods ──
     void SetupUICallbacks();

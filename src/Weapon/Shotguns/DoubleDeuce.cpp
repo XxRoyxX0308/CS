@@ -14,6 +14,7 @@ void DoubleDeuce::Configure() {
     m_ReloadTime     = 2.0f;
     m_BulletRange    = 30.0f;
     m_Damage         = 100.0f;
+    m_ProjectilesPerShot = 10;
     m_Price          = 1200;
 
     // Spread: minSpread, maxSpread, moveRate, fireIncrement, jumpPenalty, recoveryRate, crouchMult

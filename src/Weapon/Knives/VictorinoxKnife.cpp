@@ -13,7 +13,7 @@ void VictorinoxKnife::Configure() {
     m_MagSize        = 1;
     m_ReloadTime     = 0.0f;
     m_BulletRange    = 2.0f;
-    m_Damage         = 40.0f;
+    m_Damage         = 90.0f;
     m_Price          = 0;       // free starter knife
 
     // Knives have no spread
