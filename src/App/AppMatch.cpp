@@ -87,6 +87,7 @@ void Application::StartMatchResult(uint8_t winningTeam) {
     }
 
     m_AudioManager.Reset();
+    m_VoiceChatManager.SetPushToTalkEnabled(false);
     m_MatchState.phase = MatchPhase::RESULT;
     m_MatchState.winningTeam = winningTeam;
     m_MatchState.phaseTimeRemaining = MATCH_RESULT_DURATION;
@@ -118,6 +119,7 @@ void Application::ReturnToLobby(bool broadcastToClients) {
     }
 
     m_AudioManager.Reset();
+    m_VoiceChatManager.Reset();
     m_UIManager.SetBuyMenuVisible(false);
     m_UIManager.SetDebugPanelVisible(false);
     if (m_InputManager.IsCursorLocked()) {

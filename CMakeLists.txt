@@ -5,6 +5,20 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include(FetchContent)
+
+FetchContent_Declare(
+    opus
+    URL https://github.com/xiph/opus/archive/refs/tags/v1.5.2.zip
+)
+
+set(OPUS_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(OPUS_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(OPUS_INSTALL_PKG_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
+set(OPUS_INSTALL_CMAKE_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(opus)
+
 if (MSVC)
     set(TARGET_COMPILE_OPTIONS /W4)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build)
@@ -35,6 +49,7 @@ set(CS_SRC_FILES
     ${CS_SRC_DIR}/App/CombatManager.cpp
     ${CS_SRC_DIR}/App/NetworkController.cpp
     ${CS_SRC_DIR}/App/AudioManager.cpp
+    ${CS_SRC_DIR}/App/VoiceChatManager.cpp
     ${CS_SRC_DIR}/App/GameManager.cpp
     # Physics
     ${CS_SRC_DIR}/Physics/CollisionMesh.cpp
@@ -87,6 +102,7 @@ set(CS_INCLUDE_FILES
     ${CS_INCLUDE_DIR}/App/CombatManager.hpp
     ${CS_INCLUDE_DIR}/App/NetworkController.hpp
     ${CS_INCLUDE_DIR}/App/AudioManager.hpp
+    ${CS_INCLUDE_DIR}/App/VoiceChatManager.hpp
     ${CS_INCLUDE_DIR}/App/GameManager.hpp
     # Core
     ${CS_INCLUDE_DIR}/Core/Types.hpp
@@ -144,6 +160,7 @@ add_executable(CSNavProbe
 target_link_libraries(CS
     SDL2::SDL2main
     PTSD
+    Opus::opus
 )
 
 target_link_libraries(CSNavProbe

@@ -373,6 +373,37 @@ inline std::vector<uint8_t> ClientGunshot(const glm::vec3& pos) {
     );
 }
 
+inline std::vector<uint8_t> VoiceFrame(PacketType type,
+                                       uint8_t sourceId,
+                                       uint32_t sequence,
+                                       const uint8_t* encodedData,
+                                       uint16_t encodedSize) {
+    PacketWriter writer;
+
+    VoiceFramePacketHeader header{};
+    header.header.type = static_cast<uint8_t>(type);
+    header.sourceId = sourceId;
+    header.sequence = sequence;
+    header.encodedSize = encodedSize;
+
+    writer.Write(header);
+    writer.WriteBytes(encodedData, encodedSize);
+    return writer.GetBuffer();
+}
+
+inline std::vector<uint8_t> ServerVoiceFrame(uint8_t sourceId,
+                                             uint32_t sequence,
+                                             const uint8_t* encodedData,
+                                             uint16_t encodedSize) {
+    return VoiceFrame(PacketType::S2C_VOICE_FRAME, sourceId, sequence, encodedData, encodedSize);
+}
+
+inline std::vector<uint8_t> ClientVoiceFrame(uint32_t sequence,
+                                             const uint8_t* encodedData,
+                                             uint16_t encodedSize) {
+    return VoiceFrame(PacketType::C2S_VOICE_FRAME, 0xFF, sequence, encodedData, encodedSize);
+}
+
 inline std::vector<uint8_t> DiscoveryQuery() {
     DiscoveryQueryPacket packet{};
     std::memcpy(packet.magic, DISCOVERY_MAGIC, 4);
@@ -408,6 +439,11 @@ inline std::vector<uint8_t> DiscoveryResponse(const char* gameName,
 // Packet Parsing Utilities
 
 namespace PacketParser {
+
+struct ParsedVoiceFrame {
+    VoiceFramePacketHeader header{};
+    std::vector<uint8_t> encodedData;
+};
 
 inline std::optional<JoinRequestPacket> ParseJoinRequest(const std::vector<uint8_t>& data) {
     if (data.size() < sizeof(JoinRequestPacket)) return std::nullopt;
@@ -520,6 +556,30 @@ inline std::optional<GunshotPacket> ParseGunshot(const std::vector<uint8_t>& dat
     if (data.size() < sizeof(GunshotPacket)) return std::nullopt;
     GunshotPacket packet;
     std::memcpy(&packet, data.data(), sizeof(packet));
+    return packet;
+}
+
+inline std::optional<ParsedVoiceFrame> ParseVoiceFrame(const std::vector<uint8_t>& data) {
+    PacketReader reader(data);
+    ParsedVoiceFrame packet;
+
+    if (!reader.Read(packet.header)) {
+        return std::nullopt;
+    }
+
+    if (packet.header.encodedSize == 0 || packet.header.encodedSize > VOICE_MAX_ENCODED_BYTES) {
+        return std::nullopt;
+    }
+
+    if (reader.GetRemainingSize() != packet.header.encodedSize) {
+        return std::nullopt;
+    }
+
+    packet.encodedData.resize(packet.header.encodedSize);
+    if (!reader.ReadBytes(packet.encodedData.data(), packet.encodedData.size())) {
+        return std::nullopt;
+    }
+
     return packet;
 }
 

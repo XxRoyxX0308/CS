@@ -21,6 +21,8 @@ using BulletEffectCallback = std::function<void(const glm::vec3& pos, const glm:
 using AuthoritativeKillCallback = std::function<void(uint8_t killerId, uint8_t victimId)>;
 using GunshotCallback = std::function<void(uint8_t sourceId, const glm::vec3& pos)>;
 using PlayerDeathCallback = std::function<void(uint8_t victimId)>;
+using PlayerLeftCallback = std::function<void(uint8_t playerId)>;
+using DisconnectedCallback = std::function<void()>;
 
 /**
  * @brief Bridges network callbacks to game logic.
@@ -46,7 +48,9 @@ public:
                         BulletEffectCallback bulletEffectCallback,
                         AuthoritativeKillCallback authoritativeKillCallback,
                         GunshotCallback gunshotCallback,
-                        PlayerDeathCallback playerDeathCallback);
+                        PlayerDeathCallback playerDeathCallback,
+                        PlayerLeftCallback playerLeftCallback,
+                        DisconnectedCallback disconnectedCallback);
 
     /**
      * @brief Update network as host: process inputs, update remotes, broadcast state.

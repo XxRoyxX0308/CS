@@ -11,6 +11,10 @@
 
 namespace Network {
 
+namespace PacketParser {
+struct ParsedVoiceFrame;
+}
+
 // Connection State
 
 enum class ConnectionState {
@@ -31,6 +35,7 @@ public:
     using OnPlayerHitCallback = std::function<void(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos)>;
     using OnPlayerDeathCallback = std::function<void(uint8_t victimId, uint8_t killerId)>;
     using OnGunshotCallback = std::function<void(uint8_t sourceId, const glm::vec3& pos)>;
+    using OnVoiceFrameCallback = std::function<void(uint8_t sourceId, uint32_t sequence, const std::vector<uint8_t>& encodedFrame)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnGameStartCallback = std::function<void()>;
@@ -56,6 +61,9 @@ public:
 
     // Send a gunshot event to server for positional audio.
     void SendGunshot(const glm::vec3& pos);
+
+    // Send a captured voice frame to the server.
+    void SendVoiceFrame(uint32_t sequence, const uint8_t* encodedData, uint16_t encodedSize);
 
     // Send player hit to server (client detected hitting another player)
     void SendPlayerHit(uint8_t victimId, float damage, const glm::vec3& hitPos);
@@ -100,6 +108,7 @@ public:
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
     void SetOnPlayerDeath(OnPlayerDeathCallback cb) { m_OnPlayerDeath = std::move(cb); }
     void SetOnGunshot(OnGunshotCallback cb) { m_OnGunshot = std::move(cb); }
+    void SetOnVoiceFrame(OnVoiceFrameCallback cb) { m_OnVoiceFrame = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnGameStart(OnGameStartCallback cb) { m_OnGameStart = std::move(cb); }
@@ -115,6 +124,7 @@ private:
     void HandlePlayerHit(const PlayerHitPacket& packet);
     void HandlePlayerDeath(const PlayerDeathPacket& packet);
     void HandleGunshot(const GunshotPacket& packet);
+    void HandleVoiceFrame(const PacketParser::ParsedVoiceFrame& packet);
     void HandleBulletEffect(const BulletEffectPacket& packet);
     void HandlePlayerConfig(const PlayerConfigPacket& packet);
     void HandleGameStart(const GameStartPacket& packet);
@@ -151,6 +161,7 @@ private:
     OnPlayerHitCallback m_OnPlayerHit;
     OnPlayerDeathCallback m_OnPlayerDeath;
     OnGunshotCallback m_OnGunshot;
+    OnVoiceFrameCallback m_OnVoiceFrame;
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnGameStartCallback m_OnGameStart;

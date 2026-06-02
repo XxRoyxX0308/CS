@@ -26,6 +26,10 @@ constexpr uint8_t MAX_MATCH_PARTICIPANTS = MAX_PLAYERS + MAX_BOTS_PER_TEAM * 2;
 constexpr float STATE_BROADCAST_RATE = 20.0f;  // Hz
 constexpr float INTERP_DELAY = 0.1f;           // 100ms interpolation delay
 constexpr size_t STATE_BUFFER_SIZE = 32;       // ~1 second at 30Hz
+constexpr int VOICE_SAMPLE_RATE = 48000;
+constexpr int VOICE_FRAME_DURATION_MS = 20;
+constexpr int VOICE_FRAME_SAMPLES = (VOICE_SAMPLE_RATE * VOICE_FRAME_DURATION_MS) / 1000;
+constexpr uint16_t VOICE_MAX_ENCODED_BYTES = 512;
 
 // Input bitmask flags
 constexpr uint8_t INPUT_W      = 0x01;
@@ -75,12 +79,14 @@ enum class PacketType : uint8_t {
     C2S_PLAYER_HIT     = 0x23,  // Client reports hitting another player
     C2S_MATCH_KILL     = 0x24,  // Client reports a confirmed bot/local kill event
     C2S_GUNSHOT        = 0x25,
+    C2S_VOICE_FRAME    = 0x26,
 
     // State (Server -> Client)
     S2C_GAME_STATE     = 0x30,
     S2C_GAME_START     = 0x35,
     S2C_RETURN_TO_LOBBY = 0x36,
     S2C_GUNSHOT        = 0x37,
+    S2C_VOICE_FRAME    = 0x38,
     S2C_PLAYER_HIT     = 0x31,
     S2C_PLAYER_DEATH   = 0x32,
     S2C_BULLET_EFFECT  = 0x33,
@@ -261,6 +267,13 @@ struct GunshotPacket {
     PacketHeader header;
     uint8_t sourceId;
     float x, y, z;
+};
+
+struct VoiceFramePacketHeader {
+    PacketHeader header;
+    uint8_t sourceId;
+    uint32_t sequence;
+    uint16_t encodedSize;
 };
 
 struct BulletEffectPacket {

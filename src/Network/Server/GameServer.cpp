@@ -176,6 +176,14 @@ void GameServer::HandlePacket(uint32_t peerId, const std::vector<uint8_t>& data)
             break;
         }
 
+        case PacketType::C2S_VOICE_FRAME: {
+            auto packet = PacketParser::ParseVoiceFrame(data);
+            if (packet) {
+                HandleClientVoiceFrame(peerId, *packet);
+            }
+            break;
+        }
+
         default:
             LOG_WARN("Unknown packet type: {}", static_cast<int>(type));
             break;
@@ -358,6 +366,14 @@ void GameServer::BroadcastGunshot(uint8_t sourceId, const glm::vec3& pos) {
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
 }
 
+void GameServer::BroadcastVoiceFrame(uint8_t sourceId,
+                                     uint32_t sequence,
+                                     const uint8_t* encodedData,
+                                     uint16_t encodedSize) {
+    auto packet = PacketBuilder::ServerVoiceFrame(sourceId, sequence, encodedData, encodedSize);
+    m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_VOICE, false);
+}
+
 void GameServer::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     auto packet = PacketBuilder::BulletEffect(pos, normal);
     m_Socket.SendToAll(packet.data(), packet.size(), CHANNEL_UNRELIABLE, false);
@@ -461,6 +477,33 @@ void GameServer::HandleClientGunshot(uint32_t peerId, const GunshotPacket& packe
 
     if (m_OnGunshot) {
         m_OnGunshot(sourceId, pos);
+    }
+}
+
+void GameServer::HandleClientVoiceFrame(uint32_t peerId, const PacketParser::ParsedVoiceFrame& packet) {
+    auto it = m_PeerToPlayer.find(peerId);
+    if (it == m_PeerToPlayer.end()) {
+        return;
+    }
+
+    const uint8_t sourceId = it->second;
+    auto broadcastPacket = PacketBuilder::ServerVoiceFrame(
+        sourceId,
+        packet.header.sequence,
+        packet.encodedData.data(),
+        static_cast<uint16_t>(packet.encodedData.size())
+    );
+
+    for (const auto& [playerId, client] : m_Clients) {
+        if (playerId == sourceId) {
+            continue;
+        }
+
+        m_Socket.SendToPeer(client.peerId, broadcastPacket.data(), broadcastPacket.size(), CHANNEL_VOICE, false);
+    }
+
+    if (m_OnVoiceFrame) {
+        m_OnVoiceFrame(sourceId, packet.header.sequence, packet.encodedData);
     }
 }
 

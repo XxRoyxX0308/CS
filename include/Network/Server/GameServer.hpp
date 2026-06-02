@@ -12,6 +12,10 @@
 
 namespace Network {
 
+namespace PacketParser {
+struct ParsedVoiceFrame;
+}
+
 // Client Connection State
 
 struct ClientConnection {
@@ -56,6 +60,7 @@ public:
     using OnPlayerLeftCallback = std::function<void(uint8_t playerId)>;
     using OnInputReceivedCallback = std::function<void(uint8_t playerId, const InputPacket& input)>;
     using OnGunshotCallback = std::function<void(uint8_t sourceId, const glm::vec3& pos)>;
+    using OnVoiceFrameCallback = std::function<void(uint8_t sourceId, uint32_t sequence, const std::vector<uint8_t>& encodedFrame)>;
     using OnBulletEffectCallback = std::function<void(const glm::vec3& pos, const glm::vec3& normal)>;
     using OnPlayerConfigCallback = std::function<void(uint8_t playerId, uint8_t characterType, uint8_t gunType)>;
     using OnPlayerHitCallback = std::function<void(uint8_t attackerId, uint8_t victimId, float damage, const glm::vec3& hitPos)>;
@@ -79,6 +84,7 @@ public:
     void BroadcastPlayerHit(uint8_t victimId, uint8_t attackerId, uint8_t newHealth, const glm::vec3& hitPos);
     void BroadcastPlayerDeath(uint8_t victimId, uint8_t killerId);
     void BroadcastGunshot(uint8_t sourceId, const glm::vec3& pos);
+    void BroadcastVoiceFrame(uint8_t sourceId, uint32_t sequence, const uint8_t* encodedData, uint16_t encodedSize);
     void BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal);
     void BroadcastPlayerConfig(uint8_t playerId, uint8_t characterType, uint8_t gunType);
     void BroadcastGameStart();
@@ -100,6 +106,7 @@ public:
     void SetOnPlayerLeft(OnPlayerLeftCallback cb) { m_OnPlayerLeft = std::move(cb); }
     void SetOnInputReceived(OnInputReceivedCallback cb) { m_OnInputReceived = std::move(cb); }
     void SetOnGunshot(OnGunshotCallback cb) { m_OnGunshot = std::move(cb); }
+    void SetOnVoiceFrame(OnVoiceFrameCallback cb) { m_OnVoiceFrame = std::move(cb); }
     void SetOnBulletEffect(OnBulletEffectCallback cb) { m_OnBulletEffect = std::move(cb); }
     void SetOnPlayerConfig(OnPlayerConfigCallback cb) { m_OnPlayerConfig = std::move(cb); }
     void SetOnPlayerHit(OnPlayerHitCallback cb) { m_OnPlayerHit = std::move(cb); }
@@ -116,6 +123,7 @@ private:
     void HandleDisconnect(uint32_t peerId);
     void HandleInput(uint32_t peerId, const InputPacket& packet);
     void HandleClientGunshot(uint32_t peerId, const GunshotPacket& packet);
+    void HandleClientVoiceFrame(uint32_t peerId, const PacketParser::ParsedVoiceFrame& packet);
     void HandleClientBulletEffect(uint32_t peerId, const BulletEffectPacket& packet);
     void HandlePlayerConfig(uint32_t peerId, const PlayerConfigPacket& packet);
     void HandleClientPlayerHit(uint32_t peerId, const ClientPlayerHitPacket& packet);
@@ -149,6 +157,7 @@ private:
     OnPlayerLeftCallback m_OnPlayerLeft;
     OnInputReceivedCallback m_OnInputReceived;
     OnGunshotCallback m_OnGunshot;
+    OnVoiceFrameCallback m_OnVoiceFrame;
     OnBulletEffectCallback m_OnBulletEffect;
     OnPlayerConfigCallback m_OnPlayerConfig;
     OnPlayerHitCallback m_OnPlayerHit;

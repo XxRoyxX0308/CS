@@ -147,6 +147,14 @@ void Application::SetupNetworkCallbacks() {
         PlayDeathSoundForParticipant(victimId);
     };
 
+    auto playerLeftCallback = [this](uint8_t playerId) {
+        m_VoiceChatManager.RemoveSpeaker(playerId);
+    };
+
+    auto disconnectedCallback = [this]() {
+        m_VoiceChatManager.Reset();
+    };
+
     m_NetworkController.SetupCallbacks(
         m_Network,
         m_GameManager.GetScene(),
@@ -156,8 +164,14 @@ void Application::SetupNetworkCallbacks() {
         bulletEffectCallback,
         authoritativeKillCallback,
         gunshotCallback,
-        playerDeathCallback
+        playerDeathCallback,
+        playerLeftCallback,
+        disconnectedCallback
     );
+
+    m_Network.SetOnVoiceFrame([this](uint8_t sourceId, uint32_t sequence, const std::vector<uint8_t>& encodedFrame) {
+        HandleVoiceFrame(sourceId, sequence, encodedFrame);
+    });
 
     m_Network.SetOnClientMatchKill([this](uint8_t killerId, uint8_t victimId) {
         RecordKill(killerId, victimId);
@@ -172,6 +186,8 @@ void Application::MainMenu() {
     if (m_InputManager.IsCursorLocked()) {
         m_InputManager.UnlockCursor();
     }
+
+    m_VoiceChatManager.SetPushToTalkEnabled(false);
 
     if (!m_CallbacksInitialized) {
         SetupNetworkCallbacks();
@@ -192,6 +208,7 @@ void Application::MainMenu() {
 
 void Application::Lobby() {
     const float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+    m_VoiceChatManager.SetPushToTalkEnabled(false);
     m_Network.Update(dt);
 
     std::vector<UIManager::LobbyPlayerRow> rows;
@@ -222,6 +239,9 @@ void Application::Start() {
 
     m_AudioManager.Initialize();
     m_AudioManager.Reset();
+    m_VoiceChatManager.Initialize();
+    m_VoiceChatManager.SetLocalPlayerId(m_Network.GetLocalPlayerId());
+    m_VoiceChatManager.SetPushToTalkEnabled(false);
 
     m_GameManager.SetLocalCharacterType(
         (m_Network.GetLocalCharacterType() == 0)
@@ -244,6 +264,7 @@ void Application::End() {
     LOG_TRACE("Application::End");
     m_Network.Disconnect();
     m_AudioManager.Reset();
+    m_VoiceChatManager.Reset();
     m_GameManager.Cleanup();
     ResetMatchState();
 }

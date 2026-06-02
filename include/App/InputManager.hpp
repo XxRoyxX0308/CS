@@ -58,6 +58,9 @@ public:
     /** @brief Check if B was pressed (buy menu toggle). */
     bool IsBuyMenuPressed() const;
 
+    /** @brief Check if push-to-talk is currently held. */
+    bool IsVoiceChatPressed() const;
+
 private:
     bool m_CursorLocked = false;
 };

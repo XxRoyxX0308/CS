@@ -84,4 +84,8 @@ bool InputManager::IsBuyMenuPressed() const {
     return Util::Input::IsKeyDown(Util::Keycode::B);
 }
 
+bool InputManager::IsVoiceChatPressed() const {
+    return Util::Input::IsKeyPressed(Util::Keycode::Q);
+}
+
 } // namespace App

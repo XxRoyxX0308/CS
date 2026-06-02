@@ -46,7 +46,8 @@ namespace Network {
 // ENet channel definitions
 constexpr uint8_t CHANNEL_RELIABLE = 0;    // Connection, game state sync
 constexpr uint8_t CHANNEL_UNRELIABLE = 1;  // Position updates
-constexpr uint8_t CHANNEL_COUNT = 2;
+constexpr uint8_t CHANNEL_VOICE = 2;       // Live voice chat frames
+constexpr uint8_t CHANNEL_COUNT = 3;
 
 // Forward declarations
 class Socket;

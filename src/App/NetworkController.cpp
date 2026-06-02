@@ -14,7 +14,9 @@ void NetworkController::SetupCallbacks(
     BulletEffectCallback bulletEffectCallback,
     AuthoritativeKillCallback authoritativeKillCallback,
     GunshotCallback gunshotCallback,
-    PlayerDeathCallback playerDeathCallback) {
+    PlayerDeathCallback playerDeathCallback,
+    PlayerLeftCallback playerLeftCallback,
+    DisconnectedCallback disconnectedCallback) {
 
     network.SetOnPlayerJoined([&scene, &remotePlayers](uint8_t playerId, const std::string& name) {
         LOG_INFO("Player {} ({}) joined the game", name, playerId);
@@ -25,13 +27,17 @@ void NetworkController::SetupCallbacks(
         remote.Init(scene, Entity::CharacterType::TERRORIST);
     });
 
-    network.SetOnPlayerLeft([&remotePlayers](uint8_t playerId) {
+    network.SetOnPlayerLeft([&remotePlayers, playerLeftCallback](uint8_t playerId) {
         LOG_INFO("Player {} left the game", playerId);
 
         auto it = remotePlayers.find(playerId);
         if (it != remotePlayers.end()) {
             it->second.Cleanup();
             remotePlayers.erase(it);
+        }
+
+        if (playerLeftCallback) {
+            playerLeftCallback(playerId);
         }
     });
 
@@ -40,12 +46,17 @@ void NetworkController::SetupCallbacks(
         stateManager.SetState(GameState::LOBBY);
     });
 
-    network.SetOnDisconnected([&stateManager, &remotePlayers]() {
+    network.SetOnDisconnected([&stateManager, &remotePlayers, disconnectedCallback]() {
         LOG_INFO("Disconnected from server");
         for (auto& [playerId, remote] : remotePlayers) {
             remote.Cleanup();
         }
         remotePlayers.clear();
+
+        if (disconnectedCallback) {
+            disconnectedCallback();
+        }
+
         stateManager.SetState(GameState::MAIN_MENU);
     });
 

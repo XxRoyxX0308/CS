@@ -194,6 +194,15 @@ void NetworkManager::BroadcastGunshot(uint8_t sourceId, const glm::vec3& pos) {
     }
 }
 
+void NetworkManager::BroadcastVoiceFrame(uint8_t sourceId,
+                                         uint32_t sequence,
+                                         const uint8_t* encodedData,
+                                         uint16_t encodedSize) {
+    if (m_Server) {
+        m_Server->BroadcastVoiceFrame(sourceId, sequence, encodedData, encodedSize);
+    }
+}
+
 void NetworkManager::BroadcastBulletEffect(const glm::vec3& pos, const glm::vec3& normal) {
     if (m_Server) {
         m_Server->BroadcastBulletEffect(pos, normal);
@@ -221,6 +230,14 @@ void NetworkManager::SendBulletEffect(const glm::vec3& pos, const glm::vec3& nor
 void NetworkManager::SendGunshot(const glm::vec3& pos) {
     if (m_Client) {
         m_Client->SendGunshot(pos);
+    }
+}
+
+void NetworkManager::SendVoiceFrame(uint32_t sequence,
+                                    const uint8_t* encodedData,
+                                    uint16_t encodedSize) {
+    if (m_Client) {
+        m_Client->SendVoiceFrame(sequence, encodedData, encodedSize);
     }
 }
 
@@ -350,6 +367,12 @@ void NetworkManager::SetupServerCallbacks() {
         }
     });
 
+    m_Server->SetOnVoiceFrame([this](uint8_t sourceId, uint32_t sequence, const std::vector<uint8_t>& encodedFrame) {
+        if (m_OnVoiceFrame) {
+            m_OnVoiceFrame(sourceId, sequence, encodedFrame);
+        }
+    });
+
     m_Server->SetOnPlayerConfig([this](uint8_t playerId, uint8_t characterType, uint8_t gunType) {
         if (playerId == 0) {
             m_LocalCharacterType = characterType;
@@ -428,6 +451,12 @@ void NetworkManager::SetupClientCallbacks() {
     m_Client->SetOnGunshot([this](uint8_t sourceId, const glm::vec3& pos) {
         if (m_OnGunshot) {
             m_OnGunshot(sourceId, pos);
+        }
+    });
+
+    m_Client->SetOnVoiceFrame([this](uint8_t sourceId, uint32_t sequence, const std::vector<uint8_t>& encodedFrame) {
+        if (m_OnVoiceFrame) {
+            m_OnVoiceFrame(sourceId, sequence, encodedFrame);
         }
     });
 

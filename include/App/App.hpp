@@ -17,6 +17,7 @@
 #include "App/CombatManager.hpp"
 #include "App/NetworkController.hpp"
 #include "App/AudioManager.hpp"
+#include "App/VoiceChatManager.hpp"
 #include "App/GameManager.hpp"
 #include "Network/NetworkManager.hpp"
 
@@ -96,6 +97,7 @@ private:
     CombatManager m_CombatManager;
     NetworkController m_NetworkController;
     AudioManager m_AudioManager;
+    VoiceChatManager m_VoiceChatManager;
     GameManager m_GameManager;
 
     // ── Network ──
@@ -117,6 +119,7 @@ private:
     void HandleBulletHit();
     void HandleBotGunfire();
     void UpdateAudio();
+    void HandleVoiceFrame(uint8_t sourceId, uint32_t sequence, const std::vector<uint8_t>& encodedFrame);
     void SendCharacterConfig();
     void ResetMatchState();
     void InitializeMatchState();

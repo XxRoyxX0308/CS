@@ -113,6 +113,7 @@ void Application::Update() {
 
 void Application::MatchResult() {
     const float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+    m_VoiceChatManager.SetPushToTalkEnabled(false);
 
     if (m_Network.IsHost()) {
         UpdatePostMatch(dt);
@@ -138,6 +139,7 @@ void Application::MatchResult() {
 
 void Application::MatchSummary() {
     const float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+    m_VoiceChatManager.SetPushToTalkEnabled(false);
 
     if (m_Network.IsHost()) {
         UpdatePostMatch(dt);
@@ -298,6 +300,8 @@ void Application::HandleBotGunfire() {
 void Application::UpdateAudio() {
     auto& camera = m_GameManager.GetCamera();
     m_AudioManager.UpdateListener(camera.GetPosition(), camera.GetFront(), camera.GetRight());
+    m_VoiceChatManager.SetLocalPlayerId(m_Network.GetLocalPlayerId());
+    m_VoiceChatManager.UpdateListener(camera.GetPosition(), camera.GetFront(), camera.GetRight());
 
     std::vector<uint32_t> activeLoopEmitters;
     const auto& remotePlayers = m_GameManager.GetRemotePlayers();
@@ -312,6 +316,8 @@ void Application::UpdateAudio() {
             AudioManager::SoundType::Footstep,
             remote.GetPosition(),
             remote.IsAlive() && remote.IsWalking() && !remote.IsCrouching());
+
+            m_VoiceChatManager.UpdateSpeakerPosition(playerId, remote.GetPosition());
     }
 
     for (const auto& bot : bots) {
@@ -325,6 +331,34 @@ void Application::UpdateAudio() {
     }
 
     m_AudioManager.StopAllLoopEmittersExcept(activeLoopEmitters);
+
+    m_VoiceChatManager.SetPushToTalkEnabled(m_Network.IsOnline() && m_InputManager.IsVoiceChatPressed());
+    m_VoiceChatManager.Update([this](uint32_t sequence, const std::vector<uint8_t>& encodedFrame) {
+        if (encodedFrame.empty()) {
+            return;
+        }
+
+        if (m_Network.IsHost()) {
+            m_Network.BroadcastVoiceFrame(
+                m_Network.GetLocalPlayerId(),
+                sequence,
+                encodedFrame.data(),
+                static_cast<uint16_t>(encodedFrame.size())
+            );
+        } else if (m_Network.IsClient()) {
+            m_Network.SendVoiceFrame(
+                sequence,
+                encodedFrame.data(),
+                static_cast<uint16_t>(encodedFrame.size())
+            );
+        }
+    });
+}
+
+void Application::HandleVoiceFrame(uint8_t sourceId,
+                                   uint32_t sequence,
+                                   const std::vector<uint8_t>& encodedFrame) {
+    m_VoiceChatManager.HandleIncomingFrame(sourceId, sequence, encodedFrame);
 }
 
 void Application::PlayDeathSoundForParticipant(uint8_t participantId) {
