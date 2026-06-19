@@ -65,7 +65,7 @@
 
 ### 遊戲畫面
 
-![遊戲畫面](https://github.com/XxRoyxX0308/CS/tree/main/assets/ingame.png)
+![遊戲畫面](https://github.com/XxRoyxX0308/CS/blob/main/assets/ingame.png?raw=true)
 
 ## 程式設計
 
